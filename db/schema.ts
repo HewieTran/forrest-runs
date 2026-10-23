@@ -8,12 +8,14 @@ import {
 } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
 import { BLOCK_STATUSES } from '../lib/domain';
+import type { BlockSetup } from '../lib/setup';
 
 // A user can own many blocks; the partial index permits only one active block.
 export const plans = sqliteTable('training_plans', {
   id: text('id').primaryKey(),
   ownerId: text('owner_id').notNull(),
   status: text('status', { enum: BLOCK_STATUSES }).notNull().default('active'),
+  setup: text('setup', { mode: 'json' }).$type<BlockSetup>(),
   raceName: text('race_name').notNull(),
   raceDate: text('race_date').notNull(),
   paceGuide: text('pace_guide', { mode: 'json' })

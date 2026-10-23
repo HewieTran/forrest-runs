@@ -3,6 +3,7 @@ import { BLOCK_STATUSES, validDate, type BlockStatus, type Plan } from './domain
 export type NewBlockInput = Pick<Plan, 'raceName' | 'raceDate'>;
 export type BlockStatusInput = Pick<Plan, 'status' | 'version'>;
 export type BlockSummary = Plan & {
+  hasSetup?: boolean;
   workoutCount: number;
   completedCount: number;
   recordedMiles: number;

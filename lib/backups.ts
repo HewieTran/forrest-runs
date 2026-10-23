@@ -1,4 +1,5 @@
 import { BLOCK_STATUSES, validDate, validateWorkout, type Plan, type Workout } from './domain.ts';
+import { validateSetup } from './setup.ts';
 
 export type TrainingBackupV2 = {
   schemaVersion: 2;
@@ -55,6 +56,7 @@ export function normalizeTrainingBackup(value: unknown): TrainingBackupV2 {
     if (!validDate(block.raceDate) || !text(block.raceName).trim() || !Array.isArray(block.paceGuide))
       throw new Error('Invalid block settings.');
     return {
+      ...(block.setup === undefined ? {} : { setup: block.setup === null ? null : validateSetup(block.setup) }),
       id: blockId, status: status as Plan['status'], raceName: text(block.raceName), raceDate: block.raceDate,
       paceGuide: block.paceGuide.map((value) => {
         const guide = record(value);

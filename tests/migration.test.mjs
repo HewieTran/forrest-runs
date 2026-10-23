@@ -29,8 +29,9 @@ test('upgrade preserves existing records, permits multiple blocks, and enforces 
     const beforeWorkouts = (await database.prepare('SELECT * FROM workouts ORDER BY id').all()).results;
     for (const migration of upgrades) await applyMigration(database, migration);
     const afterPlans = (await database.prepare('SELECT * FROM training_plans ORDER BY id').all()).results;
-    assert.deepEqual(afterPlans.map(({ status, ...original }) => original), beforePlans);
+    assert.deepEqual(afterPlans.map(({ status, setup, ...original }) => original), beforePlans);
     assert.equal(afterPlans[0].status, 'active');
+    assert.equal(afterPlans[0].setup, null);
     assert.deepEqual((await database.prepare('SELECT * FROM workouts ORDER BY id').all()).results, beforeWorkouts);
 
     const insertBlock = (id, owner, status) => database.prepare(`INSERT INTO training_plans
