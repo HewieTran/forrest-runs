@@ -949,6 +949,7 @@ export default function Tracker({
           <aside className="dashboard" aria-label="Overall training progress">
             <div className="dashboard-title">
               <h2>Your progress</h2>
+              <a className="progress-expanded-link" href={preview ? '/preview?view=progress' : `/blocks/${encodeURIComponent(data.plan.id)}/progress`}>View progress ↗</a>
               <span
                 className="live-dot"
                 title="Calculated from saved workouts"
