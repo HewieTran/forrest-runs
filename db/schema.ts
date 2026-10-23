@@ -5,6 +5,7 @@ import {
   text,
   index,
 } from 'drizzle-orm/sqlite-core';
+// One training plan per signed-in user; ownerId is unique.
 export const plans = sqliteTable('training_plans', {
   id: text('id').primaryKey(),
   ownerId: text('owner_id').notNull().unique(),
@@ -22,6 +23,7 @@ export const workouts = sqliteTable(
   'workouts',
   {
     id: text('id').primaryKey(),
+    // Each workout belongs to one plan through this foreign key.
     planId: text('plan_id')
       .notNull()
       .references(() => plans.id),
@@ -31,6 +33,7 @@ export const workouts = sqliteTable(
     plannedWorkout: text('planned_workout').notNull(),
     targetPace: text('target_pace').notNull(),
     done: integer('done', { mode: 'boolean' }).notNull().default(false),
+    // SQL NULL means unknown, which is distinct from a recorded zero.
     actualDistance: real('actual_distance'),
     actualPace: text('actual_pace').notNull().default(''),
     effort: integer('effort'),
@@ -40,8 +43,9 @@ export const workouts = sqliteTable(
     originalSource: text('original_source', { mode: 'json' }).$type<
       Record<string, unknown>
     >(),
+    // Used to detect conflicting edits from another browser tab.
     version: integer('version').notNull().default(1),
     updatedAt: text('updated_at').notNull(),
   },
-  (t) => [index('workouts_plan_date_idx').on(t.planId, t.date)],
+  (table) => [index('workouts_plan_date_idx').on(table.planId, table.date)],
 );
