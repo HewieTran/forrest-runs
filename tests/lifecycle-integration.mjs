@@ -8,6 +8,19 @@ export async function testLifecycle(db, dispatch) {
     return { status: response.status, data: await response.json(), headers: response.headers };
   }
   const starter = (await call('/api/training')).data.plan;
+  // Follow the library's real link: legacy block IDs contain a colon, unlike new UUIDs.
+  const originalLibrary = await dispatch('http://localhost/blocks', { headers: auth });
+  const originalLibraryHtml = await originalLibrary.text();
+  const continuePath = originalLibraryHtml.match(/href="([^"]+)"[^>]*>Continue training/)?.[1];
+  assert.equal(continuePath, '/blocks/' + encodeURIComponent(starter.id));
+  const originalDetail = await dispatch('http://localhost' + continuePath, { headers: auth });
+  const originalDetailHtml = await originalDetail.text();
+  assert.match(originalDetailHtml, /aria-label="Weekly workout tracker"/, 'The Continue training link must render the legacy block tracker, including when a streamed 404 returns HTTP 200.');
+  const originalForeign = await dispatch('http://localhost' + continuePath, { headers: foreign });
+  const originalForeignHtml = await originalForeign.text();
+  assert.ok(originalForeignHtml.includes('Block unavailable.'));
+  assert.ok(!originalForeignHtml.includes('aria-label="Weekly workout tracker"'));
+  console.log('PASS: the library Continue training link opens the original colon-containing block ID and still rejects another account.');
   const create = name => call('/api/blocks', 'POST', { raceName: name, raceDate: '2027-03-14', status: 'active', ownerId: 'lifecycle-foreign', id: 'spoof', version: 999 });
   const result = await create('  Spring 10K  ');
   assert.equal(result.status, 201);
@@ -76,7 +89,18 @@ export async function testLifecycle(db, dispatch) {
   assert.match(pageText, /Spring 10K/);
   const detail = await dispatch('http://localhost/blocks/' + encodeURIComponent(draft.id), { headers: auth });
   assert.equal(detail.status, 200);
-  assert.match(await detail.text(), /Retain this result|workouts/);
+  assert.match(await detail.text(), /aria-label="Weekly workout tracker"/);
+  // Decode a page segment once, including literal percent escapes and other delimiters.
+  // Double decoding must not alias a different stored ID.
+  for (const id of ['reserved:literal%3A', 'reserved:literal%25', 'reserved:space and +?/#é']) {
+    await db.prepare(`INSERT INTO training_plans
+      (id,owner_id,status,race_name,race_date,pace_guide,created_at,updated_at)
+      VALUES (?,'lifecycle-owner','draft','Encoded ID example','2027-05-01','[]','2026-10-23T00:00:00.000Z','2026-10-23T00:00:00.000Z')`).bind(id).run();
+    const encoded = await dispatch('http://localhost/blocks/' + encodeURIComponent(id), { headers: auth });
+    assert.ok((await encoded.text()).includes('aria-label="Weekly workout tracker"'), `Stored ID must round-trip: ${id}`);
+    const foreignEncoded = await dispatch('http://localhost/blocks/' + encodeURIComponent(id), { headers: foreign });
+    assert.ok((await foreignEncoded.text()).includes('Block unavailable.'));
+  }
   const privatePage = await dispatch('http://localhost/blocks/' + encodeURIComponent(draft.id), { headers: foreign });
   assert.equal(privatePage.status, 404);
   const home = await dispatch('http://localhost/', { headers: auth });
