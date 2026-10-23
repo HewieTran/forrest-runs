@@ -1,0 +1,1 @@
+export default function Loading(){return <main className="signin-page"><div className="signin-card"><div className="loading-pulse"/><h2>Loading your training</h2><p>Bringing your plan and progress together.</p></div></main>;}
