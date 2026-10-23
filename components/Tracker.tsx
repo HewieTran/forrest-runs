@@ -1,74 +1,1140 @@
 'use client';
-import {useEffect,useMemo,useRef,useState,type FormEvent} from 'react';
-import {Activity,ArrowUpRight,Check,CheckCircle2,ChevronLeft,ChevronRight,Download,Dumbbell,Flag,Footprints,Info,LoaderCircle,LockKeyhole,Pencil,Plus,Settings2,Trophy,X} from 'lucide-react';
-import {addDays,dateDiff,distanceMilestones,formatDate,isRun,mileageWeeks,PHASES,phaseMilestones,summarize,TYPES,weekStart,type AppData,type Workout,type WorkoutInput} from '../lib/domain';
-const num=(v:number)=>v.toLocaleString('en-US',{maximumFractionDigits:2});
-const title=(t:string)=>t==='Race'?'Race day':t.replace(' Run',' run');
-type Filter='all'|'runs'|'support'|'missing';
-function WorkoutIcon({type}:{type:string}){const Icon=type==='Strength'?Dumbbell:type==='Mobility'?Activity:type==='Race'?Flag:Footprints;return <Icon size={17}/>;}
-
-function Editor({workout,saving,error,onSave,onCancel,onDirty}:{workout:Workout;saving:boolean;error:string;onSave:(v:WorkoutInput)=>void;onCancel:()=>void;onDirty:(dirty:boolean)=>void}){
- const [d,setD]=useState({...workout,actualDistance:workout.actualDistance===null?'':String(workout.actualDistance),effort:workout.effort===null?'':String(workout.effort)});
- function update(key:string,value:unknown){setD(old=>({...old,[key]:value}));onDirty(true);}
- function submit(e:FormEvent<HTMLFormElement>){e.preventDefault();onSave({date:d.date,phase:d.phase,type:d.type,plannedWorkout:d.plannedWorkout,targetPace:d.targetPace,done:d.done,actualDistance:d.actualDistance.trim()===''?null:Number(d.actualDistance),actualPace:d.actualPace,effort:d.effort.trim()===''?null:Number(d.effort),pain:d.pain,notes:d.notes,version:workout.version});}
- const painOptions=['','None','Mild','Moderate','Severe'];if(!painOptions.includes(d.pain))painOptions.push(d.pain);
- return <form className="workout-form" onSubmit={submit}><fieldset disabled={saving}><legend className="section-eyebrow">Plan</legend><div className="form-grid plan-grid">
- <label>Date<input type="date" min="1900-01-01" max="2200-12-31" value={d.date} onInput={e=>update('date',e.currentTarget.value)} onChange={e=>update('date',e.target.value)} required/></label>
- <label>Workout type<select value={d.type} onChange={e=>update('type',e.target.value)}>{TYPES.map(t=><option key={t}>{t}</option>)}</select></label>
- <label>Training phase<select value={d.phase} onChange={e=>update('phase',e.target.value)}>{PHASES.map(p=><option key={p}>{p}</option>)}</select></label>
- <label className="span-two">Planned workout<input value={d.plannedWorkout} maxLength={1000} required onChange={e=>update('plannedWorkout',e.target.value)}/></label>
- <label>Target pace / effort<input value={d.targetPace} maxLength={1000} onChange={e=>update('targetPace',e.target.value)}/></label></div></fieldset>
- <fieldset disabled={saving}><legend className="section-eyebrow">Actual</legend><div className="form-grid actual-grid">
- <label>Distance (mi)<input type="number" min="0" max="1000" step="any" inputMode="decimal" placeholder="e.g. 5.0" value={d.actualDistance} onChange={e=>update('actualDistance',e.target.value)}/></label>
- <label>Pace / activity<input value={d.actualPace} placeholder={isRun(workout)?'mm:ss /mi':'e.g. climbing'} maxLength={1000} onChange={e=>update('actualPace',e.target.value)}/></label>
- <label>Effort (1–10)<input type="number" min="1" max="10" step="1" placeholder="Optional" value={d.effort} onChange={e=>update('effort',e.target.value)}/></label>
- <label>Pain<select value={d.pain} onChange={e=>update('pain',e.target.value)}>{painOptions.map(v=><option key={v} value={v}>{v||'Not recorded'}</option>)}</select></label></div>
- <label className="notes-label">Notes<textarea rows={2} value={d.notes} maxLength={10000} placeholder="How did it feel?" onChange={e=>update('notes',e.target.value)}/></label></fieldset>
- {error&&<div className="form-error" role="alert">{error}</div>}
- <div className="editor-footer"><label className="checkbox-label"><input type="checkbox" checked={d.done} disabled={saving} onChange={e=>update('done',e.target.checked)}/>Workout completed</label><div className="button-group"><button type="button" className="button quiet" disabled={saving} onClick={onCancel}>Cancel</button><button className="button primary" disabled={saving} type="submit">{saving?<LoaderCircle className="spin" size={16}/>:<Check size={16}/>} {saving?'Saving…':'Save workout'}</button></div></div>
- <p className="field-hint">Leave unknown results blank. Completed workouts can have missing distances.</p></form>;
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import {
+  Activity,
+  ArrowUpRight,
+  Check,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  Dumbbell,
+  Flag,
+  Footprints,
+  Info,
+  LoaderCircle,
+  LockKeyhole,
+  Pencil,
+  Plus,
+  Settings2,
+  Trophy,
+  X,
+} from 'lucide-react';
+import {
+  addDays,
+  dateDiff,
+  distanceMilestones,
+  formatDate,
+  isRun,
+  mileageWeeks,
+  PHASES,
+  phaseMilestones,
+  summarize,
+  TYPES,
+  weekStart,
+  type AppData,
+  type Workout,
+  type WorkoutInput,
+} from '../lib/domain';
+const num = (v: number) =>
+  v.toLocaleString('en-US', { maximumFractionDigits: 2 });
+const title = (t: string) =>
+  t === 'Race' ? 'Race day' : t.replace(' Run', ' run');
+type Filter = 'all' | 'runs' | 'support' | 'missing';
+function WorkoutIcon({ type }: { type: string }) {
+  const Icon =
+    type === 'Strength'
+      ? Dumbbell
+      : type === 'Mobility'
+        ? Activity
+        : type === 'Race'
+          ? Flag
+          : Footprints;
+  return <Icon size={17} />;
 }
 
-function RaceSettings({data,onClose,onSaved,preview}:{data:AppData;onClose:()=>void;onSaved:(data:AppData)=>void;preview:boolean}){
- const ref=useRef<HTMLDialogElement>(null),[name,setName]=useState(data.plan.raceName),[date,setDate]=useState(data.plan.raceDate),[error,setError]=useState(''),[saving,setSaving]=useState(false);
- useEffect(()=>{ref.current?.showModal();const dialog=ref.current;return()=>{dialog?.close();};},[]);
- async function submit(e:FormEvent){e.preventDefault();setSaving(true);setError('');try{if(preview){onSaved({...data,plan:{...data.plan,raceName:name,raceDate:date}});onClose();return;}const response=await fetch('/api/training',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({raceName:name,raceDate:date,version:data.plan.version})});const result=await response.json() as AppData & {error?:string};if(!response.ok)throw new Error(result.error||'Settings could not be saved.');onSaved(result);onClose();}catch(e){setError(e instanceof Error?e.message:'Please try again.');}finally{setSaving(false);}}
- return <dialog ref={ref} className="settings-dialog" onCancel={e=>{if(saving)e.preventDefault();else onClose();}}><div className="dialog-heading"><div><p className="section-eyebrow">Your finish line</p><h2>Race settings</h2></div><button className="icon-button" aria-label="Close race settings" disabled={saving} onClick={onClose}><X size={20}/></button></div><form onSubmit={submit}><label>Race name<input value={name} onChange={e=>setName(e.target.value)} maxLength={120} required disabled={saving}/></label><label>Race date<input type="date" min="1900-01-01" max="2200-12-31" value={date} onInput={e=>setDate(e.currentTarget.value)} onChange={e=>setDate(e.target.value)} required disabled={saving}/></label><p className="field-hint">Changing the race date updates the countdown. Workout dates stay as scheduled.</p>{error&&<p className="form-error" role="alert">{error}</p>}<button type="submit" className="button primary" disabled={saving}>{saving?'Saving…':'Save settings'}</button></form></dialog>;
+function Editor({
+  workout,
+  saving,
+  error,
+  onSave,
+  onCancel,
+  onDirty,
+}: {
+  workout: Workout;
+  saving: boolean;
+  error: string;
+  onSave: (v: WorkoutInput) => void;
+  onCancel: () => void;
+  onDirty: (dirty: boolean) => void;
+}) {
+  const [d, setD] = useState({
+    ...workout,
+    actualDistance:
+      workout.actualDistance === null ? '' : String(workout.actualDistance),
+    effort: workout.effort === null ? '' : String(workout.effort),
+  });
+  function update(key: string, value: unknown) {
+    setD((old) => ({ ...old, [key]: value }));
+    onDirty(true);
+  }
+  function submit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    onSave({
+      date: d.date,
+      phase: d.phase,
+      type: d.type,
+      plannedWorkout: d.plannedWorkout,
+      targetPace: d.targetPace,
+      done: d.done,
+      actualDistance:
+        d.actualDistance.trim() === '' ? null : Number(d.actualDistance),
+      actualPace: d.actualPace,
+      effort: d.effort.trim() === '' ? null : Number(d.effort),
+      pain: d.pain,
+      notes: d.notes,
+      version: workout.version,
+    });
+  }
+  const painOptions = ['', 'None', 'Mild', 'Moderate', 'Severe'];
+  if (!painOptions.includes(d.pain)) painOptions.push(d.pain);
+  return (
+    <form className="workout-form" onSubmit={submit}>
+      <fieldset disabled={saving}>
+        <legend className="section-eyebrow">Plan</legend>
+        <div className="form-grid plan-grid">
+          <label>
+            Date
+            <input
+              type="date"
+              min="1900-01-01"
+              max="2200-12-31"
+              value={d.date}
+              onInput={(e) => update('date', e.currentTarget.value)}
+              onChange={(e) => update('date', e.target.value)}
+              required
+            />
+          </label>
+          <label>
+            Workout type
+            <select
+              value={d.type}
+              onChange={(e) => update('type', e.target.value)}
+            >
+              {TYPES.map((t) => (
+                <option key={t}>{t}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Training phase
+            <select
+              value={d.phase}
+              onChange={(e) => update('phase', e.target.value)}
+            >
+              {PHASES.map((p) => (
+                <option key={p}>{p}</option>
+              ))}
+            </select>
+          </label>
+          <label className="span-two">
+            Planned workout
+            <input
+              value={d.plannedWorkout}
+              maxLength={1000}
+              required
+              onChange={(e) => update('plannedWorkout', e.target.value)}
+            />
+          </label>
+          <label>
+            Target pace / effort
+            <input
+              value={d.targetPace}
+              maxLength={1000}
+              onChange={(e) => update('targetPace', e.target.value)}
+            />
+          </label>
+        </div>
+      </fieldset>
+      <fieldset disabled={saving}>
+        <legend className="section-eyebrow">Actual</legend>
+        <div className="form-grid actual-grid">
+          <label>
+            Distance (mi)
+            <input
+              type="number"
+              min="0"
+              max="1000"
+              step="any"
+              inputMode="decimal"
+              placeholder="e.g. 5.0"
+              value={d.actualDistance}
+              onChange={(e) => update('actualDistance', e.target.value)}
+            />
+          </label>
+          <label>
+            Pace / activity
+            <input
+              value={d.actualPace}
+              placeholder={isRun(workout) ? 'mm:ss /mi' : 'e.g. climbing'}
+              maxLength={1000}
+              onChange={(e) => update('actualPace', e.target.value)}
+            />
+          </label>
+          <label>
+            Effort (1–10)
+            <input
+              type="number"
+              min="1"
+              max="10"
+              step="1"
+              placeholder="Optional"
+              value={d.effort}
+              onChange={(e) => update('effort', e.target.value)}
+            />
+          </label>
+          <label>
+            Pain
+            <select
+              value={d.pain}
+              onChange={(e) => update('pain', e.target.value)}
+            >
+              {painOptions.map((v) => (
+                <option key={v} value={v}>
+                  {v || 'Not recorded'}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        <label className="notes-label">
+          Notes
+          <textarea
+            rows={2}
+            value={d.notes}
+            maxLength={10000}
+            placeholder="How did it feel?"
+            onChange={(e) => update('notes', e.target.value)}
+          />
+        </label>
+      </fieldset>
+      {error && (
+        <div className="form-error" role="alert">
+          {error}
+        </div>
+      )}
+      <div className="editor-footer">
+        <label className="checkbox-label">
+          <input
+            type="checkbox"
+            checked={d.done}
+            disabled={saving}
+            onChange={(e) => update('done', e.target.checked)}
+          />
+          Workout completed
+        </label>
+        <div className="button-group">
+          <button
+            type="button"
+            className="button quiet"
+            disabled={saving}
+            onClick={onCancel}
+          >
+            Cancel
+          </button>
+          <button className="button primary" disabled={saving} type="submit">
+            {saving ? (
+              <LoaderCircle className="spin" size={16} />
+            ) : (
+              <Check size={16} />
+            )}{' '}
+            {saving ? 'Saving…' : 'Save workout'}
+          </button>
+        </div>
+      </div>
+      <p className="field-hint">
+        Leave unknown results blank. Completed workouts can have missing
+        distances.
+      </p>
+    </form>
+  );
 }
 
-export default function Tracker({initial,preview=false}:{initial:AppData;preview?:boolean}){
- const [data,setData]=useState(initial),[week,setWeek]=useState(weekStart(initial.today)),[filter,setFilter]=useState<Filter>('all');
- const [expanded,setExpanded]=useState<string|null>(()=>initial.workouts.find(w=>w.date===initial.today&&!w.done)?.id??null),[dirty,setDirty]=useState(false),[saving,setSaving]=useState(false),[error,setError]=useState(''),[toast,setToast]=useState(''),[settings,setSettings]=useState(false);
- const stats=summarize(data.workouts,data.today),end=addDays(week,6);
- const weekly=data.workouts.filter(w=>w.date>=week&&w.date<=end).sort((a,b)=>a.date.localeCompare(b.date)||(a.sourceRow??9999)-(b.sourceRow??9999));
- const visible=weekly.filter(w=>filter==='all'||filter==='runs'&&isRun(w)||filter==='support'&&!isRun(w)||filter==='missing'&&w.done&&isRun(w)&&w.actualDistance===null);
- const phaseList=phaseMilestones(data.workouts,data.today),phase=phaseList.find(p=>p.start&&p.end&&p.start<=end&&p.end>=week)?.phase;
- const weeks=useMemo(()=>{const first=weekStart([data.today,...data.workouts.map(w=>w.date)].sort()[0]),last=weekStart([data.today,...data.workouts.map(w=>w.date)].sort().at(-1)!);const a=[];for(let w=first;w<=last;w=addDays(w,7))a.push(w);return a;},[data.workouts,data.today]);
- const milestones=distanceMilestones(data.workouts),bars=mileageWeeks(data.workouts,week),maxMiles=Math.max(...bars.map(b=>b.miles),1),days=dateDiff(data.plan.raceDate,data.today);
- const newWorkout:Workout={id:'new',planId:data.plan.id,date:week<=data.today&&end>=data.today?data.today:week,phase:phase??'Base Build',type:'Easy Run',plannedWorkout:'',targetPace:'',done:false,actualDistance:null,actualPace:'',effort:null,pain:'',notes:'',sourceRow:null,originalSource:null,version:1,updatedAt:''};
- useEffect(()=>{if(!toast)return;const id=window.setTimeout(()=>setToast(''),6500);return()=>window.clearTimeout(id);},[toast]);
- useEffect(()=>{if(!dirty)return;const handler=(e:BeforeUnloadEvent)=>{e.preventDefault();};window.addEventListener('beforeunload',handler);return()=>window.removeEventListener('beforeunload',handler);},[dirty]);
- function canLeave(){return !dirty||window.confirm('Discard your unsaved workout changes?');}
- function navigate(next:string){if(saving||!canLeave())return;setWeek(weekStart(next));setExpanded(null);setDirty(false);setError('');}
- function edit(id:string){if(saving||!canLeave())return;setExpanded(expanded===id?null:id);setDirty(false);setError('');}
- function selectFilter(next:Filter){if(saving||!canLeave())return;setFilter(next);setExpanded(null);setDirty(false);setError('');}
- function missing(){if(saving||!canLeave())return;const first=data.workouts.filter(w=>w.done&&isRun(w)&&w.actualDistance===null).sort((a,b)=>a.date.localeCompare(b.date))[0];if(first){setWeek(weekStart(first.date));setFilter('missing');setExpanded(first.id);setDirty(false);setError('');window.scrollTo({top:150,behavior:'smooth'});}}
- async function save(id:string,input:WorkoutInput){setSaving(true);setError('');try{let workout:Workout;if(preview){workout={...(id==='new'?newWorkout:data.workouts.find(w=>w.id===id)!),...input,id:id==='new'?crypto.randomUUID():id,version:input.version+1,updatedAt:new Date().toISOString()};}else{const response=await fetch(id==='new'?'/api/workouts':`/api/workouts/${encodeURIComponent(id)}`,{method:id==='new'?'POST':'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(input)});const result=await response.json() as {workout:Workout;error?:string};if(!response.ok)throw new Error(result.error||'The workout could not be saved.');workout=result.workout;}
- setData(current=>({...current,workouts:id==='new'?[...current.workouts,workout]:current.workouts.map(w=>w.id===id?workout:w)}));setWeek(weekStart(workout.date));setFilter('all');setExpanded(null);setDirty(false);setToast(preview?'Preview updated. Changes are not saved.':'Workout saved. Your progress is up to date.');}catch(e){setError(e instanceof Error?e.message:'Could not connect. Your edits are still here. Try saving again.');}finally{setSaving(false);}}
- const latestSave=data.workouts.map(w=>w.updatedAt).concat(data.plan.updatedAt).sort().at(-1);
- function card(w:Workout){const open=expanded===w.id,overdue=!w.done&&w.date<data.today,status=w.done?'Completed':w.date===data.today?'Today':overdue?'Not logged':'Planned';return <article className={`workout-card ${open?'expanded':''}`} key={w.id}><button className="workout-summary" aria-expanded={open} onClick={()=>edit(w.id)} disabled={saving} aria-label={`${open?'Close':'Edit'} ${title(w.type)} on ${formatDate(w.date)}`}><div className={`date-tile ${w.done?'done':''}`}><span>{formatDate(w.date,{weekday:'short'}).toUpperCase()}</span><strong>{new Date(w.date+'T12:00:00Z').getUTCDate()}</strong></div><div className="workout-description"><div className="workout-title"><h3>{title(w.type)}</h3><WorkoutIcon type={w.type}/></div><p>{w.plannedWorkout}</p>{w.done&&(w.actualDistance!==null||w.actualPace)&&<span className="actual-summary">{w.actualDistance!==null?`${num(w.actualDistance)} mi recorded`:''}{w.actualDistance!==null&&w.actualPace?' · ':''}{w.actualPace}</span>}</div><span className="target-preview">{w.targetPace}</span><span className={`status ${w.done?'complete':overdue?'unlogged':w.date===data.today?'today':''}`}>{w.done&&<Check size={13}/>} {status}</span><Pencil className="edit-icon" size={17}/></button>{open&&<Editor key={`${w.id}:${w.version}`} workout={w} saving={saving} error={error} onSave={input=>save(w.id,input)} onCancel={()=>{if(canLeave()){setExpanded(null);setDirty(false);setError('');}}} onDirty={setDirty}/>}</article>;}
- return <div className="app-shell"><header className="app-header"><div className="header-inner"><a href="/" className="brand" onClick={e=>{if(dirty&&!canLeave())e.preventDefault();}}><span className="brand-icon"><Activity size={23}/></span><span>Marathon training</span></a><div className="header-actions">{preview&&<span className="preview-tag">Design preview</span>}<span className="private-label"><LockKeyhole size={13}/> Private training log</span><a className="button quiet export-button" href={preview?undefined:'/api/export'} onClick={e=>{if(preview)e.preventDefault();}} aria-disabled={preview}><Download size={16}/><span>Export backup</span></a><span className="avatar" title={data.displayName}>{data.displayName[0]?.toUpperCase()||'R'}</span></div></div></header>
- <main className="main-content"><section className="page-heading"><div><div className="overline">Your road to race day</div><h1>Training log</h1><button className="race-subtitle" onClick={()=>setSettings(true)}><span>{data.plan.raceName}</span><span className="dot">·</span><span>{formatDate(data.plan.raceDate,{month:'long',day:'numeric',year:'numeric'})}</span><Settings2 size={15}/></button></div><div className="countdown"><Flag size={20}/><div><strong>{days>0?days:days===0?'Race day':Math.abs(days)}</strong><span>{days>0?'days to race':days===0?'You made it here':'days since race'}</span></div></div></section>
- {preview&&<div className="preview-notice"><Info size={16}/> Internal preview with example workouts. Changes here are not saved.</div>}
- <div className="content-grid"><section className="training-section" aria-label="Weekly workout tracker"><div className="week-toolbar"><div className="week-controls"><div className="arrow-group"><button className="icon-button" aria-label="Previous week" onClick={()=>navigate(addDays(week,-7))} disabled={saving}><ChevronLeft size={20}/></button><button className="icon-button" aria-label="Next week" onClick={()=>navigate(addDays(week,7))} disabled={saving}><ChevronRight size={20}/></button></div><div><label className="week-select-label"><span className="sr-only">Select training week</span><select className="week-select" value={week} onChange={e=>navigate(e.target.value)}>{[...new Set([...weeks,week])].sort().map(w=><option value={w} key={w}>{formatDate(w,{month:'long',day:'numeric'})} – {formatDate(addDays(w,6),{month:'short',day:'numeric'})}, {w.slice(0,4)}</option>)}</select></label><span className="week-phase">{phase??'Training week'}</span></div></div><div className="button-group"><button className="button" onClick={()=>navigate(data.today)} disabled={saving}>Today</button><button className="button add-button" onClick={()=>{if(canLeave()){setExpanded('new');setDirty(false);setError('');setFilter('all');}}} disabled={saving}><Plus size={16}/><span>Add workout</span></button></div></div>
- <div className="filter-toolbar"><div className="filter-tabs" role="group" aria-label="Filter workouts">{([['all','All workouts'],['runs','Runs'],['support','Strength & mobility']] as [Filter,string][]).map(([value,label])=><button key={value} className={`filter-tab ${filter===value?'active':''}`} aria-pressed={filter===value} onClick={()=>selectFilter(value)}>{label}</button>)}{filter==='missing'&&<button className="filter-tab active" onClick={()=>selectFilter('all')}>Missing distance <X size={12}/></button>}</div><span className="weekly-count"><strong>{weekly.filter(w=>w.done).length}</strong> / {weekly.length} completed</span></div>
- <div className="workout-list">{visible.map(card)}{expanded==='new'&&<article className="workout-card expanded new-workout"><div className="new-workout-heading"><Plus size={18}/><h3>Add a workout</h3></div><Editor key={`new:${week}`} workout={newWorkout} saving={saving} error={error} onSave={input=>save('new',input)} onCancel={()=>{if(canLeave()){setExpanded(null);setDirty(false);setError('');}}} onDirty={setDirty}/></article>}{!visible.length&&expanded!=='new'&&<div className="empty-week"><Flag size={29}/><h3>{filter==='missing'?'No missing distances this week':weekly.length?'No matching workouts':'A little breathing room'}</h3><p>{filter==='missing'?'Choose another week or show all workouts.':weekly.length?'Try another filter to see the rest of your week.':'No workouts are scheduled here. Choose another week or add one.'}</p><button className="button" onClick={()=>filter!=='all'?selectFilter('all'):navigate(data.today)}>{filter!=='all'?'Show all workouts':'Back to this week'}</button></div>}</div>
- <div className="tracker-help"><Info size={14}/><span>Select a workout to log results, change its date, or edit the plan.</span></div></section>
- <aside className="dashboard" aria-label="Overall training progress"><div className="dashboard-title"><h2>Your progress</h2><span className="live-dot" title="Calculated from saved workouts"/></div><section className="panel progress-panel"><div className="panel-title"><h3>Plan completed</h3><Activity size={17}/></div><div className="progress-headline"><strong>{stats.percent}<span>%</span></strong><span>{stats.completed} of {stats.total} workouts</span></div><div className="progress-track" role="progressbar" aria-label="Plan completed" aria-valuenow={stats.percent} aria-valuemin={0} aria-valuemax={100}><span style={{width:`${stats.percent}%`}}/></div><p className="small-muted">Includes future workouts</p><div className="stat-grid"><div><strong>{stats.runs}</strong><span>Runs completed</span></div><div><strong>{stats.support}</strong><span>Strength & mobility</span></div><div><strong>{num(stats.miles)} <small>mi</small></strong><span>Recorded mileage</span></div><div><strong>{stats.longest===null?'—':num(stats.longest)} <small>mi</small></strong><span>Longest recorded run</span></div></div><div className="through-date"><span>Through yesterday</span><strong>{stats.dueCompleted} / {stats.due} completed</strong></div></section>
- {stats.missingDistance>0&&<button className="missing-alert" onClick={missing}><Info size={16}/><span>{stats.missingDistance} completed {stats.missingDistance===1?'run needs':'runs need'} distance</span><ArrowUpRight size={16}/></button>}
- <section className="panel milestones-panel"><div className="panel-title"><h3>Milestones</h3><Trophy size={17}/></div><p className="section-eyebrow">Distance</p><div className="distance-milestones">{milestones.map(m=><div className={`distance-milestone ${m.workout?'achieved':''}`} key={m.distance} title={m.workout?`First recorded on ${formatDate(m.workout.date,{month:'short',day:'numeric',year:'numeric'})}`:`Complete a recorded run of at least ${m.distance} miles`}><span>{m.workout?<CheckCircle2 size={18}/>:<span className="milestone-circle"/>}</span><strong>{m.distance}</strong><small>miles</small></div>)}</div><p className="milestone-caption">Based on completed runs with a recorded distance.</p><div className="phase-heading"><p className="section-eyebrow">Training phases</p><span>Completed / planned</span></div><div className="phase-list">{phaseList.filter(p=>p.total).map(p=><div className={`phase-item ${p.state}`} key={p.phase}><span className="phase-dot">{p.state==='complete'&&<Check size={10}/>}</span><span>{p.phase}<small>{p.state==='complete'?'Complete':p.state==='past'?'Past dates':p.state==='current'?'Current phase':'Upcoming'}</small></span><strong>{p.done}<span> / {p.total}</span></strong></div>)}</div></section>
- <section className="panel mileage-panel"><div className="panel-title"><h3>Weekly mileage</h3><Footprints size={17}/></div><p className="small-muted">Recorded miles · six weeks ending {formatDate(end)}</p><div className="mileage-chart" role="img" aria-label={bars.map(b=>`Week of ${b.start}: ${b.miles} recorded miles${b.missing?`, ${b.missing} runs missing distance`:''}`).join('; ')}>{bars.map((b,i)=><div className="chart-column" key={b.start}><strong>{b.miles===0&&b.missing?'—':num(b.miles)}{b.missing?'*':''}</strong><div className="bar-space"><span className={i===5?'current-bar':''} style={{height:`${Math.max(b.miles/maxMiles*100,b.miles?5:0)}%`}}/></div><small>{formatDate(b.start,{month:'numeric',day:'numeric'})}</small></div>)}</div><p className="milestone-caption">{bars.some(b=>b.missing)?'* Some completed runs have no distance recorded.':'Running workouts only. Weeks start on Monday.'}</p></section>
- {data.plan.paceGuide.length>0&&<section className="panel pace-panel"><div className="panel-title"><h3>Quick pace guide</h3><Flag size={16}/></div>{data.plan.paceGuide.map(p=><div className="pace-row" key={p.type}><div><strong>{p.type}</strong><span>{p.target}</span></div><p>{p.rule}</p></div>)}</section>}</aside></div>
- <footer className="app-footer"><div><span className="footer-dot"/> {data.plan.sourceName?'Plan imported from your workbook':'Personal training plan'}<span className="footer-divider">·</span>Dates use Central time</div><span>{latestSave?`Last saved ${new Intl.DateTimeFormat('en-US',{timeZone:'America/Chicago',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}).format(new Date(latestSave))}`:''}</span></footer></main>
- {toast&&<div className="toast" role="status"><CheckCircle2 size={18}/><span>{toast}</span><button onClick={()=>setToast('')} aria-label="Dismiss notification"><X size={16}/></button></div>}{settings&&<RaceSettings data={data} preview={preview} onClose={()=>setSettings(false)} onSaved={value=>{setData(value);setToast('Race settings saved.');}}/>}</div>;
+function RaceSettings({
+  data,
+  onClose,
+  onSaved,
+  preview,
+}: {
+  data: AppData;
+  onClose: () => void;
+  onSaved: (data: AppData) => void;
+  preview: boolean;
+}) {
+  const ref = useRef<HTMLDialogElement>(null),
+    [name, setName] = useState(data.plan.raceName),
+    [date, setDate] = useState(data.plan.raceDate),
+    [error, setError] = useState(''),
+    [saving, setSaving] = useState(false);
+  useEffect(() => {
+    ref.current?.showModal();
+    const dialog = ref.current;
+    return () => {
+      dialog?.close();
+    };
+  }, []);
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    setError('');
+    try {
+      if (preview) {
+        onSaved({
+          ...data,
+          plan: { ...data.plan, raceName: name, raceDate: date },
+        });
+        onClose();
+        return;
+      }
+      const response = await fetch('/api/training', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          raceName: name,
+          raceDate: date,
+          version: data.plan.version,
+        }),
+      });
+      const result = (await response.json()) as AppData & { error?: string };
+      if (!response.ok)
+        throw new Error(result.error || 'Settings could not be saved.');
+      onSaved(result);
+      onClose();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Please try again.');
+    } finally {
+      setSaving(false);
+    }
+  }
+  return (
+    <dialog
+      ref={ref}
+      className="settings-dialog"
+      onCancel={(e) => {
+        if (saving) e.preventDefault();
+        else onClose();
+      }}
+    >
+      <div className="dialog-heading">
+        <div>
+          <p className="section-eyebrow">Your finish line</p>
+          <h2>Race settings</h2>
+        </div>
+        <button
+          className="icon-button"
+          aria-label="Close race settings"
+          disabled={saving}
+          onClick={onClose}
+        >
+          <X size={20} />
+        </button>
+      </div>
+      <form onSubmit={submit}>
+        <label>
+          Race name
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            maxLength={120}
+            required
+            disabled={saving}
+          />
+        </label>
+        <label>
+          Race date
+          <input
+            type="date"
+            min="1900-01-01"
+            max="2200-12-31"
+            value={date}
+            onInput={(e) => setDate(e.currentTarget.value)}
+            onChange={(e) => setDate(e.target.value)}
+            required
+            disabled={saving}
+          />
+        </label>
+        <p className="field-hint">
+          Changing the race date updates the countdown. Workout dates stay as
+          scheduled.
+        </p>
+        {error && (
+          <p className="form-error" role="alert">
+            {error}
+          </p>
+        )}
+        <button type="submit" className="button primary" disabled={saving}>
+          {saving ? 'Saving…' : 'Save settings'}
+        </button>
+      </form>
+    </dialog>
+  );
+}
+
+export default function Tracker({
+  initial,
+  preview = false,
+}: {
+  initial: AppData;
+  preview?: boolean;
+}) {
+  const [data, setData] = useState(initial),
+    [week, setWeek] = useState(weekStart(initial.today)),
+    [filter, setFilter] = useState<Filter>('all');
+  const [expanded, setExpanded] = useState<string | null>(
+      () =>
+        initial.workouts.find((w) => w.date === initial.today && !w.done)?.id ??
+        null,
+    ),
+    [dirty, setDirty] = useState(false),
+    [saving, setSaving] = useState(false),
+    [error, setError] = useState(''),
+    [toast, setToast] = useState(''),
+    [settings, setSettings] = useState(false);
+  const stats = summarize(data.workouts, data.today),
+    end = addDays(week, 6);
+  const weekly = data.workouts
+    .filter((w) => w.date >= week && w.date <= end)
+    .sort(
+      (a, b) =>
+        a.date.localeCompare(b.date) ||
+        (a.sourceRow ?? 9999) - (b.sourceRow ?? 9999),
+    );
+  const visible = weekly.filter(
+    (w) =>
+      filter === 'all' ||
+      (filter === 'runs' && isRun(w)) ||
+      (filter === 'support' && !isRun(w)) ||
+      (filter === 'missing' && w.done && isRun(w) && w.actualDistance === null),
+  );
+  const phaseList = phaseMilestones(data.workouts, data.today),
+    phase = phaseList.find(
+      (p) => p.start && p.end && p.start <= end && p.end >= week,
+    )?.phase;
+  const weeks = useMemo(() => {
+    const first = weekStart(
+        [data.today, ...data.workouts.map((w) => w.date)].sort()[0],
+      ),
+      last = weekStart(
+        [data.today, ...data.workouts.map((w) => w.date)].sort().at(-1)!,
+      );
+    const a = [];
+    for (let w = first; w <= last; w = addDays(w, 7)) a.push(w);
+    return a;
+  }, [data.workouts, data.today]);
+  const milestones = distanceMilestones(data.workouts),
+    bars = mileageWeeks(data.workouts, week),
+    maxMiles = Math.max(...bars.map((b) => b.miles), 1),
+    days = dateDiff(data.plan.raceDate, data.today);
+  const newWorkout: Workout = {
+    id: 'new',
+    planId: data.plan.id,
+    date: week <= data.today && end >= data.today ? data.today : week,
+    phase: phase ?? 'Base Build',
+    type: 'Easy Run',
+    plannedWorkout: '',
+    targetPace: '',
+    done: false,
+    actualDistance: null,
+    actualPace: '',
+    effort: null,
+    pain: '',
+    notes: '',
+    sourceRow: null,
+    originalSource: null,
+    version: 1,
+    updatedAt: '',
+  };
+  useEffect(() => {
+    if (!toast) return;
+    const id = window.setTimeout(() => setToast(''), 6500);
+    return () => window.clearTimeout(id);
+  }, [toast]);
+  useEffect(() => {
+    if (!dirty) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [dirty]);
+  function canLeave() {
+    return !dirty || window.confirm('Discard your unsaved workout changes?');
+  }
+  function navigate(next: string) {
+    if (saving || !canLeave()) return;
+    setWeek(weekStart(next));
+    setExpanded(null);
+    setDirty(false);
+    setError('');
+  }
+  function edit(id: string) {
+    if (saving || !canLeave()) return;
+    setExpanded(expanded === id ? null : id);
+    setDirty(false);
+    setError('');
+  }
+  function selectFilter(next: Filter) {
+    if (saving || !canLeave()) return;
+    setFilter(next);
+    setExpanded(null);
+    setDirty(false);
+    setError('');
+  }
+  function missing() {
+    if (saving || !canLeave()) return;
+    const first = data.workouts
+      .filter((w) => w.done && isRun(w) && w.actualDistance === null)
+      .sort((a, b) => a.date.localeCompare(b.date))[0];
+    if (first) {
+      setWeek(weekStart(first.date));
+      setFilter('missing');
+      setExpanded(first.id);
+      setDirty(false);
+      setError('');
+      window.scrollTo({ top: 150, behavior: 'smooth' });
+    }
+  }
+  async function save(id: string, input: WorkoutInput) {
+    setSaving(true);
+    setError('');
+    try {
+      let workout: Workout;
+      if (preview) {
+        workout = {
+          ...(id === 'new'
+            ? newWorkout
+            : data.workouts.find((w) => w.id === id)!),
+          ...input,
+          id: id === 'new' ? crypto.randomUUID() : id,
+          version: input.version + 1,
+          updatedAt: new Date().toISOString(),
+        };
+      } else {
+        const response = await fetch(
+          id === 'new'
+            ? '/api/workouts'
+            : `/api/workouts/${encodeURIComponent(id)}`,
+          {
+            method: id === 'new' ? 'POST' : 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(input),
+          },
+        );
+        const result = (await response.json()) as {
+          workout: Workout;
+          error?: string;
+        };
+        if (!response.ok)
+          throw new Error(result.error || 'The workout could not be saved.');
+        workout = result.workout;
+      }
+      setData((current) => ({
+        ...current,
+        workouts:
+          id === 'new'
+            ? [...current.workouts, workout]
+            : current.workouts.map((w) => (w.id === id ? workout : w)),
+      }));
+      setWeek(weekStart(workout.date));
+      setFilter('all');
+      setExpanded(null);
+      setDirty(false);
+      setToast(
+        preview
+          ? 'Preview updated. Changes are not saved.'
+          : 'Workout saved. Your progress is up to date.',
+      );
+    } catch (e) {
+      setError(
+        e instanceof Error
+          ? e.message
+          : 'Could not connect. Your edits are still here. Try saving again.',
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+  const latestSave = data.workouts
+    .map((w) => w.updatedAt)
+    .concat(data.plan.updatedAt)
+    .sort()
+    .at(-1);
+  function card(w: Workout) {
+    const open = expanded === w.id,
+      overdue = !w.done && w.date < data.today,
+      status = w.done
+        ? 'Completed'
+        : w.date === data.today
+          ? 'Today'
+          : overdue
+            ? 'Not logged'
+            : 'Planned';
+    return (
+      <article className={`workout-card ${open ? 'expanded' : ''}`} key={w.id}>
+        <button
+          className="workout-summary"
+          aria-expanded={open}
+          onClick={() => edit(w.id)}
+          disabled={saving}
+          aria-label={`${open ? 'Close' : 'Edit'} ${title(w.type)} on ${formatDate(w.date)}`}
+        >
+          <div className={`date-tile ${w.done ? 'done' : ''}`}>
+            <span>
+              {formatDate(w.date, { weekday: 'short' }).toUpperCase()}
+            </span>
+            <strong>{new Date(w.date + 'T12:00:00Z').getUTCDate()}</strong>
+          </div>
+          <div className="workout-description">
+            <div className="workout-title">
+              <h3>{title(w.type)}</h3>
+              <WorkoutIcon type={w.type} />
+            </div>
+            <p>{w.plannedWorkout}</p>
+            {w.done && (w.actualDistance !== null || w.actualPace) && (
+              <span className="actual-summary">
+                {w.actualDistance !== null
+                  ? `${num(w.actualDistance)} mi recorded`
+                  : ''}
+                {w.actualDistance !== null && w.actualPace ? ' · ' : ''}
+                {w.actualPace}
+              </span>
+            )}
+          </div>
+          <span className="target-preview">{w.targetPace}</span>
+          <span
+            className={`status ${w.done ? 'complete' : overdue ? 'unlogged' : w.date === data.today ? 'today' : ''}`}
+          >
+            {w.done && <Check size={13} />} {status}
+          </span>
+          <Pencil className="edit-icon" size={17} />
+        </button>
+        {open && (
+          <Editor
+            key={`${w.id}:${w.version}`}
+            workout={w}
+            saving={saving}
+            error={error}
+            onSave={(input) => save(w.id, input)}
+            onCancel={() => {
+              if (canLeave()) {
+                setExpanded(null);
+                setDirty(false);
+                setError('');
+              }
+            }}
+            onDirty={setDirty}
+          />
+        )}
+      </article>
+    );
+  }
+  return (
+    <div className="app-shell">
+      <header className="app-header">
+        <div className="header-inner">
+          <a
+            href="/"
+            className="brand"
+            onClick={(e) => {
+              if (dirty && !canLeave()) e.preventDefault();
+            }}
+          >
+            <span className="brand-icon">
+              <Activity size={23} />
+            </span>
+            <span>Marathon training</span>
+          </a>
+          <div className="header-actions">
+            {preview && <span className="preview-tag">Design preview</span>}
+            <span className="private-label">
+              <LockKeyhole size={13} /> Private training log
+            </span>
+            <a
+              className="button quiet export-button"
+              href={preview ? undefined : '/api/export'}
+              onClick={(e) => {
+                if (preview) e.preventDefault();
+              }}
+              aria-disabled={preview}
+            >
+              <Download size={16} />
+              <span>Export backup</span>
+            </a>
+            <span className="avatar" title={data.displayName}>
+              {data.displayName[0]?.toUpperCase() || 'R'}
+            </span>
+          </div>
+        </div>
+      </header>
+      <main className="main-content">
+        <section className="page-heading">
+          <div>
+            <div className="overline">Your road to race day</div>
+            <h1>Training log</h1>
+            <button className="race-subtitle" onClick={() => setSettings(true)}>
+              <span>{data.plan.raceName}</span>
+              <span className="dot">·</span>
+              <span>
+                {formatDate(data.plan.raceDate, {
+                  month: 'long',
+                  day: 'numeric',
+                  year: 'numeric',
+                })}
+              </span>
+              <Settings2 size={15} />
+            </button>
+          </div>
+          <div className="countdown">
+            <Flag size={20} />
+            <div>
+              <strong>
+                {days > 0 ? days : days === 0 ? 'Race day' : Math.abs(days)}
+              </strong>
+              <span>
+                {days > 0
+                  ? 'days to race'
+                  : days === 0
+                    ? 'You made it here'
+                    : 'days since race'}
+              </span>
+            </div>
+          </div>
+        </section>
+        {preview && (
+          <div className="preview-notice">
+            <Info size={16} /> Internal preview with example workouts. Changes
+            here are not saved.
+          </div>
+        )}
+        <div className="content-grid">
+          <section
+            className="training-section"
+            aria-label="Weekly workout tracker"
+          >
+            <div className="week-toolbar">
+              <div className="week-controls">
+                <div className="arrow-group">
+                  <button
+                    className="icon-button"
+                    aria-label="Previous week"
+                    onClick={() => navigate(addDays(week, -7))}
+                    disabled={saving}
+                  >
+                    <ChevronLeft size={20} />
+                  </button>
+                  <button
+                    className="icon-button"
+                    aria-label="Next week"
+                    onClick={() => navigate(addDays(week, 7))}
+                    disabled={saving}
+                  >
+                    <ChevronRight size={20} />
+                  </button>
+                </div>
+                <div>
+                  <label className="week-select-label">
+                    <span className="sr-only">Select training week</span>
+                    <select
+                      className="week-select"
+                      value={week}
+                      onChange={(e) => navigate(e.target.value)}
+                    >
+                      {[...new Set([...weeks, week])].sort().map((w) => (
+                        <option value={w} key={w}>
+                          {formatDate(w, { month: 'long', day: 'numeric' })}
+                          {' – '}
+                          {formatDate(addDays(w, 6), {
+                            month: 'short',
+                            day: 'numeric',
+                          })}
+                          , {w.slice(0, 4)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <span className="week-phase">{phase ?? 'Training week'}</span>
+                </div>
+              </div>
+              <div className="button-group">
+                <button
+                  className="button"
+                  onClick={() => navigate(data.today)}
+                  disabled={saving}
+                >
+                  Today
+                </button>
+                <button
+                  className="button add-button"
+                  onClick={() => {
+                    if (canLeave()) {
+                      setExpanded('new');
+                      setDirty(false);
+                      setError('');
+                      setFilter('all');
+                    }
+                  }}
+                  disabled={saving}
+                >
+                  <Plus size={16} />
+                  <span>Add workout</span>
+                </button>
+              </div>
+            </div>
+            <div className="filter-toolbar">
+              <div
+                className="filter-tabs"
+                role="group"
+                aria-label="Filter workouts"
+              >
+                {(
+                  [
+                    ['all', 'All workouts'],
+                    ['runs', 'Runs'],
+                    ['support', 'Strength & mobility'],
+                  ] as [Filter, string][]
+                ).map(([value, label]) => (
+                  <button
+                    key={value}
+                    className={`filter-tab ${filter === value ? 'active' : ''}`}
+                    aria-pressed={filter === value}
+                    onClick={() => selectFilter(value)}
+                  >
+                    {label}
+                  </button>
+                ))}
+                {filter === 'missing' && (
+                  <button
+                    className="filter-tab active"
+                    onClick={() => selectFilter('all')}
+                  >
+                    Missing distance <X size={12} />
+                  </button>
+                )}
+              </div>
+              <span className="weekly-count">
+                <strong>{weekly.filter((w) => w.done).length}</strong>
+                {' / '}
+                {weekly.length} completed
+              </span>
+            </div>
+            <div className="workout-list">
+              {visible.map(card)}
+              {expanded === 'new' && (
+                <article className="workout-card expanded new-workout">
+                  <div className="new-workout-heading">
+                    <Plus size={18} />
+                    <h3>Add a workout</h3>
+                  </div>
+                  <Editor
+                    key={`new:${week}`}
+                    workout={newWorkout}
+                    saving={saving}
+                    error={error}
+                    onSave={(input) => save('new', input)}
+                    onCancel={() => {
+                      if (canLeave()) {
+                        setExpanded(null);
+                        setDirty(false);
+                        setError('');
+                      }
+                    }}
+                    onDirty={setDirty}
+                  />
+                </article>
+              )}
+              {!visible.length && expanded !== 'new' && (
+                <div className="empty-week">
+                  <Flag size={29} />
+                  <h3>
+                    {filter === 'missing'
+                      ? 'No missing distances this week'
+                      : weekly.length
+                        ? 'No matching workouts'
+                        : 'A little breathing room'}
+                  </h3>
+                  <p>
+                    {filter === 'missing'
+                      ? 'Choose another week or show all workouts.'
+                      : weekly.length
+                        ? 'Try another filter to see the rest of your week.'
+                        : 'No workouts are scheduled here. Choose another week or add one.'}
+                  </p>
+                  <button
+                    className="button"
+                    onClick={() =>
+                      filter !== 'all'
+                        ? selectFilter('all')
+                        : navigate(data.today)
+                    }
+                  >
+                    {filter !== 'all'
+                      ? 'Show all workouts'
+                      : 'Back to this week'}
+                  </button>
+                </div>
+              )}
+            </div>
+            <div className="tracker-help">
+              <Info size={14} />
+              <span>
+                Select a workout to log results, change its date, or edit the
+                plan.
+              </span>
+            </div>
+          </section>
+          <aside className="dashboard" aria-label="Overall training progress">
+            <div className="dashboard-title">
+              <h2>Your progress</h2>
+              <span
+                className="live-dot"
+                title="Calculated from saved workouts"
+              />
+            </div>
+            <section className="panel progress-panel">
+              <div className="panel-title">
+                <h3>Plan completed</h3>
+                <Activity size={17} />
+              </div>
+              <div className="progress-headline">
+                <strong>
+                  {stats.percent}
+                  <span>%</span>
+                </strong>
+                <span>
+                  {stats.completed} of {stats.total} workouts
+                </span>
+              </div>
+              <div
+                className="progress-track"
+                role="progressbar"
+                aria-label="Plan completed"
+                aria-valuenow={stats.percent}
+                aria-valuemin={0}
+                aria-valuemax={100}
+              >
+                <span style={{ width: `${stats.percent}%` }} />
+              </div>
+              <p className="small-muted">Includes future workouts</p>
+              <div className="stat-grid">
+                <div>
+                  <strong>{stats.runs}</strong>
+                  <span>Runs completed</span>
+                </div>
+                <div>
+                  <strong>{stats.support}</strong>
+                  <span>Strength & mobility</span>
+                </div>
+                <div>
+                  <strong>
+                    {num(stats.miles)} <small>mi</small>
+                  </strong>
+                  <span>Recorded mileage</span>
+                </div>
+                <div>
+                  <strong>
+                    {stats.longest === null ? '—' : num(stats.longest)}{' '}
+                    <small>mi</small>
+                  </strong>
+                  <span>Longest recorded run</span>
+                </div>
+              </div>
+              <div className="through-date">
+                <span>Through yesterday</span>
+                <strong>
+                  {stats.dueCompleted} / {stats.due} completed
+                </strong>
+              </div>
+            </section>
+            {stats.missingDistance > 0 && (
+              <button className="missing-alert" onClick={missing}>
+                <Info size={16} />
+                <span>
+                  {stats.missingDistance}
+                  {' completed '}
+                  {stats.missingDistance === 1 ? 'run needs' : 'runs need'}
+                  {' distance'}
+                </span>
+                <ArrowUpRight size={16} />
+              </button>
+            )}
+            <section className="panel milestones-panel">
+              <div className="panel-title">
+                <h3>Milestones</h3>
+                <Trophy size={17} />
+              </div>
+              <p className="section-eyebrow">Distance</p>
+              <div className="distance-milestones">
+                {milestones.map((m) => (
+                  <div
+                    className={`distance-milestone ${m.workout ? 'achieved' : ''}`}
+                    key={m.distance}
+                    title={
+                      m.workout
+                        ? `First recorded on ${formatDate(m.workout.date, { month: 'short', day: 'numeric', year: 'numeric' })}`
+                        : `Complete a recorded run of at least ${m.distance} miles`
+                    }
+                  >
+                    <span>
+                      {m.workout ? (
+                        <CheckCircle2 size={18} />
+                      ) : (
+                        <span className="milestone-circle" />
+                      )}
+                    </span>
+                    <strong>{m.distance}</strong>
+                    <small>miles</small>
+                  </div>
+                ))}
+              </div>
+              <p className="milestone-caption">
+                Based on completed runs with a recorded distance.
+              </p>
+              <div className="phase-heading">
+                <p className="section-eyebrow">Training phases</p>
+                <span>Completed / planned</span>
+              </div>
+              <div className="phase-list">
+                {phaseList
+                  .filter((p) => p.total)
+                  .map((p) => (
+                    <div className={`phase-item ${p.state}`} key={p.phase}>
+                      <span className="phase-dot">
+                        {p.state === 'complete' && <Check size={10} />}
+                      </span>
+                      <span>
+                        {p.phase}
+                        <small>
+                          {p.state === 'complete'
+                            ? 'Complete'
+                            : p.state === 'past'
+                              ? 'Past dates'
+                              : p.state === 'current'
+                                ? 'Current phase'
+                                : 'Upcoming'}
+                        </small>
+                      </span>
+                      <strong>
+                        {p.done}
+                        <span> / {p.total}</span>
+                      </strong>
+                    </div>
+                  ))}
+              </div>
+            </section>
+            <section className="panel mileage-panel">
+              <div className="panel-title">
+                <h3>Weekly mileage</h3>
+                <Footprints size={17} />
+              </div>
+              <p className="small-muted">
+                Recorded miles · six weeks ending {formatDate(end)}
+              </p>
+              <div
+                className="mileage-chart"
+                role="img"
+                aria-label={bars
+                  .map(
+                    (b) =>
+                      `Week of ${b.start}: ${b.miles} recorded miles${b.missing ? `, ${b.missing} runs missing distance` : ''}`,
+                  )
+                  .join('; ')}
+              >
+                {bars.map((b, i) => (
+                  <div className="chart-column" key={b.start}>
+                    <strong>
+                      {b.miles === 0 && b.missing ? '—' : num(b.miles)}
+                      {b.missing ? '*' : ''}
+                    </strong>
+                    <div className="bar-space">
+                      <span
+                        className={i === 5 ? 'current-bar' : ''}
+                        style={{
+                          height: `${Math.max((b.miles / maxMiles) * 100, b.miles ? 5 : 0)}%`,
+                        }}
+                      />
+                    </div>
+                    <small>
+                      {formatDate(b.start, {
+                        month: 'numeric',
+                        day: 'numeric',
+                      })}
+                    </small>
+                  </div>
+                ))}
+              </div>
+              <p className="milestone-caption">
+                {bars.some((b) => b.missing)
+                  ? '* Some completed runs have no distance recorded.'
+                  : 'Running workouts only. Weeks start on Monday.'}
+              </p>
+            </section>
+            {data.plan.paceGuide.length > 0 && (
+              <section className="panel pace-panel">
+                <div className="panel-title">
+                  <h3>Quick pace guide</h3>
+                  <Flag size={16} />
+                </div>
+                {data.plan.paceGuide.map((p) => (
+                  <div className="pace-row" key={p.type}>
+                    <div>
+                      <strong>{p.type}</strong>
+                      <span>{p.target}</span>
+                    </div>
+                    <p>{p.rule}</p>
+                  </div>
+                ))}
+              </section>
+            )}
+          </aside>
+        </div>
+        <footer className="app-footer">
+          <div>
+            <span className="footer-dot" />{' '}
+            {data.plan.sourceName
+              ? 'Plan imported from your workbook'
+              : 'Personal training plan'}
+            <span className="footer-divider">·</span>Dates use Central time
+          </div>
+          <span>
+            {latestSave
+              ? `Last saved ${new Intl.DateTimeFormat('en-US', { timeZone: 'America/Chicago', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }).format(new Date(latestSave))}`
+              : ''}
+          </span>
+        </footer>
+      </main>
+      {toast && (
+        <div className="toast" role="status">
+          <CheckCircle2 size={18} />
+          <span>{toast}</span>
+          <button
+            onClick={() => setToast('')}
+            aria-label="Dismiss notification"
+          >
+            <X size={16} />
+          </button>
+        </div>
+      )}
+      {settings && (
+        <RaceSettings
+          data={data}
+          preview={preview}
+          onClose={() => setSettings(false)}
+          onSaved={(value) => {
+            setData(value);
+            setToast('Race settings saved.');
+          }}
+        />
+      )}
+    </div>
+  );
 }
