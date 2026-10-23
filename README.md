@@ -34,6 +34,14 @@ The physical tables remain `training_plans` and `workouts`; a block is a plan, a
 
 Block creation, activation, completion, archival, and the library/selection UI are Stage 3 work. They are intentionally not exposed as write endpoints in this stage. No database service change or dependency upgrade is required for this schema change.
 
+## Portability boundaries (Stage 2.1)
+
+`lib/user.ts` defines the app's user contract. `lib/auth.ts` adapts the existing Sites sign-in helpers to that contract, passing the provider's stable user ID through unchanged. Storage and API code use the app contract. A future AWS sign-in provider must map new identities to existing owner IDs; email is not an ownership key. The configured email check for the private initial spreadsheet import is a separate eligibility check.
+
+`lib/store.ts` owns training reads and writes, including race settings. API routes authenticate, validate requests, and translate results into HTTP responses. Training storage's Cloudflare environment access and the atomic first-load import live in `db/index.ts` and `db/initial-training.ts`. The SQL, batch boundaries, IDs, and number of database operations remain the same after this extraction.
+
+This is preparation for a future move, not an AWS implementation. The D1 Drizzle driver, SQLite schema/migrations, batch semantics, Worker entrypoint, and hosting configuration still require review for the chosen AWS architecture. No database migration or dependency change is needed for Stage 2.1.
+
 ## Initial spreadsheet import
 
 `tools/import-workbook.py INPUT.xlsx .sites-runtime/training-import.json` reads only Dashboard and Workout Tracker. The generated files are private runtime inputs and are ignored by Git. It preserves source row values alongside normalized fields. Unknown distance stays null; a recorded zero remains zero.

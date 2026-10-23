@@ -47,6 +47,7 @@ export type Workout = {
   version: number;
   updatedAt: string;
 };
+export type RaceSettingsInput = Pick<Plan, 'raceName' | 'raceDate' | 'version'>;
 export type AppData = {
   plan: Plan;
   workouts: Workout[];
