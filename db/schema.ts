@@ -47,6 +47,11 @@ export const workouts = sqliteTable(
     done: integer('done', { mode: 'boolean' }).notNull().default(false),
     // SQL NULL means unknown, which is distinct from a recorded zero.
     actualDistance: real('actual_distance'),
+    // Nullable additive fields: no targets or durations are inferred on upgrade.
+    plannedDistance: real('planned_distance'),
+    plannedDurationSeconds: integer('planned_duration_seconds'),
+    actualDurationSeconds: integer('actual_duration_seconds'),
+    targetMetric: text('target_metric', { enum: ['distance', 'duration'] }),
     actualPace: text('actual_pace').notNull().default(''),
     effort: integer('effort'),
     pain: text('pain').notNull().default(''),
@@ -61,3 +66,13 @@ export const workouts = sqliteTable(
   },
   (table) => [index('workouts_plan_date_idx').on(table.planId, table.date)],
 );
+
+// Rest is a schedule designation, never a completed workout. The block foreign
+// key supplies account ownership; one row per block/date prevents duplicates.
+export const restDays = sqliteTable('training_rest_days', {
+  id: text('id').primaryKey(),
+  planId: text('plan_id').notNull().references(() => plans.id),
+  date: text('date').notNull(),
+  version: integer('version').notNull().default(1),
+  updatedAt: text('updated_at').notNull(),
+}, (table) => [uniqueIndex('training_rest_days_plan_date_idx').on(table.planId, table.date)]);

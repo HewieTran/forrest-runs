@@ -1,5 +1,5 @@
 import { env } from 'cloudflare:workers';
-import { validateWorkout, type Plan, type Workout } from '../lib/domain';
+import { EMPTY_WORKOUT_MEASUREMENTS, validateWorkout, type Plan, type Workout } from '../lib/domain';
 
 // D1 and private runtime configuration stay inside this first-load adapter.
 type InitialTrainingPlan = Omit<Plan, 'status' | 'version'> & { ownerId: string };
@@ -33,8 +33,17 @@ export async function loadOwnerSeed(email: string): Promise<TrainingSeed | null>
   ) as TrainingSeed;
   if (!Array.isArray(seed.workouts) || seed.workouts.length > 3000)
     throw new Error('The initial training import is invalid.');
-  for (const workout of seed.workouts)
-    validateWorkout({ ...workout, version: 1 });
+  seed.workouts = seed.workouts.map(workout => {
+    const validated = validateWorkout({ ...workout, version: 1 });
+    // Preserve the source description and historical values exactly; only add
+    // validated measurements, without extracting numbers from source prose.
+    return { ...workout,
+      plannedDistance: validated.plannedDistance ?? EMPTY_WORKOUT_MEASUREMENTS.plannedDistance,
+      plannedDurationSeconds: validated.plannedDurationSeconds ?? EMPTY_WORKOUT_MEASUREMENTS.plannedDurationSeconds,
+      actualDurationSeconds: validated.actualDurationSeconds ?? EMPTY_WORKOUT_MEASUREMENTS.actualDurationSeconds,
+      targetMetric: validated.targetMetric ?? EMPTY_WORKOUT_MEASUREMENTS.targetMetric,
+    };
+  });
   return seed;
 }
 export async function insertInitialTraining(
@@ -59,7 +68,7 @@ export async function insertInitialTraining(
   for (const workout of initialWorkouts)
     statements.push(
       env.DB.prepare(
-        'INSERT INTO workouts (id,plan_id,date,phase,type,planned_workout,target_pace,done,actual_distance,actual_pace,effort,pain,notes,source_row,original_source,version,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?)',
+        'INSERT INTO workouts (id,plan_id,date,phase,type,planned_workout,target_pace,done,actual_distance,actual_pace,effort,pain,notes,source_row,original_source,version,updated_at,planned_distance,planned_duration_seconds,actual_duration_seconds,target_metric) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?,?,?,?,?)',
       ).bind(
         `${plan.id}:row:${workout.sourceRow}`,
         plan.id,
@@ -77,6 +86,10 @@ export async function insertInitialTraining(
         workout.sourceRow,
         JSON.stringify(workout.originalSource),
         plan.updatedAt,
+        workout.plannedDistance,
+        workout.plannedDurationSeconds,
+        workout.actualDurationSeconds,
+        workout.targetMetric,
       ),
     );
   // D1 runs this batch atomically, preserving the existing import behavior.

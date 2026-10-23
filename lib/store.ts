@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, isNull, ne, sql } from 'drizzle-orm';
 import { getDb } from '../db';
-import { plans, workouts } from '../db/schema';
+import { plans, workouts, restDays } from '../db/schema';
 import {
   addDays,
   centralToday,
@@ -8,10 +8,11 @@ import {
   type Plan,
   type RaceSettingsInput,
   type WorkoutInput,
+  type RestDay,
 } from './domain';
 import type { AppUser } from './user';
 import { insertInitialTraining, loadOwnerSeed } from '../db/initial-training';
-import type { TrainingBackupV2 } from './backups';
+import type { TrainingBackupV3 } from './backups';
 import { TrainingRequestError } from './training-errors';
 import { canChangeBlockStatus, type NewBlockInput, type BlockStatusInput, type BlockSummary } from './blocks';
 import type { BlockSetup } from './setup';
@@ -73,14 +74,17 @@ export async function userPlan(user: AppUser, blockId?: string) {
 export async function loadTraining(user: AppUser, blockId?: string): Promise<AppData> {
   const ownedPlan = await userPlan(user, blockId);
   const { ownerId: _ownerId, ...plan } = ownedPlan;
-  const savedWorkouts = await getDb()
-    .select()
-    .from(workouts)
-    .where(eq(workouts.planId, plan.id))
-    .orderBy(asc(workouts.date), asc(workouts.sourceRow));
+  const database = getDb();
+  const [savedWorkouts, savedRestDays] = await database.batch([
+    database.select().from(workouts).where(eq(workouts.planId, plan.id))
+      .orderBy(asc(workouts.date), asc(workouts.sourceRow)),
+    database.select().from(restDays).where(eq(restDays.planId, plan.id))
+      .orderBy(asc(restDays.date)),
+  ]);
   return {
     plan,
     workouts: savedWorkouts,
+    restDays: savedRestDays,
     displayName: user.fullName?.split(' ')[0] ?? 'Runner',
     today: centralToday(),
   };
@@ -204,16 +208,21 @@ export async function saveBlockSetup(user: AppUser, blockId: string, setup: Bloc
   }).where(and(
     eq(plans.id, blockId), eq(plans.ownerId, user.userId), eq(plans.version, version), eq(plans.status, 'draft'),
     sql`not exists (select 1 from workouts existing_workout where existing_workout.plan_id = ${blockId})`,
+    sql`not exists (select 1 from training_rest_days existing_rest where existing_rest.plan_id = ${blockId})`,
   )).returning().get();
-  if (!saved) throw new TrainingRequestError('This draft changed or already contains workouts. Reload it; use a new empty draft for guided setup.', 409);
+  if (!saved) throw new TrainingRequestError('This draft changed or already contains scheduled days. Reload it; use a new empty draft for guided setup.', 409);
   const { ownerId: _ownerId, ...plan } = saved;
   return plan;
 }
 
 export async function loadSetupPage(user: AppUser, blockId: string) {
   const { ownerId: _ownerId, ...block } = await userPlan(user, blockId);
-  const row = await getDb().select({ id: workouts.id }).from(workouts).where(eq(workouts.planId, blockId)).limit(1).get();
-  return { block, hasWorkouts: !!row };
+  const [workoutRows, restRows] = await getDb().batch([
+    getDb().select({ id: workouts.id }).from(workouts).where(eq(workouts.planId, blockId)).limit(1),
+    getDb().select({ id: restDays.id }).from(restDays).where(eq(restDays.planId, blockId)).limit(1),
+  ]);
+  // The existing setup UI must treat any explicit schedule as non-empty.
+  return { block, hasWorkouts: workoutRows.length > 0 || restRows.length > 0 };
 }
 
 export async function activeBlock(user: AppUser): Promise<Pick<Plan, 'id' | 'raceName'> | null> {
@@ -221,23 +230,28 @@ export async function activeBlock(user: AppUser): Promise<Pick<Plan, 'id' | 'rac
     .where(and(eq(plans.ownerId, user.userId), eq(plans.status, 'active'))).get() ?? null;
 }
 
-export async function exportTraining(user: AppUser): Promise<TrainingBackupV2> {
-  await userPlan(user);
+export async function exportTraining(user: AppUser, blockId?: string): Promise<TrainingBackupV3> {
+  await userPlan(user, blockId);
   const database = getDb();
-  // One atomic batch gives both queries the same account snapshot. No per-block queries.
-  const [ownedBlocks, ownedWorkouts] = await database.batch([
-    database.select().from(plans).where(eq(plans.ownerId, user.userId))
+  const scope = and(eq(plans.ownerId, user.userId), blockId === undefined ? undefined : eq(plans.id, blockId));
+  // One atomic batch captures measurements and rest designations together.
+  const [ownedBlocks, ownedWorkouts, ownedRestDays] = await database.batch([
+    database.select().from(plans).where(scope)
       .orderBy(asc(plans.createdAt), asc(plans.id)),
     database.select({ workout: workouts }).from(workouts)
       .innerJoin(plans, eq(workouts.planId, plans.id))
-      .where(eq(plans.ownerId, user.userId))
+      .where(scope)
       .orderBy(asc(workouts.planId), asc(workouts.date), asc(workouts.id)),
+    database.select({ restDay: restDays }).from(restDays)
+      .innerJoin(plans, eq(restDays.planId, plans.id)).where(scope)
+      .orderBy(asc(restDays.planId), asc(restDays.date), asc(restDays.id)),
   ]);
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     exportedAt: new Date().toISOString(),
     blocks: ownedBlocks.map(({ ownerId: _ownerId, ...block }) => block),
     workouts: ownedWorkouts.map(({ workout }) => workout),
+    restDays: ownedRestDays.map(({ restDay }) => restDay),
   };
 }
 export async function saveWorkout(
@@ -261,6 +275,7 @@ export async function saveWorkout(
         eq(workouts.id, workoutId),
         eq(workouts.planId, plan.id),
         eq(workouts.version, version),
+        sql`not exists (select 1 from training_rest_days rest where rest.plan_id = ${plan.id} and rest.date = ${input.date})`,
       ),
     )
     .returning()
@@ -269,18 +284,54 @@ export async function saveWorkout(
 export async function addWorkout(user: AppUser, input: WorkoutInput, blockId?: string) {
   const plan = await writablePlan(user, blockId);
   const database = getDb();
+  const plannedDistance = input.plannedDistance ?? null;
+  const plannedDurationSeconds = input.plannedDurationSeconds ?? null;
+  const actualDurationSeconds = input.actualDurationSeconds ?? null;
+  const targetMetric = input.targetMetric ?? null;
   // The condition stays in the insert, closing a race with attaching guided setup.
   const saved = await database.insert(workouts).select(database.select({
     id: sql<string>`${crypto.randomUUID()}`.as('id'), planId: plans.id,
     date: sql<string>`${input.date}`.as('date'), phase: sql<string>`${input.phase}`.as('phase'), type: sql<string>`${input.type}`.as('type'),
     plannedWorkout: sql<string>`${input.plannedWorkout}`.as('plannedWorkout'), targetPace: sql<string>`${input.targetPace}`.as('targetPace'),
     done: sql<boolean>`${input.done ? 1 : 0}`.as('done'), actualDistance: sql<number | null>`${input.actualDistance}`.as('actualDistance'),
+    plannedDistance: sql<number | null>`${plannedDistance}`.as('plannedDistance'),
+    plannedDurationSeconds: sql<number | null>`${plannedDurationSeconds}`.as('plannedDurationSeconds'),
+    actualDurationSeconds: sql<number | null>`${actualDurationSeconds}`.as('actualDurationSeconds'),
+    targetMetric: sql<'distance' | 'duration' | null>`${targetMetric}`.as('targetMetric'),
     actualPace: sql<string>`${input.actualPace}`.as('actualPace'), effort: sql<number | null>`${input.effort}`.as('effort'),
     pain: sql<string>`${input.pain}`.as('pain'), notes: sql<string>`${input.notes}`.as('notes'),
     sourceRow: sql<number | null>`null`.as('sourceRow'), originalSource: sql<Record<string, unknown> | null>`null`.as('originalSource'),
     version: sql<number>`1`.as('version'), updatedAt: sql<string>`${new Date().toISOString()}`.as('updatedAt'),
-  }).from(plans).where(and(eq(plans.id, plan.id), eq(plans.ownerId, user.userId), isNull(plans.setup))))
+  }).from(plans).where(and(eq(plans.id, plan.id), eq(plans.ownerId, user.userId), isNull(plans.setup),
+    sql`not exists (select 1 from training_rest_days rest where rest.plan_id = ${plan.id} and rest.date = ${input.date})`)))
     .returning().get();
-  if (!saved) throw new TrainingRequestError('This block changed to guided setup. Reload before adding workouts.', 409);
+  if (!saved) throw new TrainingRequestError('The schedule changed or this date is a planned rest day. Reload before adding workouts.', 409);
   return saved;
+}
+
+export async function addRestDay(user: AppUser, blockId: string, date: string): Promise<RestDay> {
+  const plan = await writablePlan(user, blockId);
+  const database = getDb();
+  // The condition and insert execute as one statement, including competing
+  // workout inserts and attaching guided setup to an otherwise empty draft.
+  const saved = await database.insert(restDays).select(database.select({
+    id: sql<string>`${crypto.randomUUID()}`.as('id'),
+    planId: plans.id,
+    date: sql<string>`${date}`.as('date'),
+    version: sql<number>`1`.as('version'),
+    updatedAt: sql<string>`${new Date().toISOString()}`.as('updatedAt'),
+  }).from(plans).where(and(eq(plans.id, plan.id), eq(plans.ownerId, user.userId), isNull(plans.setup),
+    sql`not exists (select 1 from workouts scheduled where scheduled.plan_id = ${plan.id} and scheduled.date = ${date})`,
+    sql`not exists (select 1 from training_rest_days rest where rest.plan_id = ${plan.id} and rest.date = ${date})`,
+  ))).returning().get();
+  if (!saved) throw new TrainingRequestError('This date already has a workout or rest day, or the block changed. Reload the schedule.', 409);
+  return saved;
+}
+
+export async function removeRestDay(user: AppUser, blockId: string, restDayId: string, version: number) {
+  const plan = await writablePlan(user, blockId);
+  // Rest records are immutable. Removing/recreating a date gets a new ID, so a
+  // stale deletion cannot remove a subsequently created rest designation.
+  return getDb().delete(restDays).where(and(eq(restDays.id, restDayId),
+    eq(restDays.planId, plan.id), eq(restDays.version, version))).returning().get();
 }

@@ -1,11 +1,13 @@
 import { BLOCK_STATUSES, validDate, validateWorkout, type Plan, type Workout } from './domain.ts';
 import { validateSetup } from './setup.ts';
+import { EMPTY_WORKOUT_MEASUREMENTS, type RestDay } from './workout-targets.ts';
 
-export type TrainingBackupV2 = {
-  schemaVersion: 2;
+export type TrainingBackupV3 = {
+  schemaVersion: 3;
   exportedAt: string;
   blocks: Plan[];
   workouts: Workout[];
+  restDays: RestDay[];
 };
 
 function record(value: unknown): Record<string, unknown> {
@@ -36,9 +38,9 @@ function version(value: unknown): number {
 
 // Validate and normalize offline only. This does not grant ownership or write to storage.
 // IDs, source data, null distances, and optimistic-lock versions survive unchanged.
-export function normalizeTrainingBackup(value: unknown): TrainingBackupV2 {
+export function normalizeTrainingBackup(value: unknown): TrainingBackupV3 {
   const input = record(value);
-  if (input.schemaVersion !== 1 && input.schemaVersion !== 2)
+  if (input.schemaVersion !== 1 && input.schemaVersion !== 2 && input.schemaVersion !== 3)
     throw new Error('Unsupported backup version.');
   const sourceBlocks = input.schemaVersion === 1 ? [input.plan] : input.blocks;
   if (!Array.isArray(sourceBlocks) || !sourceBlocks.length || !Array.isArray(input.workouts))
@@ -75,13 +77,29 @@ export function normalizeTrainingBackup(value: unknown): TrainingBackupV2 {
     if (!blockIds.has(planId)) throw new Error('A workout references an unavailable block.');
     if (workout.sourceRow !== null && (!Number.isSafeInteger(workout.sourceRow) || Number(workout.sourceRow) < 1))
       throw new Error('Invalid source row.');
-    const values = validateWorkout(workout);
+    if (input.schemaVersion === 3 && Object.keys(EMPTY_WORKOUT_MEASUREMENTS).some(key => !Object.prototype.hasOwnProperty.call(workout, key)))
+      throw new Error('The backup is missing workout measurement fields.');
+    const values = validateWorkout({ ...EMPTY_WORKOUT_MEASUREMENTS, ...workout });
     return {
+      ...EMPTY_WORKOUT_MEASUREMENTS,
       ...values, plannedWorkout: text(workout.plannedWorkout), id: workoutId, planId,
       version: version(workout.version), updatedAt: timestamp(workout.updatedAt),
       sourceRow: workout.sourceRow as number | null,
       originalSource: workout.originalSource === null ? null : record(workout.originalSource),
     };
   });
-  return { schemaVersion: 2, exportedAt: timestamp(input.exportedAt), blocks, workouts };
+  const sourceRestDays = input.schemaVersion === 3 ? input.restDays : [];
+  if (!Array.isArray(sourceRestDays)) throw new Error('The backup must include rest days.');
+  const restIds = new Set<string>(), restDates = new Set<string>();
+  const workoutDates = new Set(workouts.map(workout => `${workout.planId}\u0000${workout.date}`));
+  const restDays: RestDay[] = sourceRestDays.map(value => {
+    const rest = record(value), restId = id(rest.id), planId = id(rest.planId);
+    if (!blockIds.has(planId) || !validDate(rest.date)) throw new Error('Invalid rest day reference or date.');
+    const key = `${planId}\u0000${rest.date}`;
+    if (restIds.has(restId) || restDates.has(key)) throw new Error('Duplicate rest day.');
+    if (workoutDates.has(key)) throw new Error('A date cannot be both a rest day and a workout day.');
+    restIds.add(restId); restDates.add(key);
+    return { id: restId, planId, date: rest.date, version: version(rest.version), updatedAt: timestamp(rest.updatedAt) };
+  });
+  return { schemaVersion: 3, exportedAt: timestamp(input.exportedAt), blocks, workouts, restDays };
 }

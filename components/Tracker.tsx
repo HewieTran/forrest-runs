@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import {
   addDays,
+  EMPTY_WORKOUT_MEASUREMENTS,
   dateDiff,
   distanceMilestones,
   formatDate,
@@ -470,6 +471,7 @@ export default function Tracker({
   );
   const daysToRace = dateDiff(data.plan.raceDate, data.today);
   const newWorkout: Workout = {
+    ...EMPTY_WORKOUT_MEASUREMENTS,
     id: 'new',
     planId: data.plan.id,
     date:

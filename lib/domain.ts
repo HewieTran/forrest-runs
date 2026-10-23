@@ -1,4 +1,7 @@
 import type { BlockSetup } from './setup';
+import { validateWorkoutMeasurements, type WorkoutMeasurements, type RestDay } from './workout-targets.ts';
+export { EMPTY_WORKOUT_MEASUREMENTS } from './workout-targets.ts';
+export type { WorkoutMeasurements, RestDay } from './workout-targets.ts';
 
 export const TYPES = [
   'Easy Run',
@@ -31,7 +34,7 @@ export type Plan = {
   createdAt: string;
   updatedAt: string;
 };
-export type Workout = {
+export type Workout = WorkoutMeasurements & {
   id: string;
   planId: string;
   date: string;
@@ -54,6 +57,7 @@ export type RaceSettingsInput = Pick<Plan, 'raceName' | 'raceDate' | 'version'>;
 export type AppData = {
   plan: Plan;
   workouts: Workout[];
+  restDays: RestDay[];
   displayName: string;
   today: string;
 };
@@ -71,7 +75,7 @@ export type WorkoutInput = Pick<
   | 'pain'
   | 'notes'
   | 'version'
->;
+> & Partial<WorkoutMeasurements>;
 export function isRun(workout: Pick<Workout, 'type'>) {
   return workout.type !== 'Strength' && workout.type !== 'Mobility';
 }
@@ -271,6 +275,7 @@ export function validateWorkout(input: unknown): WorkoutInput {
       'Effort must be a whole number from 1 to 10, or left blank.',
     );
   return {
+    ...validateWorkoutMeasurements(fields),
     date: fields.date as string,
     phase: fields.phase as string,
     type: fields.type as string,

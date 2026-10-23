@@ -32,7 +32,16 @@ test('upgrade preserves existing records, permits multiple blocks, and enforces 
     assert.deepEqual(afterPlans.map(({ status, setup, ...original }) => original), beforePlans);
     assert.equal(afterPlans[0].status, 'active');
     assert.equal(afterPlans[0].setup, null);
-    assert.deepEqual((await database.prepare('SELECT * FROM workouts ORDER BY id').all()).results, beforeWorkouts);
+    const afterWorkouts = (await database.prepare('SELECT * FROM workouts ORDER BY id').all()).results;
+    assert.deepEqual(afterWorkouts.map(({ planned_distance, planned_duration_seconds, actual_duration_seconds, target_metric, ...original }) => original), beforeWorkouts);
+    assert.ok(afterWorkouts.every(row => row.planned_distance === null && row.planned_duration_seconds === null && row.actual_duration_seconds === null && row.target_metric === null));
+    assert.deepEqual((await database.prepare('SELECT * FROM training_rest_days').all()).results, []);
+    await database.prepare("INSERT INTO training_rest_days (id,plan_id,date,updated_at) VALUES ('rest','original','2027-01-01','2026-10-23')").run();
+    await assert.rejects(database.prepare("INSERT INTO training_rest_days (id,plan_id,date,updated_at) VALUES ('duplicate','original','2027-01-01','2026-10-23')").run(), /UNIQUE/);
+    await assert.rejects(database.prepare("INSERT INTO training_rest_days (id,plan_id,date,updated_at) VALUES ('overlap','original','2026-10-22','2026-10-23')").run(), /workout day/);
+    await assert.rejects(database.prepare("UPDATE workouts SET date = '2027-01-01' WHERE id = 'recorded'").run(), /rest day/);
+    await assert.rejects(database.prepare("UPDATE training_rest_days SET date = '2026-10-22' WHERE id = 'rest'").run(), /workout day/);
+    await assert.rejects(database.prepare("INSERT INTO training_rest_days (id,plan_id,date,updated_at) VALUES ('foreign','missing','2027-01-02','2026-10-23')").run(), /FOREIGN KEY/);
 
     const insertBlock = (id, owner, status) => database.prepare(`INSERT INTO training_plans
       (id, owner_id, status, race_name, race_date, pace_guide, created_at, updated_at)

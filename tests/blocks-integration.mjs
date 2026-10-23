@@ -78,18 +78,19 @@ export async function testBlocks(db, dispatch) {
 
   const all = await call('/api/export');
   assert.equal(all.status, 200);
-  assert.equal(all.data.schemaVersion, 2);
+  assert.equal(all.data.schemaVersion, 3);
   assert.equal(all.data.blocks.length, 4);
   assert.equal(all.data.workouts.length, 159);
   assert.ok(!JSON.stringify(all.data).includes(foreignId));
   assert.deepEqual(normalizeTrainingBackup(all.data), all.data);
   const legacy = await call('/api/export?blockId=' + encodeURIComponent(originalId));
-  assert.equal(legacy.data.schemaVersion, 1);
-  assert.equal(legacy.data.plan.id, originalId);
+  assert.equal(legacy.data.schemaVersion, 3);
+  assert.equal(legacy.data.blocks.length, 1);
+  assert.equal(legacy.data.blocks[0].id, originalId);
   assert.equal(legacy.data.workouts.length, 158);
   await testRestore(all.data);
   await testRestore(legacy.data);
-  console.log('PASS: complete account export, legacy single-block export, and isolated restore rehearsal for both formats.');
+  console.log('PASS: complete account and block-scoped v3 exports, and isolated restore rehearsal.');
 
   await db.batch([
     db.prepare("UPDATE training_plans SET status = 'completed' WHERE id = ?").bind(originalId),
@@ -124,15 +125,18 @@ export async function testRestore(input) {
       (id,owner_id,status,race_name,race_date,pace_guide,source_name,version,created_at,updated_at,setup) VALUES (?,?,?,?,?,?,?,?,?,?,?)`)
       .bind(block.id, 'verified-restore-owner', block.status, block.raceName, block.raceDate, JSON.stringify(block.paceGuide), block.sourceName, block.version, block.createdAt, block.updatedAt, block.setup == null ? null : JSON.stringify(block.setup)));
     for (const w of backup.workouts) statements.push(db.prepare(`INSERT INTO workouts
-      (id,plan_id,date,phase,type,planned_workout,target_pace,done,actual_distance,actual_pace,effort,pain,notes,source_row,original_source,version,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
-      .bind(w.id, w.planId, w.date, w.phase, w.type, w.plannedWorkout, w.targetPace, Number(w.done), w.actualDistance, w.actualPace, w.effort, w.pain, w.notes, w.sourceRow, w.originalSource === null ? null : JSON.stringify(w.originalSource), w.version, w.updatedAt));
+      (id,plan_id,date,phase,type,planned_workout,target_pace,done,actual_distance,actual_pace,effort,pain,notes,source_row,original_source,version,updated_at,planned_distance,planned_duration_seconds,actual_duration_seconds,target_metric) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+      .bind(w.id, w.planId, w.date, w.phase, w.type, w.plannedWorkout, w.targetPace, Number(w.done), w.actualDistance, w.actualPace, w.effort, w.pain, w.notes, w.sourceRow, w.originalSource === null ? null : JSON.stringify(w.originalSource), w.version, w.updatedAt, w.plannedDistance, w.plannedDurationSeconds, w.actualDurationSeconds, w.targetMetric));
+    for (const r of backup.restDays) statements.push(db.prepare('INSERT INTO training_rest_days (id,plan_id,date,version,updated_at) VALUES (?,?,?,?,?)').bind(r.id, r.planId, r.date, r.version, r.updatedAt));
     await db.batch(statements);
     const columns = 'id, status, setup, race_name AS raceName, race_date AS raceDate, pace_guide AS paceGuide, source_name AS sourceName, version, created_at AS createdAt, updated_at AS updatedAt';
     const blocks = (await db.prepare('SELECT ' + columns + ' FROM training_plans ORDER BY id').all()).results.map(b => ({ ...b, paceGuide: JSON.parse(b.paceGuide), setup: b.setup === null ? null : JSON.parse(b.setup) }));
     assert.deepEqual(blocks, backup.blocks.map(block => ({ ...block, setup: block.setup ?? null })).sort((a, b) => a.id.localeCompare(b.id)));
-    const workouts = (await db.prepare(`SELECT id,plan_id AS planId,date,phase,type,planned_workout AS plannedWorkout,target_pace AS targetPace,done,actual_distance AS actualDistance,actual_pace AS actualPace,effort,pain,notes,source_row AS sourceRow,original_source AS originalSource,version,updated_at AS updatedAt FROM workouts ORDER BY id`).all()).results.map(w => ({ ...w, done: Boolean(w.done), originalSource: w.originalSource === null ? null : JSON.parse(w.originalSource) }));
+    const workouts = (await db.prepare(`SELECT id,plan_id AS planId,date,phase,type,planned_workout AS plannedWorkout,target_pace AS targetPace,done,actual_distance AS actualDistance,actual_pace AS actualPace,effort,pain,notes,source_row AS sourceRow,original_source AS originalSource,version,updated_at AS updatedAt,planned_distance AS plannedDistance,planned_duration_seconds AS plannedDurationSeconds,actual_duration_seconds AS actualDurationSeconds,target_metric AS targetMetric FROM workouts ORDER BY id`).all()).results.map(w => ({ ...w, done: Boolean(w.done), originalSource: w.originalSource === null ? null : JSON.parse(w.originalSource) }));
     const byId = (a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
     assert.deepEqual(workouts, [...backup.workouts].sort(byId));
+    const restDays = (await db.prepare('SELECT id,plan_id AS planId,date,version,updated_at AS updatedAt FROM training_rest_days ORDER BY id').all()).results;
+    assert.deepEqual(restDays, [...backup.restDays].sort(byId));
     assert.deepEqual((await db.prepare('PRAGMA foreign_key_check').all()).results, []);
   } finally { await worker.dispose(); }
 }

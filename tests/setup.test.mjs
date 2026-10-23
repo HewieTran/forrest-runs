@@ -56,7 +56,7 @@ test('backup normalization retains saved runner snapshots and strips untrusted s
   const timestamp = '2026-10-23T00:00:00.000Z';
   const block = { id: 'snapshot', status: 'draft', raceName: 'Spring 10K', raceDate: '2027-03-14', paceGuide: [], sourceName: null, version: 2, createdAt: timestamp, updatedAt: timestamp, setup: exampleSetup() };
   const backup = { schemaVersion: 2, exportedAt: timestamp, blocks: [block], workouts: [] };
-  assert.deepEqual(normalizeTrainingBackup(backup), backup);
+  assert.deepEqual(normalizeTrainingBackup(backup), { ...backup, schemaVersion: 3, restDays: [] });
   const untrusted = structuredClone(backup); untrusted.blocks[0].setup.ownerId = 'foreign'; untrusted.blocks[0].setup.approved = true;
-  assert.deepEqual(normalizeTrainingBackup(untrusted), backup);
+  assert.deepEqual(normalizeTrainingBackup(untrusted), { ...backup, schemaVersion: 3, restDays: [] });
 });
