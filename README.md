@@ -8,7 +8,7 @@ React and TypeScript; responsive CSS; Vinext and Cloudflare Workers; D1 with Dri
 
 ## Development
 
-Use Node.js 22.13 or later. Install dependencies with the Sites plugin's install-dependencies helper, which selects the project's package manager and lockfile. Start development through the supported Sites preview workflow, or `npm run dev` in a portable local environment. Build through the Sites build helper. Run `node node_modules/typescript/bin/tsc --noEmit` and `node --experimental-strip-types --test tests/domain.test.mjs tests/migration.test.mjs tests/backups.test.mjs tests/block-policy.test.mjs` before publishing.
+Use Node.js 22.13 or later. Install dependencies with the Sites plugin's install-dependencies helper, which selects the project's package manager and lockfile. Start development through the supported Sites preview workflow, or `npm run dev` in a portable local environment. Build through the Sites build helper. Run `node node_modules/typescript/bin/tsc --noEmit` and `node --experimental-strip-types --test tests/domain.test.mjs tests/migration.test.mjs tests/backups.test.mjs tests/block-policy.test.mjs tests/setup.test.mjs` before publishing.
 
 The Sites skill contains the complete managed preview, Git synchronization, packaging, and publication workflow. `.openai/hosting.json` retains the canonical Site identity and its DB binding. Never replace its project ID when continuing development.
 
@@ -53,6 +53,22 @@ Lifecycle actions only change block status, version, and updated time. They neve
 
 Stage 3 requires no new migration or dependency. Training operations continue through `lib/store.ts` using the independent app user contract. The status graph and input validation live in provider-independent `lib/blocks.ts`. Integration tests cover concurrent activations, stale settings/status versions, ownership, first-request creation, exact summary calculations, archived exports, page routing, and unchanged workout records across lifecycle transitions. `/preview?view=blocks` provides synthetic browser QA data only and remains unavailable in production.
 
+## Guided block setup (Stage 4)
+
+**Create training block** opens `/blocks/new` with five steps: goal, runner, starting fitness, availability, and review. **Manual block** retains Stage 3's name/date draft for users entering their own schedules. Existing empty manual drafts can also start guided setup; blocks with workouts keep their existing logs.
+
+Guided setup collects a distance/time goal and training/target dates; age, weight, and height; current weekly distance, longest recent run, and running days; dated 5K, 10K, or half-marathon best efforts; available training days and a preferred long-run day. At least one dated best effort is required to complete the inputs. VO₂ max is optional and, when supplied, includes its source and measurement date. It does not replace a performance result. Imperial/metric switching converts entered measurements and baseline distances; the goal distance is stored in kilometres. Blank measurements remain unknown, and explicit zero running volume remains zero.
+
+Save draft requires a block name and target date, and allows other fields to remain blank. `/blocks/:id/setup` resumes the saved snapshot and step. Save setup checks all required inputs. Both actions validate supplied values, dates, duration syntax, and selected days; neither action approves the goal's feasibility. This stage does not generate workouts. Guided drafts cannot activate or accept workout edits until later stages provide a generated and reviewed schedule. Archive/reopen and viewing preserved setup remain available. Runner information is a snapshot for that block, without changing a global profile or copying measurements into another block.
+
+`POST /api/blocks` additionally accepts `{setup, complete?}`; creation stores the metadata and snapshot together. `GET /api/blocks/:id/setup` returns the owned block; `PUT` accepts `{setup, version, complete?}` and atomically updates its metadata, snapshot, and version. `complete: true` enforces required inputs. Only empty drafts can change setup. Conditional updates and inserts ensure that a simultaneous first workout and setup attachment cannot both succeed. Stale versions return 409, and foreign IDs share the unknown-ID response. Page boundaries decode an encoded block ID once; API route parameters are already decoded. The library returns only `hasSetup`, without downloading runner measurements for each card.
+
+Migration `0002_guided_block_setup.sql` adds one nullable JSON text field, `training_plans.setup`. Its nested `schemaVersion` is 1. Existing blocks retain `NULL`; no IDs, workouts, results, or measurements are rewritten or fabricated. New backups include this optional snapshot, and the existing v1/v2 readers still accept older files without it. Tests rehearse exact snapshot recovery in isolated D1. Keep backups private because snapshots contain runner information.
+
+Once guided drafts exist, retain Stage 4's activation and workout-write guards in any code rollback: older code would treat those drafts as manual blocks. The additive migration can remain applied if publication fails. Validation and unit conversion live in provider-independent `lib/setup.ts`; database operations remain in `lib/store.ts`, preserving the existing AWS migration boundary. There is no new dependency or external paid service.
+
+Tests cover partial saves, required benchmarks, optional VO₂, units, invalid values, ownership, conflicting writes, attachment/workout races, archived snapshots, export/restore, and encoded nested page links. `/preview?view=setup` uses synthetic values for browser QA and remains unavailable in production.
+
 ## Portability boundaries (Stage 2.1)
 
 `lib/user.ts` defines the app's user contract. `lib/auth.ts` adapts the existing Sites sign-in helpers to that contract, passing the provider's stable user ID through unchanged. Storage and API code use the app contract. A future AWS sign-in provider must map new identities to existing owner IDs; email is not an ownership key. The configured email check for the private initial spreadsheet import is a separate eligibility check.
@@ -85,4 +101,4 @@ Overall completion includes future workouts. Through-yesterday completion uses d
 
 ## Deferred
 
-Runner setup and saved assessments, automatic training generation, public sharing, wearable/Strava integrations, and a native mobile app remain future stages. The block library, manual drafts, block-scoped tracker, and lifecycle controls are available from Stage 3. Multiple-block storage and scoped APIs are in place from Stage 2; responsive browser layouts and user ownership are in place from phase 1.
+Goal feasibility assessment (Stage 5), automatic training generation (Stage 6), generated-plan review and activation (Stage 7), public sharing, wearable/Strava integrations, and a native mobile app remain future stages. Guided runner/goal inputs and saved snapshots are available from Stage 4. The block library, manual drafts, block-scoped tracker, and lifecycle controls are available from Stage 3. Multiple-block storage and scoped APIs are in place from Stage 2; responsive browser layouts and user ownership are in place from phase 1.
