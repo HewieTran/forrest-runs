@@ -1,4 +1,3 @@
-import { env } from 'cloudflare:workers';
 import { and, asc, eq, ne } from 'drizzle-orm';
 import { getDb } from '../db';
 import { plans, workouts } from '../db/schema';
@@ -7,48 +6,15 @@ import {
   centralToday,
   type AppData,
   type Plan,
-  type Workout,
+  type RaceSettingsInput,
   type WorkoutInput,
-  validateWorkout,
 } from './domain';
-import type { ChatGPTUser } from '../app/chatgpt-auth';
+import type { AppUser } from './user';
+import { insertInitialTraining, loadOwnerSeed } from '../db/initial-training';
 import type { TrainingBackupV2 } from './backups';
 import { TrainingRequestError } from './training-errors';
 
-type Seed = Pick<Plan, 'raceName' | 'raceDate' | 'paceGuide' | 'sourceName'> & {
-  workouts: Omit<Workout, 'id' | 'planId' | 'updatedAt' | 'version'>[];
-};
-async function loadOwnerSeed(user: ChatGPTUser): Promise<Seed | null> {
-  // Only the configured owner can receive the private spreadsheet import.
-  const runtimeVariables = env as unknown as Record<string, string | undefined>;
-  if (
-    !runtimeVariables.TRAINING_SEED_OWNER ||
-    user.email.toLowerCase() !==
-      runtimeVariables.TRAINING_SEED_OWNER.toLowerCase()
-  )
-    return null;
-  const encodedSeed = Array.from(
-    { length: 10 },
-    (_, chunkIndex) =>
-      runtimeVariables[`TRAINING_SEED_${chunkIndex + 1}`] ?? '',
-  ).join('');
-  if (!encodedSeed) return null;
-  const compressedBytes = Uint8Array.from(atob(encodedSeed), (character) =>
-    character.charCodeAt(0),
-  );
-  const decompressedStream = new Blob([compressedBytes])
-    .stream()
-    .pipeThrough(new DecompressionStream('gzip'));
-  const seed = JSON.parse(
-    await new Response(decompressedStream).text(),
-  ) as Seed;
-  if (!Array.isArray(seed.workouts) || seed.workouts.length > 3000)
-    throw new Error('The initial training import is invalid.');
-  for (const workout of seed.workouts)
-    validateWorkout({ ...workout, version: 1 });
-  return seed;
-}
-export async function userPlan(user: ChatGPTUser, blockId?: string) {
+export async function userPlan(user: AppUser, blockId?: string) {
   const database = getDb();
   if (blockId !== undefined) {
     const ownedBlock = await database.select().from(plans)
@@ -69,7 +35,7 @@ export async function userPlan(user: ChatGPTUser, blockId?: string) {
   }
   // Existing plans are authoritative; the spreadsheet seed is only used once.
   if (plan) return plan;
-  const seed = await loadOwnerSeed(user);
+  const seed = await loadOwnerSeed(user.email);
   const timestamp = new Date().toISOString();
   const planId = `plan:${user.userId}`;
   const initialPlan = {
@@ -82,47 +48,9 @@ export async function userPlan(user: ChatGPTUser, blockId?: string) {
     createdAt: timestamp,
     updatedAt: timestamp,
   };
-  if (!env.DB) throw new Error('The training database is unavailable.');
-  const statements = [
-    env.DB.prepare(
-      'INSERT INTO training_plans (id,owner_id,race_name,race_date,pace_guide,source_name,version,created_at,updated_at) VALUES (?,?,?,?,?,?,1,?,?)',
-    ).bind(
-      planId,
-      user.userId,
-      initialPlan.raceName,
-      initialPlan.raceDate,
-      JSON.stringify(initialPlan.paceGuide),
-      initialPlan.sourceName,
-      timestamp,
-      timestamp,
-    ),
-  ];
-  for (const workout of seed?.workouts ?? [])
-    statements.push(
-      env.DB.prepare(
-        'INSERT INTO workouts (id,plan_id,date,phase,type,planned_workout,target_pace,done,actual_distance,actual_pace,effort,pain,notes,source_row,original_source,version,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?)',
-      ).bind(
-        `${planId}:row:${workout.sourceRow}`,
-        planId,
-        workout.date,
-        workout.phase,
-        workout.type,
-        workout.plannedWorkout,
-        workout.targetPace,
-        workout.done ? 1 : 0,
-        workout.actualDistance,
-        workout.actualPace,
-        workout.effort,
-        workout.pain,
-        workout.notes,
-        workout.sourceRow,
-        JSON.stringify(workout.originalSource),
-        timestamp,
-      ),
-    );
   try {
     // Create the plan and its workouts atomically, without partial imports.
-    await env.DB.batch(statements);
+    await insertInitialTraining(initialPlan, seed?.workouts ?? []);
   } catch (error) {
     // Another first-load request may have atomically created the same plan.
     plan = await database
@@ -140,7 +68,7 @@ export async function userPlan(user: ChatGPTUser, blockId?: string) {
     .orderBy(asc(plans.createdAt), asc(plans.id)).limit(1)
     .get())!;
 }
-export async function loadTraining(user: ChatGPTUser, blockId?: string): Promise<AppData> {
+export async function loadTraining(user: AppUser, blockId?: string): Promise<AppData> {
   const ownedPlan = await userPlan(user, blockId);
   const { ownerId: _ownerId, ...plan } = ownedPlan;
   const savedWorkouts = await getDb()
@@ -156,7 +84,7 @@ export async function loadTraining(user: ChatGPTUser, blockId?: string): Promise
   };
 }
 
-export async function writablePlan(user: ChatGPTUser, blockId?: string) {
+export async function writablePlan(user: AppUser, blockId?: string) {
   const selectedPlan = await userPlan(user, blockId);
   if (blockId === undefined) {
     const anotherBlock = await getDb().select({ id: plans.id }).from(plans)
@@ -168,7 +96,34 @@ export async function writablePlan(user: ChatGPTUser, blockId?: string) {
   return selectedPlan;
 }
 
-export async function listBlocks(user: ChatGPTUser): Promise<Plan[]> {
+export async function saveRaceSettings(
+  user: AppUser,
+  input: RaceSettingsInput,
+  blockId?: string,
+): Promise<AppData> {
+  const plan = await writablePlan(user, blockId);
+  const saved = await getDb()
+    .update(plans)
+    .set({
+      raceName: input.raceName.trim(),
+      raceDate: input.raceDate,
+      version: input.version + 1,
+      updatedAt: new Date().toISOString(),
+    })
+    .where(and(
+      eq(plans.id, plan.id),
+      eq(plans.ownerId, user.userId),
+      eq(plans.version, input.version),
+    ))
+    .returning()
+    .get();
+  if (!saved) {
+    throw new TrainingRequestError('Race settings changed in another tab. Reload before saving.', 409);
+  }
+  return loadTraining(user, plan.id);
+}
+
+export async function listBlocks(user: AppUser): Promise<Plan[]> {
   await userPlan(user);
   const ownedBlocks = await getDb().select().from(plans)
     .where(eq(plans.ownerId, user.userId))
@@ -176,7 +131,7 @@ export async function listBlocks(user: ChatGPTUser): Promise<Plan[]> {
   return ownedBlocks.map(({ ownerId: _ownerId, ...block }) => block);
 }
 
-export async function exportTraining(user: ChatGPTUser): Promise<TrainingBackupV2> {
+export async function exportTraining(user: AppUser): Promise<TrainingBackupV2> {
   await userPlan(user);
   const database = getDb();
   // One atomic batch gives both queries the same account snapshot. No per-block queries.
@@ -196,7 +151,7 @@ export async function exportTraining(user: ChatGPTUser): Promise<TrainingBackupV
   };
 }
 export async function saveWorkout(
-  user: ChatGPTUser,
+  user: AppUser,
   workoutId: string,
   input: WorkoutInput,
   blockId?: string,
@@ -221,7 +176,7 @@ export async function saveWorkout(
     .returning()
     .get();
 }
-export async function addWorkout(user: ChatGPTUser, input: WorkoutInput, blockId?: string) {
+export async function addWorkout(user: AppUser, input: WorkoutInput, blockId?: string) {
   const plan = await writablePlan(user, blockId);
   return getDb()
     .insert(workouts)

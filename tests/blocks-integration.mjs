@@ -13,7 +13,7 @@ export async function testBlocks(db, dispatch) {
   const initial = (await call('/api/training')).data;
   const originalId = initial.plan.id;
   const originalWorkout = initial.workouts[0];
-  const settings = { raceName: 'Next goal', raceDate: '2027-05-01', version: 1 };
+  const settings = { raceName: '  Next goal  ', raceDate: '2027-05-01', version: 1 };
   for (const status of ['draft', 'completed', 'archived']) {
     await db.prepare(`INSERT INTO training_plans (id, owner_id, status, race_name, race_date, pace_guide, created_at, updated_at)
       VALUES (?, 'integration-owner', ?, 'Next goal', '2027-05-01', '[]', '2026-10-23T00:00:00.000Z', '2026-10-23T00:00:00.000Z')`).bind(status, status).run();
@@ -27,7 +27,8 @@ export async function testBlocks(db, dispatch) {
   assert.equal((await call('/api/blocks', 'GET', undefined, {})).status, 401);
   assert.equal((await call('/api/training')).data.plan.id, originalId);
   const scoped = '/api/training?blockId=draft';
-  assert.equal((await call(scoped)).data.workouts.length, 0);
+  const beforeSettings = (await call(scoped)).data;
+  assert.equal(beforeSettings.workouts.length, 0);
   assert.equal((await call('/api/training?blockId=draft&blockId=completed')).status, 400);
   assert.equal((await call('/api/training?blockId=')).status, 400);
 
@@ -50,7 +51,15 @@ export async function testBlocks(db, dispatch) {
   assert.equal(savedSettings.status, 200);
   assert.equal(savedSettings.data.plan.id, 'draft');
   assert.equal(savedSettings.data.plan.version, 2);
+  assert.equal(savedSettings.data.plan.raceName, 'Next goal');
+  assert.equal(savedSettings.data.plan.raceDate, settings.raceDate);
+  const unchangedMetadata = ({ raceName, raceDate, version, updatedAt, ...unchanged }) => unchanged;
+  assert.deepEqual(unchangedMetadata(savedSettings.data.plan), unchangedMetadata(beforeSettings.plan));
+  assert.deepEqual(savedSettings.data.workouts, beforeSettings.workouts);
+  const invalidSettings = await call(scoped, 'PATCH', { ...settings, raceDate: '2027-02-30', version: 2 });
+  assert.equal(invalidSettings.status, 400);
   assert.equal((await call(scoped, 'PATCH', settings)).status, 409);
+  assert.deepEqual((await call(scoped)).data.plan, savedSettings.data.plan);
   assert.deepEqual((await call('/api/training')).data.plan, initial.plan);
   const created = await call('/api/workouts?blockId=draft', 'POST', { ...originalWorkout, planId: foreignId, actualDistance: 0, sourceRow: 999, originalSource: { spoof: true }, notes: 'New draft note' });
   assert.equal(created.status, 201);
