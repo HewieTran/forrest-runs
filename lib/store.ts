@@ -1,5 +1,5 @@
 import { env } from 'cloudflare:workers';
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, ne } from 'drizzle-orm';
 import { getDb } from '../db';
 import { plans, workouts } from '../db/schema';
 import {
@@ -12,6 +12,8 @@ import {
   validateWorkout,
 } from './domain';
 import type { ChatGPTUser } from '../app/chatgpt-auth';
+import type { TrainingBackupV2 } from './backups';
+import { TrainingRequestError } from './training-errors';
 
 type Seed = Pick<Plan, 'raceName' | 'raceDate' | 'paceGuide' | 'sourceName'> & {
   workouts: Omit<Workout, 'id' | 'planId' | 'updatedAt' | 'version'>[];
@@ -46,13 +48,25 @@ async function loadOwnerSeed(user: ChatGPTUser): Promise<Seed | null> {
     validateWorkout({ ...workout, version: 1 });
   return seed;
 }
-export async function userPlan(user: ChatGPTUser) {
+export async function userPlan(user: ChatGPTUser, blockId?: string) {
   const database = getDb();
+  if (blockId !== undefined) {
+    const ownedBlock = await database.select().from(plans)
+      .where(and(eq(plans.id, blockId), eq(plans.ownerId, user.userId))).get();
+    if (!ownedBlock) throw new TrainingRequestError('This training block is unavailable.', 404);
+    return ownedBlock;
+  }
   let plan = await database
     .select()
     .from(plans)
-    .where(eq(plans.ownerId, user.userId))
+    .where(and(eq(plans.ownerId, user.userId), eq(plans.status, 'active')))
     .get();
+  if (!plan) {
+    // A stable fallback supports accounts with drafts/history but no active block.
+    plan = await database.select().from(plans)
+      .where(eq(plans.ownerId, user.userId))
+      .orderBy(asc(plans.createdAt), asc(plans.id)).limit(1).get();
+  }
   // Existing plans are authoritative; the spreadsheet seed is only used once.
   if (plan) return plan;
   const seed = await loadOwnerSeed(user);
@@ -115,6 +129,7 @@ export async function userPlan(user: ChatGPTUser) {
       .select()
       .from(plans)
       .where(eq(plans.ownerId, user.userId))
+      .orderBy(asc(plans.createdAt), asc(plans.id)).limit(1)
       .get();
     if (!plan) throw error;
   }
@@ -122,10 +137,11 @@ export async function userPlan(user: ChatGPTUser) {
     .select()
     .from(plans)
     .where(eq(plans.ownerId, user.userId))
+    .orderBy(asc(plans.createdAt), asc(plans.id)).limit(1)
     .get())!;
 }
-export async function loadTraining(user: ChatGPTUser): Promise<AppData> {
-  const ownedPlan = await userPlan(user);
+export async function loadTraining(user: ChatGPTUser, blockId?: string): Promise<AppData> {
+  const ownedPlan = await userPlan(user, blockId);
   const { ownerId: _ownerId, ...plan } = ownedPlan;
   const savedWorkouts = await getDb()
     .select()
@@ -139,12 +155,53 @@ export async function loadTraining(user: ChatGPTUser): Promise<AppData> {
     today: centralToday(),
   };
 }
+
+export async function writablePlan(user: ChatGPTUser, blockId?: string) {
+  const selectedPlan = await userPlan(user, blockId);
+  if (blockId === undefined) {
+    const anotherBlock = await getDb().select({ id: plans.id }).from(plans)
+      .where(and(eq(plans.ownerId, user.userId), ne(plans.id, selectedPlan.id)))
+      .limit(1).get();
+    // Old tabs must reload rather than silently save into a different active block.
+    if (anotherBlock) throw new TrainingRequestError('Select a training block before saving. Reload to continue.', 409);
+  }
+  return selectedPlan;
+}
+
+export async function listBlocks(user: ChatGPTUser): Promise<Plan[]> {
+  await userPlan(user);
+  const ownedBlocks = await getDb().select().from(plans)
+    .where(eq(plans.ownerId, user.userId))
+    .orderBy(asc(plans.createdAt), asc(plans.id));
+  return ownedBlocks.map(({ ownerId: _ownerId, ...block }) => block);
+}
+
+export async function exportTraining(user: ChatGPTUser): Promise<TrainingBackupV2> {
+  await userPlan(user);
+  const database = getDb();
+  // One atomic batch gives both queries the same account snapshot. No per-block queries.
+  const [ownedBlocks, ownedWorkouts] = await database.batch([
+    database.select().from(plans).where(eq(plans.ownerId, user.userId))
+      .orderBy(asc(plans.createdAt), asc(plans.id)),
+    database.select({ workout: workouts }).from(workouts)
+      .innerJoin(plans, eq(workouts.planId, plans.id))
+      .where(eq(plans.ownerId, user.userId))
+      .orderBy(asc(workouts.planId), asc(workouts.date), asc(workouts.id)),
+  ]);
+  return {
+    schemaVersion: 2,
+    exportedAt: new Date().toISOString(),
+    blocks: ownedBlocks.map(({ ownerId: _ownerId, ...block }) => block),
+    workouts: ownedWorkouts.map(({ workout }) => workout),
+  };
+}
 export async function saveWorkout(
   user: ChatGPTUser,
   workoutId: string,
   input: WorkoutInput,
+  blockId?: string,
 ) {
-  const plan = await userPlan(user);
+  const plan = await writablePlan(user, blockId);
   const { version, ...workoutValues } = input;
   // Ownership prevents cross-account edits. Version matching rejects stale tabs.
   return getDb()
@@ -164,8 +221,8 @@ export async function saveWorkout(
     .returning()
     .get();
 }
-export async function addWorkout(user: ChatGPTUser, input: WorkoutInput) {
-  const plan = await userPlan(user);
+export async function addWorkout(user: ChatGPTUser, input: WorkoutInput, blockId?: string) {
+  const plan = await writablePlan(user, blockId);
   return getDb()
     .insert(workouts)
     .values({
