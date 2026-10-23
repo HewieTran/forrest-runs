@@ -1,3 +1,5 @@
+import type { BlockSetup } from './setup';
+
 export const TYPES = [
   'Easy Run',
   'Quality Run',
@@ -19,6 +21,7 @@ export const BLOCK_STATUSES = ['draft', 'active', 'completed', 'archived'] as co
 export type BlockStatus = (typeof BLOCK_STATUSES)[number];
 export type Plan = {
   id: string;
+  setup?: BlockSetup | null;
   status: BlockStatus;
   raceName: string;
   raceDate: string;

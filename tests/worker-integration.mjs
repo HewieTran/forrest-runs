@@ -4,6 +4,7 @@ import path from 'node:path';
 import { Miniflare, applyAllMigrations } from './d1-helpers.mjs';
 import { testBlocks } from './blocks-integration.mjs';
 import { testLifecycle } from './lifecycle-integration.mjs';
+import { testSetup } from './setup-integration.mjs';
 const chunks=JSON.parse(await readFile('.sites-runtime/training-import.env.json','utf8'));
 const serverFiles=await readdir('dist/server',{recursive:true});
 const modules=['index.js',...serverFiles.filter(p=>p.endsWith('.js')&&p!=='index.js')].map(p=>({type:'ESModule',path:path.resolve('dist/server',p)}));
@@ -33,6 +34,7 @@ try {
  console.log('PASS: app identity preserves owner IDs, imported workout IDs, decoded display names, and sign-in behavior.');
  await testBlocks(db, (input, init) => mf.dispatchFetch(input, init));
  await testLifecycle(db, (input, init) => mf.dispatchFetch(input, init));
+ await testSetup(db, (input, init) => mf.dispatchFetch(input, init));
  const preview=await mf.dispatchFetch('http://localhost/preview');
  if(preview.status!==404)throw new Error('The development preview must not be exposed in production.');
  console.log('PASS: production build hides the synthetic preview.');

@@ -113,7 +113,7 @@ export async function testBlocks(db, dispatch) {
   console.log('PASS: saves remain pinned after an active-block switch, deterministic fallback, and concurrent first-load import.');
 }
 
-async function testRestore(input) {
+export async function testRestore(input) {
   const backup = normalizeTrainingBackup(input);
   const worker = new Miniflare({ modules: true, script: 'export default {fetch(){return new Response("test")}}', compatibilityDate: '2026-05-15', cf: false, d1Databases: { DB: 'backup-restore-test' } });
   try {
@@ -121,15 +121,15 @@ async function testRestore(input) {
     await applyAllMigrations(db);
     const statements = [];
     for (const block of backup.blocks) statements.push(db.prepare(`INSERT INTO training_plans
-      (id,owner_id,status,race_name,race_date,pace_guide,source_name,version,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)`)
-      .bind(block.id, 'verified-restore-owner', block.status, block.raceName, block.raceDate, JSON.stringify(block.paceGuide), block.sourceName, block.version, block.createdAt, block.updatedAt));
+      (id,owner_id,status,race_name,race_date,pace_guide,source_name,version,created_at,updated_at,setup) VALUES (?,?,?,?,?,?,?,?,?,?,?)`)
+      .bind(block.id, 'verified-restore-owner', block.status, block.raceName, block.raceDate, JSON.stringify(block.paceGuide), block.sourceName, block.version, block.createdAt, block.updatedAt, block.setup == null ? null : JSON.stringify(block.setup)));
     for (const w of backup.workouts) statements.push(db.prepare(`INSERT INTO workouts
       (id,plan_id,date,phase,type,planned_workout,target_pace,done,actual_distance,actual_pace,effort,pain,notes,source_row,original_source,version,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
       .bind(w.id, w.planId, w.date, w.phase, w.type, w.plannedWorkout, w.targetPace, Number(w.done), w.actualDistance, w.actualPace, w.effort, w.pain, w.notes, w.sourceRow, w.originalSource === null ? null : JSON.stringify(w.originalSource), w.version, w.updatedAt));
     await db.batch(statements);
-    const columns = 'id, status, race_name AS raceName, race_date AS raceDate, pace_guide AS paceGuide, source_name AS sourceName, version, created_at AS createdAt, updated_at AS updatedAt';
-    const blocks = (await db.prepare('SELECT ' + columns + ' FROM training_plans ORDER BY id').all()).results.map(b => ({ ...b, paceGuide: JSON.parse(b.paceGuide) }));
-    assert.deepEqual(blocks, [...backup.blocks].sort((a, b) => a.id.localeCompare(b.id)));
+    const columns = 'id, status, setup, race_name AS raceName, race_date AS raceDate, pace_guide AS paceGuide, source_name AS sourceName, version, created_at AS createdAt, updated_at AS updatedAt';
+    const blocks = (await db.prepare('SELECT ' + columns + ' FROM training_plans ORDER BY id').all()).results.map(b => ({ ...b, paceGuide: JSON.parse(b.paceGuide), setup: b.setup === null ? null : JSON.parse(b.setup) }));
+    assert.deepEqual(blocks, backup.blocks.map(block => ({ ...block, setup: block.setup ?? null })).sort((a, b) => a.id.localeCompare(b.id)));
     const workouts = (await db.prepare(`SELECT id,plan_id AS planId,date,phase,type,planned_workout AS plannedWorkout,target_pace AS targetPace,done,actual_distance AS actualDistance,actual_pace AS actualPace,effort,pain,notes,source_row AS sourceRow,original_source AS originalSource,version,updated_at AS updatedAt FROM workouts ORDER BY id`).all()).results.map(w => ({ ...w, done: Boolean(w.done), originalSource: w.originalSource === null ? null : JSON.parse(w.originalSource) }));
     const byId = (a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
     assert.deepEqual(workouts, [...backup.workouts].sort(byId));
