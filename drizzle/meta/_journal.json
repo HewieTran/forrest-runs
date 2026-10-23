@@ -8,6 +8,13 @@
       "when": 1792710330649,
       "tag": "0000_hard_ronan",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1792731701356,
+      "tag": "0001_training_blocks",
+      "breakpoints": true
     }
   ]
 }

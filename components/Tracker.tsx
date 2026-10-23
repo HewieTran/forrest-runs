@@ -299,7 +299,7 @@ function RaceSettings({
         onClose();
         return;
       }
-      const response = await fetch('/api/training', {
+      const response = await fetch(`/api/training?blockId=${encodeURIComponent(data.plan.id)}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -564,8 +564,8 @@ export default function Tracker({
       } else {
         const response = await fetch(
           id === 'new'
-            ? '/api/workouts'
-            : `/api/workouts/${encodeURIComponent(id)}`,
+            ? `/api/workouts?blockId=${encodeURIComponent(data.plan.id)}`
+            : `/api/workouts/${encodeURIComponent(id)}?blockId=${encodeURIComponent(data.plan.id)}`,
           {
             method: id === 'new' ? 'POST' : 'PATCH',
             headers: { 'Content-Type': 'application/json' },

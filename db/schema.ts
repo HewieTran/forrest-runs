@@ -4,11 +4,16 @@ import {
   sqliteTable,
   text,
   index,
+  uniqueIndex,
 } from 'drizzle-orm/sqlite-core';
-// One training plan per signed-in user; ownerId is unique.
+import { sql } from 'drizzle-orm';
+import { BLOCK_STATUSES } from '../lib/domain';
+
+// A user can own many blocks; the partial index permits only one active block.
 export const plans = sqliteTable('training_plans', {
   id: text('id').primaryKey(),
-  ownerId: text('owner_id').notNull().unique(),
+  ownerId: text('owner_id').notNull(),
+  status: text('status', { enum: BLOCK_STATUSES }).notNull().default('active'),
   raceName: text('race_name').notNull(),
   raceDate: text('race_date').notNull(),
   paceGuide: text('pace_guide', { mode: 'json' })
@@ -18,7 +23,12 @@ export const plans = sqliteTable('training_plans', {
   version: integer('version').notNull().default(1),
   createdAt: text('created_at').notNull(),
   updatedAt: text('updated_at').notNull(),
-});
+}, (table) => [
+  index('training_plans_owner_created_idx').on(table.ownerId, table.createdAt, table.id),
+  uniqueIndex('training_plans_one_active_per_owner_idx')
+    .on(table.ownerId)
+    .where(sql`${table.status} = 'active'`),
+]);
 export const workouts = sqliteTable(
   'workouts',
   {
