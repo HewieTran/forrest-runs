@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./training.css";
 
 export const metadata: Metadata = {
-  title: "Marathon Training Tracker",
-  description: "Your training plan, workout log, and milestones in one place.",
+  title: "Forrest Runs",
+  description: "Forrest Runs brings your training plan, workout log, and milestones together.",
   icons: {
     icon: "/favicon.svg",
     shortcut: "/favicon.svg",

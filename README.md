@@ -1,6 +1,6 @@
-# Marathon Training Tracker
+# Forrest Runs
 
-A private, browser-based marathon training log. Phase 1 imports the Dashboard and Workout Tracker sheets, supports editing and rescheduling workouts, records actual results, and calculates progress and milestones.
+A private, browser-based running training log. Phase 1 imports the Dashboard and Workout Tracker sheets, supports editing and rescheduling workouts, records actual results, and calculates progress and milestones.
 
 ## Stack
 

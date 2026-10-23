@@ -705,7 +705,7 @@ export default function Tracker({
             <span className="brand-icon">
               <Activity size={23} />
             </span>
-            <span>Marathon training</span>
+            <span>Forrest Runs</span>
           </a>
           <div className="header-actions">
             {preview && <span className="preview-tag">Design preview</span>}
