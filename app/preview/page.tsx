@@ -2,6 +2,8 @@ import {notFound} from 'next/navigation';
 import Tracker from '../../components/Tracker';
 import BlockLibrary from '../../components/BlockLibrary';
 import SetupWizard from '../../components/SetupWizard';
+import ProgressOverview from '../../components/ProgressOverview';
+import {progressPreview} from '../../lib/progress-preview';
 import {type BlockSummary} from '../../lib/blocks';
 import {BLOCK_STATUSES,validDate,type BlockStatus} from '../../lib/domain';
 import {centralToday,weekStart,addDays,EMPTY_WORKOUT_MEASUREMENTS,type AppData,type Workout} from '../../lib/domain';
@@ -9,6 +11,8 @@ export const dynamic='force-dynamic';
 export default async function Preview({searchParams}:{searchParams:Promise<Record<string,string|undefined>>}){
  if(process.env.NODE_ENV!=='development')notFound();
  const query=await searchParams;
+ if(query.view==='progress-mobile')return <iframe title="Mobile progress preview" src="/preview?view=progress" style={{display:'block',width:390,maxWidth:'100%',height:850,border:0,margin:'20px auto'}}/>;
+ if(query.view==='progress')return <ProgressOverview data={progressPreview(query.scenario)} preview/>;
  if(query.view==='setup')return <SetupWizard displayName="Runner" today={centralToday()} preview/>;
  const today=centralToday(),start=weekStart(today),stamp=new Date().toISOString();
  const details=[['Easy Run','5 mi easy','12:45–13:45 /mi'],['Mobility','15–25 min mobility or easy walk','Recovery effort'],['Quality Run','5 mi steady','Steady 11:30–11:45 /mi; controlled'],['Easy Run','3 mi recovery','13:30–14:30 /mi; very easy'],['Strength','Upper-body climbing / strength','Controlled effort'],['Long Run','13 mi cutback','11:50–12:30 /mi; finish controlled']];
