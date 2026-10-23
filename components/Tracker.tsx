@@ -7,13 +7,11 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
-  Download,
   Dumbbell,
   Flag,
   Footprints,
   Info,
   LoaderCircle,
-  LockKeyhole,
   Pencil,
   Plus,
   Settings2,
@@ -36,6 +34,10 @@ import {
   type Workout,
   type WorkoutInput,
 } from '../lib/domain';
+import AppHeader from './AppHeader';
+import BlockActions, { BlockStatusBadge } from './BlockActions';
+import type { Plan } from '../lib/domain';
+
 const formatNumber = (value: number) =>
   value.toLocaleString('en-US', { maximumFractionDigits: 2 });
 const formatWorkoutTitle = (workoutType: string) =>
@@ -335,11 +337,11 @@ function RaceSettings({
       <div className="dialog-heading">
         <div>
           <p className="section-eyebrow">Your finish line</p>
-          <h2>Race settings</h2>
+          <h2>Block settings</h2>
         </div>
         <button
           className="icon-button"
-          aria-label="Close race settings"
+          aria-label="Close block settings"
           disabled={saving}
           onClick={onClose}
         >
@@ -348,7 +350,7 @@ function RaceSettings({
       </div>
       <form onSubmit={submit}>
         <label>
-          Race name
+          Block name
           <input
             value={raceName}
             onChange={(event) => setRaceName(event.target.value)}
@@ -358,7 +360,7 @@ function RaceSettings({
           />
         </label>
         <label>
-          Race date
+          Target / race date
           <input
             type="date"
             min="1900-01-01"
@@ -390,11 +392,14 @@ function RaceSettings({
 export default function Tracker({
   initial,
   preview = false,
+  activeBlock = null,
 }: {
   initial: AppData;
   preview?: boolean;
+  activeBlock?: Pick<Plan, 'id' | 'raceName'> | null;
 }) {
   const [data, setData] = useState(initial);
+  const [currentActive, setCurrentActive] = useState(activeBlock);
   const [selectedWeek, setSelectedWeek] = useState(weekStart(initial.today));
   const [filter, setFilter] = useState<Filter>('all');
   const [expandedWorkoutId, setExpandedWorkoutId] = useState<string | null>(
@@ -557,7 +562,7 @@ export default function Tracker({
             ? newWorkout
             : data.workouts.find((workout) => workout.id === id)!),
           ...input,
-          id: id === 'new' ? crypto.randomUUID() : id,
+          id: id === 'new' ? `preview-workout-${Date.now()}-${Math.random().toString(16).slice(2)}` : id,
           version: input.version + 1,
           updatedAt: new Date().toISOString(),
         };
@@ -692,53 +697,18 @@ export default function Tracker({
   }
   return (
     <div className="app-shell">
-      <header className="app-header">
-        <div className="header-inner">
-          <a
-            href="/"
-            className="brand"
-            onClick={(event) => {
-              if (hasUnsavedChanges && !confirmDiscardChanges())
-                event.preventDefault();
-            }}
-          >
-            <span className="brand-icon">
-              <Activity size={23} />
-            </span>
-            <span>Forrest Runs</span>
-          </a>
-          <div className="header-actions">
-            {preview && <span className="preview-tag">Design preview</span>}
-            <span className="private-label">
-              <LockKeyhole size={13} /> Private training log
-            </span>
-            <a
-              className="button quiet export-button"
-              href={preview ? undefined : '/api/export'}
-              onClick={(event) => {
-                if (preview) event.preventDefault();
-              }}
-              aria-disabled={preview}
-            >
-              <Download size={16} />
-              <span>Export backup</span>
-            </a>
-            <span className="avatar" title={data.displayName}>
-              {data.displayName[0]?.toUpperCase() || 'R'}
-            </span>
-          </div>
-        </div>
-      </header>
+      <AppHeader displayName={data.displayName} preview={preview} />
       <main className="main-content">
-        <section className="page-heading">
+        <a className="block-breadcrumb" href={preview ? '/preview?view=blocks' : '/blocks'}><ChevronLeft size={15} /> All training blocks</a>
+        <section className="page-heading block-detail-heading">
           <div>
-            <div className="overline">Your road to race day</div>
-            <h1>Training log</h1>
+            <div className="overline">Your road to race day · Training log</div>
+            <h1>{data.plan.raceName}</h1>
             <button
               className="race-subtitle"
               onClick={() => setShowRaceSettings(true)}
             >
-              <span>{data.plan.raceName}</span>
+              <span>Target date</span>
               <span className="dot">·</span>
               <span>
                 {formatDate(data.plan.raceDate, {
@@ -776,6 +746,17 @@ export default function Tracker({
             here are not saved.
           </div>
         )}
+        <section className="block-detail-toolbar" aria-label="Block management">
+          <div><BlockStatusBadge status={data.plan.status} /><span className="block-source">{data.plan.sourceName ? 'Imported training log' : 'Manual training block'} · {data.workouts.length} workouts</span></div>
+          <BlockActions plan={data.plan} activeBlock={currentActive} preview={preview} disabled={saving || hasUnsavedChanges} onChanged={block => {
+            setData(current => ({ ...current, plan: block }));
+            if (block.status === 'active') setCurrentActive({ id: block.id, raceName: block.raceName });
+            else if (currentActive?.id === block.id) setCurrentActive(null);
+            setToast('Block status updated. Your workout results are unchanged.');
+          }} />
+          {hasUnsavedChanges && <p className="small-muted block-management-hint">Save or cancel your workout edits before changing block status.</p>}
+        </section>
+        {data.workouts.length === 0 && <div className="block-callout block-empty-guide"><Flag size={20} /><div><strong>Your training starts with one workout.</strong><p>Add your own schedule below.{data.plan.status === 'draft' ? ' This block is a draft until you activate it.' : ''}</p></div></div>}
         <div className="content-grid">
           <section
             className="training-section"
@@ -971,7 +952,7 @@ export default function Tracker({
             </div>
             <section className="panel progress-panel">
               <div className="panel-title">
-                <h3>Plan completed</h3>
+                <h3>Workouts completed</h3>
                 <Activity size={17} />
               </div>
               <div className="progress-headline">
@@ -1210,7 +1191,7 @@ export default function Tracker({
           onClose={() => setShowRaceSettings(false)}
           onSaved={(value) => {
             setData(value);
-            setToast('Race settings saved.');
+            setToast('Block settings saved.');
           }}
         />
       )}

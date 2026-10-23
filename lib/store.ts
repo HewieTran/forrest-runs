@@ -1,4 +1,4 @@
-import { and, asc, eq, ne } from 'drizzle-orm';
+import { and, asc, desc, eq, ne, sql } from 'drizzle-orm';
 import { getDb } from '../db';
 import { plans, workouts } from '../db/schema';
 import {
@@ -13,6 +13,7 @@ import type { AppUser } from './user';
 import { insertInitialTraining, loadOwnerSeed } from '../db/initial-training';
 import type { TrainingBackupV2 } from './backups';
 import { TrainingRequestError } from './training-errors';
+import { canChangeBlockStatus, type NewBlockInput, type BlockStatusInput, type BlockSummary } from './blocks';
 
 export async function userPlan(user: AppUser, blockId?: string) {
   const database = getDb();
@@ -129,6 +130,64 @@ export async function listBlocks(user: AppUser): Promise<Plan[]> {
     .where(eq(plans.ownerId, user.userId))
     .orderBy(asc(plans.createdAt), asc(plans.id));
   return ownedBlocks.map(({ ownerId: _ownerId, ...block }) => block);
+}
+
+export async function loadBlockLibrary(user: AppUser): Promise<BlockSummary[]> {
+  await userPlan(user);
+  // One grouped read returns card summaries without downloading every workout.
+  const rows = await getDb().select({
+    block: plans,
+    workoutCount: sql<number>`count(${workouts.id})`.mapWith(Number),
+    completedCount: sql<number>`coalesce(sum(case when ${workouts.done} = 1 then 1 else 0 end), 0)`.mapWith(Number),
+    recordedMiles: sql<number>`coalesce(sum(case when ${workouts.done} = 1 and ${workouts.type} not in ('Strength', 'Mobility') then ${workouts.actualDistance} else 0 end), 0)`.mapWith(Number),
+    firstWorkoutDate: sql<string | null>`min(${workouts.date})`,
+    lastWorkoutDate: sql<string | null>`max(${workouts.date})`,
+  }).from(plans).leftJoin(workouts, eq(workouts.planId, plans.id))
+    .where(eq(plans.ownerId, user.userId)).groupBy(plans.id)
+    .orderBy(desc(plans.createdAt), asc(plans.id));
+  return rows.map(({ block: { ownerId: _ownerId, ...block }, ...summary }) => ({ ...block, ...summary }));
+}
+
+export async function createBlock(user: AppUser, input: NewBlockInput): Promise<Plan> {
+  // Preserve the first-load import even if an account's first request creates a draft.
+  await userPlan(user);
+  const timestamp = new Date().toISOString();
+  const saved = await getDb().insert(plans).values({
+    id: crypto.randomUUID(), ownerId: user.userId, status: 'draft',
+    raceName: input.raceName, raceDate: input.raceDate, paceGuide: [],
+    sourceName: null, version: 1, createdAt: timestamp, updatedAt: timestamp,
+  }).returning().get();
+  const { ownerId: _ownerId, ...block } = saved!;
+  return block;
+}
+
+export async function changeBlockStatus(user: AppUser, blockId: string, input: BlockStatusInput): Promise<Plan> {
+  const block = await userPlan(user, blockId);
+  if (!canChangeBlockStatus(block.status, input.status))
+    throw new TrainingRequestError('This status change is unavailable. Reload the block to see its current status.', 409);
+  // A single conditional update is atomic. Two racing activations cannot both win;
+  // the partial unique index is an additional database-level guarantee.
+  const saved = await getDb().update(plans).set({
+    status: input.status, version: input.version + 1, updatedAt: new Date().toISOString(),
+  }).where(and(
+    eq(plans.id, blockId), eq(plans.ownerId, user.userId),
+    eq(plans.version, input.version), eq(plans.status, block.status),
+    input.status === 'active'
+      ? sql`not exists (select 1 from training_plans active_block where active_block.owner_id = ${user.userId} and active_block.status = 'active')`
+      : undefined,
+  )).returning().get();
+  if (!saved) throw new TrainingRequestError(
+    input.status === 'active'
+      ? 'The block changed or another block is active. Complete or archive the active block, then reload before activating.'
+      : 'This block changed in another tab. Reload before changing its status.', 409,
+  );
+  const { ownerId: _ownerId, ...result } = saved;
+  return result;
+}
+
+export async function activeBlock(user: AppUser): Promise<Pick<Plan, 'id' | 'raceName'> | null> {
+  return await getDb().select({ id: plans.id, raceName: plans.raceName }).from(plans)
+    .where(and(eq(plans.ownerId, user.userId), eq(plans.status, 'active'))).get() ?? null;
 }
 
 export async function exportTraining(user: AppUser): Promise<TrainingBackupV2> {

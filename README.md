@@ -8,7 +8,7 @@ React and TypeScript; responsive CSS; Vinext and Cloudflare Workers; D1 with Dri
 
 ## Development
 
-Use Node.js 22.13 or later. Install dependencies with the Sites plugin's install-dependencies helper, which selects the project's package manager and lockfile. Start development through the supported Sites preview workflow, or `npm run dev` in a portable local environment. Build through the Sites build helper. Run `node node_modules/typescript/bin/tsc --noEmit` and `node --experimental-strip-types --test tests/domain.test.mjs tests/migration.test.mjs tests/backups.test.mjs` before publishing.
+Use Node.js 22.13 or later. Install dependencies with the Sites plugin's install-dependencies helper, which selects the project's package manager and lockfile. Start development through the supported Sites preview workflow, or `npm run dev` in a portable local environment. Build through the Sites build helper. Run `node node_modules/typescript/bin/tsc --noEmit` and `node --experimental-strip-types --test tests/domain.test.mjs tests/migration.test.mjs tests/backups.test.mjs tests/block-policy.test.mjs` before publishing.
 
 The Sites skill contains the complete managed preview, Git synchronization, packaging, and publication workflow. `.openai/hosting.json` retains the canonical Site identity and its DB binding. Never replace its project ID when continuing development.
 
@@ -26,13 +26,32 @@ Sites applies migrations before uploading Worker code. The pre-Stage-2 app remai
 
 The physical tables remain `training_plans` and `workouts`; a block is a plan, and `workouts.plan_id` remains its foreign key. Legacy plan and workout IDs, imported source values, versions, notes, timestamps, and unknown-versus-zero distances are preserved.
 
-- `GET /api/blocks` returns only the current account's block metadata, ordered by creation time then ID. It omits internal owner IDs and workout rows.
+- `GET /api/blocks` returns only the current account's block metadata and summary counts, ordered newest first then ID. It omits internal owner IDs and workout rows. Summaries use one grouped join with the existing owner and workout/block indexes; the UI sorts the active block first.
 - `GET /api/training?blockId=ID` loads exactly that owned block. Unknown or foreign blocks return the same 404 and never trigger an import.
 - Without `blockId`, reads select the active block; if none exists, the oldest block by creation time then ID. Only an account with no blocks receives the initial import or empty starter block.
 - `PATCH /api/training`, `POST /api/workouts`, and `PATCH /api/workouts/:id` accept `?blockId=ID`. The current UI pins every save to the block being viewed. Workout membership is enforced server-side, and existing version checks still reject stale edits. Supplied owner IDs, plan IDs, versions on creation, and import metadata cannot redirect a workout or forge source values.
 - For backward compatibility, writes without `blockId` work while the account has exactly one block. With multiple blocks they return 409 and require a reload/selection, protecting older tabs from saving into a newly active block. Malformed or repeated block IDs return 400. All responses use private, non-cacheable data headers.
 
-Block creation, activation, completion, archival, and the library/selection UI are Stage 3 work. They are intentionally not exposed as write endpoints in this stage. No database service change or dependency upgrade is required for this schema change.
+## Training block library and lifecycle (Stage 3)
+
+`/` and `/blocks` show the block library. Search and status filters work on the loaded metadata; cards show workout completion, recorded running miles, the first scheduled workout date, and the target date. `/blocks/:id` opens the existing tracker for that block with its log, progress, milestones, settings, and status controls. Unavailable and foreign block URLs return the same 404. Full-page navigation retains the tracker's unsaved-edit warning.
+
+`POST /api/blocks` accepts `{raceName, raceDate}` and always creates a manual draft with a server-generated ID and no workouts. It ignores supplied ownership, status, source metadata, and versions. The existing first-load import runs before the first draft is created, preserving legacy owner data even if creation is an account's first request. Manual drafts are for users to enter their own schedules; runner assessment and generated schedules belong to later stages.
+
+`PATCH /api/blocks/:id` accepts `{status, version}` and permits these explicit transitions:
+
+| Current status | Available next statuses |
+| --- | --- |
+| Draft | Active, archived |
+| Active | Completed, archived |
+| Completed | Archived |
+| Archived | Draft |
+
+Activation requires that the account has no active block. The UI explains which block must first be completed or archived; the API enforces this with a single conditional update in addition to the unique active-owner index. Competing activations cannot replace the current block or both succeed. Status and race-setting updates share the same plan version, so stale actions return 409. No automatic status changes depend on elapsed dates or workout progress.
+
+Lifecycle actions only change block status, version, and updated time. They never modify workout rows, mark workouts done, or assert goal achievement. Archived blocks remain accessible through the library and exports, and can be moved back to drafts. Historical workout edits remain available for corrections. There is no delete endpoint. The confirmation dialogs explain each action; status changes are disabled while a workout has unsaved edits.
+
+Stage 3 requires no new migration or dependency. Training operations continue through `lib/store.ts` using the independent app user contract. The status graph and input validation live in provider-independent `lib/blocks.ts`. Integration tests cover concurrent activations, stale settings/status versions, ownership, first-request creation, exact summary calculations, archived exports, page routing, and unchanged workout records across lifecycle transitions. `/preview?view=blocks` provides synthetic browser QA data only and remains unavailable in production.
 
 ## Portability boundaries (Stage 2.1)
 
@@ -66,4 +85,4 @@ Overall completion includes future workouts. Through-yesterday completion uses d
 
 ## Deferred
 
-Block library/lifecycle screens, public sharing, wearable/Strava integrations, automatic coaching, and a native mobile app remain future phases. Multiple-block storage and scoped APIs are in place from Stage 2; responsive browser layouts and user ownership are in place from phase 1.
+Runner setup and saved assessments, automatic training generation, public sharing, wearable/Strava integrations, and a native mobile app remain future stages. The block library, manual drafts, block-scoped tracker, and lifecycle controls are available from Stage 3. Multiple-block storage and scoped APIs are in place from Stage 2; responsive browser layouts and user ownership are in place from phase 1.
