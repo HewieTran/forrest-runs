@@ -15,8 +15,11 @@ export const PHASES = [
   'Race Week',
 ] as const;
 export type PaceGuide = { type: string; target: string; rule: string };
+export const BLOCK_STATUSES = ['draft', 'active', 'completed', 'archived'] as const;
+export type BlockStatus = (typeof BLOCK_STATUSES)[number];
 export type Plan = {
   id: string;
+  status: BlockStatus;
   raceName: string;
   raceDate: string;
   paceGuide: PaceGuide[];
