@@ -706,6 +706,7 @@ export default function Tracker({
             <h1>{data.plan.raceName}</h1>
             <button
               className="race-subtitle"
+              disabled={!!data.plan.setup}
               onClick={() => setShowRaceSettings(true)}
             >
               <span>Target date</span>
@@ -747,7 +748,7 @@ export default function Tracker({
           </div>
         )}
         <section className="block-detail-toolbar" aria-label="Block management">
-          <div><BlockStatusBadge status={data.plan.status} /><span className="block-source">{data.plan.sourceName ? 'Imported training log' : 'Manual training block'} · {data.workouts.length} workouts</span></div>
+          <div><BlockStatusBadge status={data.plan.status} /><span className="block-source">{data.plan.sourceName ? 'Imported training log' : data.plan.setup ? 'Guided setup' : 'Manual training block'} · {data.workouts.length} workouts</span></div>
           <BlockActions plan={data.plan} activeBlock={currentActive} preview={preview} disabled={saving || hasUnsavedChanges} onChanged={block => {
             setData(current => ({ ...current, plan: block }));
             if (block.status === 'active') setCurrentActive({ id: block.id, raceName: block.raceName });
@@ -756,7 +757,8 @@ export default function Tracker({
           }} />
           {hasUnsavedChanges && <p className="small-muted block-management-hint">Save or cancel your workout edits before changing block status.</p>}
         </section>
-        {data.workouts.length === 0 && <div className="block-callout block-empty-guide"><Flag size={20} /><div><strong>Your training starts with one workout.</strong><p>Add your own schedule below.{data.plan.status === 'draft' ? ' This block is a draft until you activate it.' : ''}</p></div></div>}
+        {data.plan.setup && <section className="block-callout setup-snapshot-notice"><Flag size={21} /><div><strong>Your starting setup is saved with this block.</strong><p>{data.plan.setup.goal.distanceKm ?? 'Distance not set'} km · Target {data.plan.setup.goal.targetTime || 'time not set'} · {data.plan.setup.availability.days.length} available running days</p><p>A reviewed training schedule is required before activation.</p><a className="button" href={preview ? '/preview?view=setup' : `/blocks/${encodeURIComponent(data.plan.id)}/setup`}>{data.plan.status === 'draft' ? 'Continue guided setup' : 'View starting setup'}</a></div></section>}
+        {data.workouts.length === 0 && !data.plan.setup && <div className="block-callout block-empty-guide"><Flag size={20} /><div><strong>Your training starts with one workout.</strong><p>Add your own schedule below.{data.plan.status === 'draft' ? ' This block is a draft until you activate it.' : ''}</p>{data.plan.status === 'draft' && <a className="text-link" href={preview ? '/preview?view=setup' : `/blocks/${encodeURIComponent(data.plan.id)}/setup`}>Or start guided setup for this empty draft →</a>}</div></div>}
         <div className="content-grid">
           <section
             className="training-section"
@@ -831,7 +833,7 @@ export default function Tracker({
                       setFilter('all');
                     }
                   }}
-                  disabled={saving}
+                  disabled={saving || !!data.plan.setup}
                 >
                   <Plus size={16} />
                   <span>Add workout</span>

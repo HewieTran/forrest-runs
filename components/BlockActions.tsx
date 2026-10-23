@@ -44,7 +44,7 @@ export default function BlockActions({ plan, activeBlock, onChanged, disabled, p
   }
   return <>
     <div className="block-action-buttons" aria-label="Block status actions">
-      {BLOCK_TRANSITIONS[plan.status].map(status => {
+      {BLOCK_TRANSITIONS[plan.status].filter(status => status !== 'active' || !plan.setup).map(status => {
         const { Icon, label } = actions[status];
         return <button className={`button ${status === 'active' ? 'primary' : ''}`} key={status} disabled={disabled} onClick={() => { setError(''); setTarget(status); }}><Icon size={15} />{label}</button>;
       })}
