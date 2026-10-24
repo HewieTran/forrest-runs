@@ -16,6 +16,7 @@ import type { TrainingBackupV4 } from './backups';
 import { TrainingRequestError } from './training-errors';
 import { canChangeBlockStatus, type NewBlockInput, type BlockStatusInput, type BlockSummary } from './blocks';
 import type { BlockSetup } from './setup';
+import { summarizeRecentBaseline } from './recent-baseline';
 
 export async function userPlan(user: AppUser, blockId?: string) {
   const database = getDb();
@@ -201,6 +202,7 @@ export async function changeBlockStatus(user: AppUser, blockId: string, input: B
 
 export async function saveBlockSetup(user: AppUser, blockId: string, setup: BlockSetup, version: number): Promise<Plan> {
   const block = await userPlan(user, blockId);
+  if (block.setup?.schemaVersion === 2 && setup.schemaVersion === 1) throw new TrainingRequestError('This setup uses newer fields. Reload before editing so your saved answers are preserved.', 409);
   if (block.status !== 'draft') throw new TrainingRequestError('Only drafts can change their setup. Your existing block and results have been preserved.', 409);
   const saved = await getDb().update(plans).set({
     setup, raceName: setup.goal.name, raceDate: setup.goal.targetDate,
@@ -336,4 +338,13 @@ export async function removeRestDay(user: AppUser, blockId: string, restDayId: s
   // stale deletion cannot remove a subsequently created rest designation.
   return getDb().delete(restDays).where(and(eq(restDays.id, restDayId),
     eq(restDays.planId, plan.id), eq(restDays.version, version))).returning().get();
+}
+
+// Use only this account's completed records. This is read-only and never seeds,
+// modifies, or guesses missing historical measurements.
+export async function recentSetupBaseline(user: AppUser, today: string) {
+  const rows = await getDb().select({ date: workouts.date, type: workouts.type, done: workouts.done, actualDistance: workouts.actualDistance })
+    .from(workouts).innerJoin(plans, eq(workouts.planId, plans.id))
+    .where(and(eq(plans.ownerId, user.userId), eq(workouts.done, true), sql`${workouts.date} >= ${addDays(today, -28)}`, sql`${workouts.date} < ${today}`));
+  return summarizeRecentBaseline(rows, today);
 }

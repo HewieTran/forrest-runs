@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
-import { emptySetup } from '../lib/setup.ts';
+import { emptySetup, setupForEditing } from '../lib/setup.ts';
 import { normalizeTrainingBackup } from '../lib/backups.ts';
-import { exampleSetup } from './setup-fixture.mjs';
+import { exampleSetup, legacySetup } from './setup-fixture.mjs';
+import { addDays, centralToday } from '../lib/domain.ts';
 import { testRestore } from './blocks-integration.mjs';
 
 export async function testSetup(db, dispatch) {
@@ -92,4 +93,61 @@ export async function testSetup(db, dispatch) {
   const encodedForeign = await dispatch('http://localhost' + encodedPath, { headers: other });
   assert.ok(!(await encodedForeign.text()).includes('class="setup-panel"'));
   console.log('PASS: atomic setup/workout race, protection of existing schedules, and authenticated guided setup pages.');
+
+  // Revised intake accepts an effort-based goal without optional measurements,
+  // a race result, a manually typed name or a preferred long-run day.
+  const effort = exampleSetup();
+  effort.runner = emptySetup().runner;
+  effort.goal.name = ''; effort.goal.mode = 'finish'; effort.goal.paceGuidance = 'effort'; effort.goal.targetTime = '';
+  effort.baseline.results = emptySetup().baseline.results;
+  effort.availability.longRunDay = null;
+  const effortCreated = await call('/api/blocks', 'POST', { setup: effort, complete: true });
+  assert.equal(effortCreated.status, 201);
+  assert.equal(effortCreated.data.block.raceName, '5K training · 2027-03-14');
+  const effortPath = '/api/blocks/' + encodeURIComponent(effortCreated.data.block.id) + '/setup';
+  const performance = structuredClone(effort); performance.goal.paceGuidance = 'performance';
+  assert.equal((await call(effortPath, 'PUT', { setup: performance, complete: true, version: 1 })).status, 400);
+  assert.equal((await call(effortPath)).data.block.version, 1);
+  const invalidLimit = structuredClone(effort); invalidLimit.availability.maxSessionDurationSeconds = '2700';
+  assert.equal((await call(effortPath, 'PUT', { setup: invalidLimit, version: 1 })).status, 400);
+  const invalidOverride = structuredClone(effort); invalidOverride.availability.dayDurationLimits = { '0': 3600 };
+  assert.equal((await call(effortPath, 'PUT', { setup: invalidOverride, version: 1 })).status, 400);
+  assert.deepEqual((await call(effortPath)).data.block.setup.availability.dayDurationLimits, { '6': 5400 });
+
+  // Loading and backing up an old snapshot never rewrites it. Upgrades are
+  // explicit saves, and a fresh-version old client cannot erase new fields.
+  const legacy = legacySetup();
+  const legacyCreated = await call('/api/blocks', 'POST', { setup: legacy });
+  assert.equal(legacyCreated.status, 201);
+  const legacyPath = '/api/blocks/' + encodeURIComponent(legacyCreated.data.block.id) + '/setup';
+  assert.deepEqual((await call(legacyPath)).data.block.setup, legacy);
+  const upgraded = setupForEditing(legacy);
+  const upgradedSaved = await call(legacyPath, 'PUT', { setup: upgraded, version: 1 });
+  assert.equal(upgradedSaved.status, 200);
+  assert.equal(upgradedSaved.data.block.setup.schemaVersion, 2);
+  assert.equal(upgradedSaved.data.block.setup.availability.maxSessionDurationSeconds, null);
+  assert.equal((await call(legacyPath, 'PUT', { setup: legacy, version: 2 })).status, 409);
+  assert.deepEqual((await call(legacyPath)).data.block.setup, upgraded);
+  const revisedBackup = (await call('/api/export')).data;
+  assert.deepEqual(normalizeTrainingBackup(revisedBackup), revisedBackup);
+  await testRestore(revisedBackup);
+  console.log('PASS: optional runner data, effort/time/pace conditions, numeric session limits, v1 upgrade, downgrade rejection, and mixed-version backup restore.');
+
+  const historyBlock = (await call('/api/blocks', 'POST', { raceName: 'Recorded baseline', raceDate: '2027-05-01' })).data.block;
+  const foreignHistory = (await call('/api/blocks', 'POST', { raceName: 'Other history', raceDate: '2027-05-01' }, other)).data.block;
+  const today = centralToday();
+  for (const offset of [28, 21, 14, 7]) {
+    const session = { ...workout, date: addDays(today, -offset), done: true, actualDistance: 4 };
+    assert.equal((await call('/api/workouts?blockId=' + encodeURIComponent(historyBlock.id), 'POST', session)).status, 201);
+    assert.equal((await call('/api/workouts?blockId=' + encodeURIComponent(foreignHistory.id), 'POST', { ...session, actualDistance: 100 }, other)).status, 201);
+  }
+  const historySetup = exampleSetup(); historySetup.step = 2; historySetup.units = 'mi';
+  const ownedDraft = (await call('/api/blocks', 'POST', { setup: historySetup })).data.block;
+  const ownedPage = await dispatch('http://localhost/blocks/' + encodeURIComponent(ownedDraft.id) + '/setup', { headers: auth });
+  const ownedText = (await ownedPage.text()).replace(/<[^>]*>/g, '');
+  assert.match(ownedText, /Use your recorded training/);
+  assert.match(ownedText, /4 mi\/week, about 1 running days\/week/);
+  assert.deepEqual((await call('/api/blocks/' + encodeURIComponent(ownedDraft.id) + '/setup')).data.block.setup, historySetup);
+  console.log('PASS: recorded-history suggestions are scoped to the signed-in account and never modify the saved baseline.');
+
 }

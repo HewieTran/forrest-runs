@@ -75,3 +75,24 @@
 @media(max-width:390px){.setup-fields{grid-template-columns:1fr}.setup-results .setup-fields{grid-template-columns:1fr}.setup-days{grid-template-columns:repeat(4,minmax(0,1fr))}.setup-stepper button{min-width:49px;font-size:8px}.setup-form-actions>div{width:100%;justify-content:flex-end}}
 
 .dashboard-title .progress-expanded-link{margin-left:auto;font-size:11px;font-weight:600;color:var(--green);text-decoration:none}.dashboard-title .progress-expanded-link:hover{text-decoration:underline}
+
+/* Guided intake: optional context stays collapsed; invalid values stay visible. */
+.setup-panel .setup-required{font-size:9px;font-weight:400;color:var(--muted);margin-left:6px}
+.setup-stepper small{font-size:9px;font-weight:400;color:var(--muted)}
+.setup-panel input[aria-invalid=true],.setup-panel select[aria-invalid=true],.setup-panel textarea[aria-invalid=true]{border-color:#a13732;background:#fff6f4}
+.setup-panel small.setup-field-error{color:#a13732}
+.setup-panel textarea{width:100%;min-height:85px;border:1px solid var(--line);border-radius:7px;padding:10px 11px;background:var(--paper);color:var(--ink);font:inherit;resize:vertical}
+.setup-panel details summary{cursor:pointer;color:var(--green);font-size:13px;line-height:1.7}
+.setup-panel details summary span{font-size:10px;color:var(--muted);margin-left:8px}
+.setup-panel details>label,.setup-panel .setup-optional>label:not(.setup-check){margin-top:15px;font-size:12px}
+.setup-panel .setup-optional h3{font-size:14px;font-weight:600;margin:0 0 12px}
+.setup-panel .setup-optional select{width:100%;min-height:43px;background:var(--paper);color:var(--ink);border:1px solid #d8e1d5;border-radius:7px;padding:10px 11px;font-size:13px}
+.setup-panel .setup-footnote{font-size:11px;line-height:1.8;color:var(--muted);margin-top:23px}
+.setup-span-two{grid-column:1/-1}
+.setup-result-heading{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.setup-result-heading button{display:flex;align-items:center;gap:4px;font-size:11px;background:none;border:0;color:var(--green);cursor:pointer}
+.setup-history-suggestion{background:var(--sage);border:1px solid var(--line);border-radius:9px;padding:16px;margin-top:20px;font-size:12px}
+.setup-history-suggestion p{font-size:11px;line-height:1.8;color:var(--muted);margin:8px 0 12px}
+.setup-history-suggestion .button{font-size:11px}
+@media(max-width:700px){.setup-stepper small{display:none}.setup-panel input,.setup-panel select,.setup-panel textarea,.setup-panel .setup-optional select{font-size:16px}.setup-required{display:inline}.setup-form-actions .button{min-height:42px}}
+@media(max-width:700px){.setup-fields,.setup-results .setup-fields{grid-template-columns:1fr}.setup-results .setup-fields>label:last-child{grid-column:auto}}
