@@ -11,6 +11,7 @@ export const dynamic='force-dynamic';
 export default async function Preview({searchParams}:{searchParams:Promise<Record<string,string|undefined>>}){
  if(process.env.NODE_ENV!=='development')notFound();
  const query=await searchParams;
+ if(query.view==='workout-mobile')return <iframe title="Mobile workout preview" src="/preview?view=workout" style={{display:'block',width:390,maxWidth:'100%',height:850,border:0,margin:'20px auto'}}/>;
  if(query.view==='progress-mobile')return <iframe title="Mobile progress preview" src="/preview?view=progress" style={{display:'block',width:390,maxWidth:'100%',height:850,border:0,margin:'20px auto'}}/>;
  if(query.view==='progress')return <ProgressOverview data={progressPreview(query.scenario)} preview/>;
  if(query.view==='setup')return <SetupWizard displayName="Runner" today={centralToday()} preview/>;
@@ -30,5 +31,6 @@ export default async function Preview({searchParams}:{searchParams:Promise<Recor
   if(chosen){initial.plan=chosen;initial.workouts=chosen.workoutCount?rows.map(row=>({...row,planId:chosen.id})):[];}
   else{initial.plan={...initial.plan,id:query.blockId,raceName:query.name?.slice(0,120)||'New training block',paceGuide:[],sourceName:null,raceDate:validDate(query.date)?query.date:initial.plan.raceDate,status:BLOCK_STATUSES.includes(query.status as BlockStatus)?query.status as BlockStatus:'draft'};initial.workouts=[];}
  }
+ if(query.view==='workout'){initial.workouts=[{...rows[0],date:today,done:false,plannedDistance:5,plannedDurationSeconds:3600,plannedPaceSecondsPerMile:720,targetMetric:'distance',actualDurationSeconds:3400,actualPaceSecondsPerMile:680}];if(query.scenario==='legacy')initial.workouts=initial.workouts.map(row=>({...row,...EMPTY_WORKOUT_MEASUREMENTS}));}
  return <Tracker initial={initial} activeBlock={{id:'example',raceName:'Dallas Marathon'}} preview/>;
 }

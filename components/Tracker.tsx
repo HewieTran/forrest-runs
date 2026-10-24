@@ -11,7 +11,6 @@ import {
   Flag,
   Footprints,
   Info,
-  LoaderCircle,
   Pencil,
   Plus,
   Settings2,
@@ -29,13 +28,14 @@ import {
   PHASES,
   phaseMilestones,
   summarize,
-  TYPES,
   weekStart,
   type AppData,
   type Workout,
   type WorkoutInput,
 } from '../lib/domain';
 import AppHeader from './AppHeader';
+import WorkoutEditor from './WorkoutEditor';
+import { formatPace, formatDuration } from '../lib/workout-form';
 import BlockActions, { BlockStatusBadge } from './BlockActions';
 import type { Plan } from '../lib/domain';
 
@@ -54,216 +54,6 @@ function WorkoutIcon({ type }: { type: string }) {
           ? Flag
           : Footprints;
   return <Icon size={17} />;
-}
-
-function WorkoutEditor({
-  workout,
-  saving,
-  error,
-  onSave,
-  onCancel,
-  onDirty,
-}: {
-  workout: Workout;
-  saving: boolean;
-  error: string;
-  onSave: (value: WorkoutInput) => void;
-  onCancel: () => void;
-  onDirty: (hasUnsavedChanges: boolean) => void;
-}) {
-  // Keep form edits local until the server confirms the save.
-  const [draft, setDraft] = useState({
-    ...workout,
-    actualDistance:
-      workout.actualDistance === null ? '' : String(workout.actualDistance),
-    effort: workout.effort === null ? '' : String(workout.effort),
-  });
-  function update(key: string, value: unknown) {
-    setDraft((previousDraft) => ({ ...previousDraft, [key]: value }));
-    onDirty(true);
-  }
-  function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    onSave({
-      date: draft.date,
-      phase: draft.phase,
-      type: draft.type,
-      plannedWorkout: draft.plannedWorkout,
-      targetPace: draft.targetPace,
-      done: draft.done,
-      actualDistance:
-        draft.actualDistance.trim() === ''
-          ? null
-          : Number(draft.actualDistance),
-      actualPace: draft.actualPace,
-      effort: draft.effort.trim() === '' ? null : Number(draft.effort),
-      pain: draft.pain,
-      notes: draft.notes,
-      version: workout.version,
-    });
-  }
-  const painOptions = ['', 'None', 'Mild', 'Moderate', 'Severe'];
-  if (!painOptions.includes(draft.pain)) painOptions.push(draft.pain);
-  return (
-    <form className="workout-form" onSubmit={submit}>
-      <fieldset disabled={saving}>
-        <legend className="section-eyebrow">Plan</legend>
-        <div className="form-grid plan-grid">
-          <label>
-            Date
-            <input
-              type="date"
-              min="1900-01-01"
-              max="2200-12-31"
-              value={draft.date}
-              onInput={(event) => update('date', event.currentTarget.value)}
-              onChange={(event) => update('date', event.target.value)}
-              required
-            />
-          </label>
-          <label>
-            Workout type
-            <select
-              value={draft.type}
-              onChange={(event) => update('type', event.target.value)}
-            >
-              {TYPES.map((workoutType) => (
-                <option key={workoutType}>{workoutType}</option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Training phase
-            <select
-              value={draft.phase}
-              onChange={(event) => update('phase', event.target.value)}
-            >
-              {PHASES.map((phaseEntry) => (
-                <option key={phaseEntry}>{phaseEntry}</option>
-              ))}
-            </select>
-          </label>
-          <label className="span-two">
-            Planned workout
-            <input
-              value={draft.plannedWorkout}
-              maxLength={1000}
-              required
-              onChange={(event) => update('plannedWorkout', event.target.value)}
-            />
-          </label>
-          <label>
-            Target pace / effort
-            <input
-              value={draft.targetPace}
-              maxLength={1000}
-              onChange={(event) => update('targetPace', event.target.value)}
-            />
-          </label>
-        </div>
-      </fieldset>
-      <fieldset disabled={saving}>
-        <legend className="section-eyebrow">Actual</legend>
-        <div className="form-grid actual-grid">
-          <label>
-            Distance (mi)
-            <input
-              type="number"
-              min="0"
-              max="1000"
-              step="any"
-              inputMode="decimal"
-              placeholder="e.g. 5.0"
-              value={draft.actualDistance}
-              onChange={(event) => update('actualDistance', event.target.value)}
-            />
-          </label>
-          <label>
-            Pace / activity
-            <input
-              value={draft.actualPace}
-              placeholder={isRun(workout) ? 'mm:ss /mi' : 'e.g. climbing'}
-              maxLength={1000}
-              onChange={(event) => update('actualPace', event.target.value)}
-            />
-          </label>
-          <label>
-            Effort (1–10)
-            <input
-              type="number"
-              min="1"
-              max="10"
-              step="1"
-              placeholder="Optional"
-              value={draft.effort}
-              onChange={(event) => update('effort', event.target.value)}
-            />
-          </label>
-          <label>
-            Pain
-            <select
-              value={draft.pain}
-              onChange={(event) => update('pain', event.target.value)}
-            >
-              {painOptions.map((value) => (
-                <option key={value} value={value}>
-                  {value || 'Not recorded'}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-        <label className="notes-label">
-          Notes
-          <textarea
-            rows={2}
-            value={draft.notes}
-            maxLength={10000}
-            placeholder="How did it feel?"
-            onChange={(event) => update('notes', event.target.value)}
-          />
-        </label>
-      </fieldset>
-      {error && (
-        <div className="form-error" role="alert">
-          {error}
-        </div>
-      )}
-      <div className="editor-footer">
-        <label className="checkbox-label">
-          <input
-            type="checkbox"
-            checked={draft.done}
-            disabled={saving}
-            onChange={(event) => update('done', event.target.checked)}
-          />
-          Workout completed
-        </label>
-        <div className="button-group">
-          <button
-            type="button"
-            className="button quiet"
-            disabled={saving}
-            onClick={onCancel}
-          >
-            Cancel
-          </button>
-          <button className="button primary" disabled={saving} type="submit">
-            {saving ? (
-              <LoaderCircle className="spin" size={16} />
-            ) : (
-              <Check size={16} />
-            )}{' '}
-            {saving ? 'Saving…' : 'Save workout'}
-          </button>
-        </div>
-      </div>
-      <p className="field-hint">
-        Leave unknown results blank. Completed workouts can have missing
-        distances.
-      </p>
-    </form>
-  );
 }
 
 function RaceSettings({
@@ -621,6 +411,11 @@ export default function Tracker({
     .sort()
     .at(-1);
   function renderWorkoutCard(workout: Workout) {
+    const recordedParts = [
+      workout.actualDistance === null ? '' : `${formatNumber(workout.actualDistance)} mi recorded`,
+      workout.actualPaceSecondsPerMile === null ? workout.actualPace : `${formatPace(workout.actualPaceSecondsPerMile, 'mi')} /mi`,
+      workout.actualDurationSeconds === null ? '' : formatDuration(workout.actualDurationSeconds),
+    ].filter(Boolean);
     const isExpanded = expandedWorkoutId === workout.id;
     const isOverdue = !workout.done && workout.date < data.today;
     const status = workout.done
@@ -657,19 +452,13 @@ export default function Tracker({
             </div>
             <p>{workout.plannedWorkout}</p>
             {workout.done &&
-              (workout.actualDistance !== null || workout.actualPace) && (
+              (workout.actualDistance !== null || workout.actualPace || workout.actualPaceSecondsPerMile !== null || workout.actualDurationSeconds !== null) && (
                 <span className="actual-summary">
-                  {workout.actualDistance !== null
-                    ? `${formatNumber(workout.actualDistance)} mi recorded`
-                    : ''}
-                  {workout.actualDistance !== null && workout.actualPace
-                    ? ' · '
-                    : ''}
-                  {workout.actualPace}
+                  {recordedParts.join(' · ')}
                 </span>
               )}
           </div>
-          <span className="target-preview">{workout.targetPace}</span>
+          <span className="target-preview">{workout.plannedPaceSecondsPerMile !== null ? `${formatPace(workout.plannedPaceSecondsPerMile, 'mi')} /mi` : workout.targetPace}</span>
           <span
             className={`status ${workout.done ? 'complete' : isOverdue ? 'unlogged' : workout.date === data.today ? 'today' : ''}`}
           >

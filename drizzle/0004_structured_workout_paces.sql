@@ -1,0 +1,2 @@
+ALTER TABLE `workouts` ADD `planned_pace_seconds_per_mile` real CHECK (planned_pace_seconds_per_mile IS NULL OR (typeof(planned_pace_seconds_per_mile) IN ('integer', 'real') AND planned_pace_seconds_per_mile > 0 AND planned_pace_seconds_per_mile <= 86400));--> statement-breakpoint
+ALTER TABLE `workouts` ADD `actual_pace_seconds_per_mile` real CHECK (actual_pace_seconds_per_mile IS NULL OR (typeof(actual_pace_seconds_per_mile) IN ('integer', 'real') AND actual_pace_seconds_per_mile > 0 AND actual_pace_seconds_per_mile <= 86400));

@@ -16,6 +16,12 @@ Overview implementation. The branch is `agent2/workout-data-contract`.
   main branch immediately before integration; preserve other agents' changes.
 - The Progress Overview page and plan-generation behavior are separate work.
 
+Agent 2 also owns the structured workout form release on
+`agent2/structured-workout-form`: `WorkoutEditor.tsx`, numeric pace storage,
+linked measurements/validation, and backup v4. Consume these fields through the
+shared contract. Historical conversion is review-only until separately approved;
+never add a description-parsing backfill to a schema migration or live read.
+
 ## Architecture and verification
 
 - Preserve account/block ownership and optimistic concurrency checks. Database

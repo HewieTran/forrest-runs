@@ -105,7 +105,7 @@ export async function testWorkoutContract(db, dispatch) {
 
   for (const path of ['/api/export', '/api/export' + scope]) {
     const exported = await call(path);
-    assert.equal(exported.status, 200); assert.equal(exported.data.schemaVersion, 3);
+    assert.equal(exported.status, 200); assert.equal(exported.data.schemaVersion, 4);
     assert.ok(exported.data.restDays.some(r => r.id === rest.id));
     assert.ok(exported.data.workouts.some(w => w.id === saved.id && w.plannedDistance === 5 && w.actualDurationSeconds === 0));
     if (path.includes('?')) assert.equal(exported.data.blocks.length, 1);
@@ -113,5 +113,5 @@ export async function testWorkoutContract(db, dispatch) {
     assert.deepEqual(normalizeTrainingBackup(exported.data), exported.data);
     await testRestore(exported.data);
   }
-  console.log('PASS: account/block v3 backups restore exact targets, duration results, and rest records into a separate database.');
+  console.log('PASS: account/block v4 backups restore exact targets, duration results, and rest records into a separate database.');
 }

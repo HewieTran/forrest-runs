@@ -33,8 +33,8 @@ test('upgrade preserves existing records, permits multiple blocks, and enforces 
     assert.equal(afterPlans[0].status, 'active');
     assert.equal(afterPlans[0].setup, null);
     const afterWorkouts = (await database.prepare('SELECT * FROM workouts ORDER BY id').all()).results;
-    assert.deepEqual(afterWorkouts.map(({ planned_distance, planned_duration_seconds, actual_duration_seconds, target_metric, ...original }) => original), beforeWorkouts);
-    assert.ok(afterWorkouts.every(row => row.planned_distance === null && row.planned_duration_seconds === null && row.actual_duration_seconds === null && row.target_metric === null));
+    assert.deepEqual(afterWorkouts.map(({ planned_distance, planned_duration_seconds, actual_duration_seconds, target_metric, planned_pace_seconds_per_mile, actual_pace_seconds_per_mile, ...original }) => original), beforeWorkouts);
+    assert.ok(afterWorkouts.every(row => row.planned_distance === null && row.planned_duration_seconds === null && row.actual_duration_seconds === null && row.target_metric === null && row.planned_pace_seconds_per_mile === null && row.actual_pace_seconds_per_mile === null));
     assert.deepEqual((await database.prepare('SELECT * FROM training_rest_days').all()).results, []);
     await database.prepare("INSERT INTO training_rest_days (id,plan_id,date,updated_at) VALUES ('rest','original','2027-01-01','2026-10-23')").run();
     await assert.rejects(database.prepare("INSERT INTO training_rest_days (id,plan_id,date,updated_at) VALUES ('duplicate','original','2027-01-01','2026-10-23')").run(), /UNIQUE/);

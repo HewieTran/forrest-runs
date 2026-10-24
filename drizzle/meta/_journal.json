@@ -29,6 +29,13 @@
       "when": 1792776065076,
       "tag": "0003_workout_measurements_and_rest_days",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1792813649533,
+      "tag": "0004_structured_workout_paces",
+      "breakpoints": true
     }
   ]
 }
