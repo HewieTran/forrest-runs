@@ -52,6 +52,8 @@ export const workouts = sqliteTable(
     plannedDurationSeconds: integer('planned_duration_seconds'),
     actualDurationSeconds: integer('actual_duration_seconds'),
     targetMetric: text('target_metric', { enum: ['distance', 'duration'] }),
+    plannedPaceSecondsPerMile: real('planned_pace_seconds_per_mile'),
+    actualPaceSecondsPerMile: real('actual_pace_seconds_per_mile'),
     actualPace: text('actual_pace').notNull().default(''),
     effort: integer('effort'),
     pain: text('pain').notNull().default(''),

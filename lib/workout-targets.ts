@@ -5,6 +5,9 @@ export type WorkoutMeasurements = {
   plannedDurationSeconds: number | null;
   actualDurationSeconds: number | null;
   targetMetric: 'distance' | 'duration' | null;
+  // Canonical seconds per mile, allowing fractions for lossless km conversion.
+  plannedPaceSecondsPerMile: number | null;
+  actualPaceSecondsPerMile: number | null;
 };
 
 export const EMPTY_WORKOUT_MEASUREMENTS: WorkoutMeasurements = {
@@ -12,6 +15,8 @@ export const EMPTY_WORKOUT_MEASUREMENTS: WorkoutMeasurements = {
   plannedDurationSeconds: null,
   actualDurationSeconds: null,
   targetMetric: null,
+  plannedPaceSecondsPerMile: null,
+  actualPaceSecondsPerMile: null,
 };
 
 const plannedKeys = ['plannedDistance', 'plannedDurationSeconds', 'targetMetric'] as const;
@@ -44,6 +49,8 @@ export function validateWorkoutMeasurements(input: Record<string, unknown>): Par
   }
   if (owns(input, 'actualDurationSeconds'))
     result.actualDurationSeconds = measurement(input.actualDurationSeconds, 'Actual duration in seconds', 604800, true, true);
+  for (const key of ['plannedPaceSecondsPerMile', 'actualPaceSecondsPerMile'] as const)
+    if (owns(input, key)) result[key] = measurement(input[key], 'Pace in seconds per mile', 86400, false, false);
   return result;
 }
 

@@ -26,7 +26,7 @@ try{
  assert.equal((await call(url,'PATCH',original)).status,409);
  console.log('PASS: save, reload persistence, rescheduling, milestone updates, and stale-edit rejection.');
 }finally{const restore=await call(url,'PATCH',{...original,version:current.version});assert.equal(restore.status,200,JSON.stringify(restore.result));}
-const backup=await call('/api/export');assert.equal(backup.status,200);assert.equal(backup.result.schemaVersion,3);assert.equal(backup.result.blocks.length,1);assert.equal(backup.result.blocks[0].id,start.result.plan.id);assert.equal(backup.result.workouts.length,158);assert.ok(backup.result.workouts.every(w=>w.originalSource&&w.sourceRow));assert.ok(backup.headers.get('content-disposition').includes('.json'));
+const backup=await call('/api/export');assert.equal(backup.status,200);assert.equal(backup.result.schemaVersion,4);assert.equal(backup.result.blocks.length,1);assert.equal(backup.result.blocks[0].id,start.result.plan.id);assert.equal(backup.result.workouts.length,158);assert.ok(backup.result.workouts.every(w=>w.originalSource&&w.sourceRow));assert.ok(backup.headers.get('content-disposition').includes('.json'));
 assert.equal(summarize(backup.result.workouts,'2026-10-22').completed,87);
 const again=await call('/api/training');assert.equal(again.result.workouts.length,158);
 console.log('PASS: full backup export and idempotent import; original workout values restored.');

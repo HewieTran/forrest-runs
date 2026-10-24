@@ -31,10 +31,10 @@ const rest = { id: 'rest', planId: 'block', date: '2027-01-01', version: 1, upda
 const backup = { schemaVersion: 3, exportedAt: stamp, blocks: [block], workouts: [workout], restDays: [rest] };
 
 test('v3 backups preserve measurements and cross-year rest dates without treating absence as rest', () => {
-  assert.deepEqual(normalizeTrainingBackup(backup), backup);
+  assert.deepEqual(normalizeTrainingBackup(backup), {...backup,schemaVersion:4});
   const legacy = normalizeTrainingBackup({ schemaVersion: 1, exportedAt: stamp, plan: block, workouts: [] });
   assert.deepEqual(legacy.restDays, []);
-  assert.equal(legacy.schemaVersion, 3);
+  assert.equal(legacy.schemaVersion, 4);
   const { plannedDistance, ...missing } = workout;
   for (const invalid of [
     { ...backup, restDays: undefined }, { ...backup, workouts: [missing] },
@@ -44,4 +44,14 @@ test('v3 backups preserve measurements and cross-year rest dates without treatin
     { ...backup, restDays: [{ ...rest, version: 0 }] },
   ]) assert.throws(() => normalizeTrainingBackup(invalid));
   assert.equal(normalizeTrainingBackup({ ...backup, restDays: [{ ...rest, date: '2028-02-29' }] }).restDays[0].date, '2028-02-29');
+});
+
+test('v4 requires numeric-pace fields while v3 supplies null without parsing descriptions', () => {
+  const legacy = structuredClone(backup);
+  delete legacy.workouts[0].plannedPaceSecondsPerMile;
+  delete legacy.workouts[0].actualPaceSecondsPerMile;
+  const normalized = normalizeTrainingBackup(legacy);
+  assert.equal(normalized.workouts[0].plannedPaceSecondsPerMile,null);
+  assert.equal(normalized.schemaVersion,4);
+  assert.throws(()=>normalizeTrainingBackup({...legacy,schemaVersion:4}));
 });

@@ -12,7 +12,7 @@ import {
 } from './domain';
 import type { AppUser } from './user';
 import { insertInitialTraining, loadOwnerSeed } from '../db/initial-training';
-import type { TrainingBackupV3 } from './backups';
+import type { TrainingBackupV4 } from './backups';
 import { TrainingRequestError } from './training-errors';
 import { canChangeBlockStatus, type NewBlockInput, type BlockStatusInput, type BlockSummary } from './blocks';
 import type { BlockSetup } from './setup';
@@ -230,7 +230,7 @@ export async function activeBlock(user: AppUser): Promise<Pick<Plan, 'id' | 'rac
     .where(and(eq(plans.ownerId, user.userId), eq(plans.status, 'active'))).get() ?? null;
 }
 
-export async function exportTraining(user: AppUser, blockId?: string): Promise<TrainingBackupV3> {
+export async function exportTraining(user: AppUser, blockId?: string): Promise<TrainingBackupV4> {
   await userPlan(user, blockId);
   const database = getDb();
   const scope = and(eq(plans.ownerId, user.userId), blockId === undefined ? undefined : eq(plans.id, blockId));
@@ -247,7 +247,7 @@ export async function exportTraining(user: AppUser, blockId?: string): Promise<T
       .orderBy(asc(restDays.planId), asc(restDays.date), asc(restDays.id)),
   ]);
   return {
-    schemaVersion: 3,
+    schemaVersion: 4,
     exportedAt: new Date().toISOString(),
     blocks: ownedBlocks.map(({ ownerId: _ownerId, ...block }) => block),
     workouts: ownedWorkouts.map(({ workout }) => workout),
@@ -298,6 +298,8 @@ export async function addWorkout(user: AppUser, input: WorkoutInput, blockId?: s
     plannedDurationSeconds: sql<number | null>`${plannedDurationSeconds}`.as('plannedDurationSeconds'),
     actualDurationSeconds: sql<number | null>`${actualDurationSeconds}`.as('actualDurationSeconds'),
     targetMetric: sql<'distance' | 'duration' | null>`${targetMetric}`.as('targetMetric'),
+    plannedPaceSecondsPerMile: sql<number | null>`${input.plannedPaceSecondsPerMile ?? null}`.as('plannedPaceSecondsPerMile'),
+    actualPaceSecondsPerMile: sql<number | null>`${input.actualPaceSecondsPerMile ?? null}`.as('actualPaceSecondsPerMile'),
     actualPace: sql<string>`${input.actualPace}`.as('actualPace'), effort: sql<number | null>`${input.effort}`.as('effort'),
     pain: sql<string>`${input.pain}`.as('pain'), notes: sql<string>`${input.notes}`.as('notes'),
     sourceRow: sql<number | null>`null`.as('sourceRow'), originalSource: sql<Record<string, unknown> | null>`null`.as('originalSource'),
