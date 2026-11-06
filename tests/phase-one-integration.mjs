@@ -40,8 +40,7 @@ export async function testPhaseOne(db,dispatch,provider='simulation'){
  assert.equal((await call(edit,'PATCH',{...zero.data.workout,done:false},other)).status,404);
  if(provider==='simulation')assert.equal((await call(path,'PATCH',{status:'active',version:block.version})).status,409);
  else {
-  const current=(await call('/api/training')).data.plan;
-  if(current.status==='active'){assert.equal((await call(path,'PATCH',{status:'active',version:block.version})).status,409);assert.equal((await call('/api/blocks/'+encodeURIComponent(current.id),'PATCH',{status:'completed',version:current.version})).status,200);}
+  assert.deepEqual((await call('/api/blocks')).data.blocks.map(item => item.id), [id]);
   const started=await call(path,'PATCH',{status:'active',version:block.version});assert.equal(started.status,200,JSON.stringify(started.data));
   const finished=await call(path,'PATCH',{status:'completed',version:started.data.block.version});assert.equal(finished.status,200);
  }

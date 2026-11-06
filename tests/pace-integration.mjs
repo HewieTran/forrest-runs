@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { insertExistingTestBlock } from './d1-helpers.mjs';
 import {normalizeTrainingBackup} from '../lib/backups.ts';
 import {testRestore} from './blocks-integration.mjs';
 
@@ -6,6 +7,7 @@ export async function testPaces(db,dispatch){
   const owner={'oai-authenticated-user-id':'pace-owner','oai-authenticated-user-email':'pace@example.test'};
   const foreign={'oai-authenticated-user-id':'pace-foreign','oai-authenticated-user-email':'foreign@example.test'};
   const call=async(path,method='GET',body,headers=owner)=>{const response=await dispatch('http://localhost'+path,{method,headers:{...headers,...(body?{'Content-Type':'application/json'}:{})},body:body?JSON.stringify(body):undefined});return {status:response.status,data:await response.json()};};
+  await insertExistingTestBlock(db, owner);
   const block=(await call('/api/training')).data.plan,scope='?blockId='+encodeURIComponent(block.id);
   const input={date:'2026-10-23',phase:'Peak',type:'Easy Run',plannedWorkout:'Original 5 mile easy',targetPace:'11:30–11:45 /mi',done:true,actualDistance:5,actualPace:'11:20 /mi',effort:null,pain:'',notes:'Preserve all original guidance',version:1,plannedDistance:5,plannedDurationSeconds:3600,targetMetric:'distance',plannedPaceSecondsPerMile:720.25,actualPaceSecondsPerMile:680,actualDurationSeconds:3400};
   const created=await call('/api/workouts'+scope,'POST',input);assert.equal(created.status,201);

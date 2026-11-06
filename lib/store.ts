@@ -40,21 +40,22 @@ async function ensureUserInitialized(user: AppUser) {
   if (plan) return plan;
   if (await database.select().from(accountState).where(eq(accountState.ownerId, user.userId)).get()) return null;
   const seed = await loadOwnerSeed(user.email);
+  if (!seed) return null;
   const timestamp = new Date().toISOString();
   const planId = `plan:${user.userId}`;
   const initialPlan = {
     id: planId,
     ownerId: user.userId,
-    raceName: seed?.raceName ?? 'My marathon',
-    raceDate: seed?.raceDate ?? addDays(centralToday(), 180),
-    paceGuide: seed?.paceGuide ?? [],
-    sourceName: seed?.sourceName ?? null,
+    raceName: seed.raceName,
+    raceDate: seed.raceDate,
+    paceGuide: seed.paceGuide,
+    sourceName: seed.sourceName,
     createdAt: timestamp,
     updatedAt: timestamp,
   };
   try {
     // Create the plan and its workouts atomically, without partial imports.
-    await insertInitialTraining(initialPlan, seed?.workouts ?? []);
+    await insertInitialTraining(initialPlan, seed.workouts);
   } catch (error) {
     // Another first-load request may have atomically created the same plan.
     plan = await database

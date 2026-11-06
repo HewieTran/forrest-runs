@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { insertExistingTestBlock } from './d1-helpers.mjs';
 import { centralToday } from '../lib/domain.ts';
 import { currentPlannerFixture as plannerFixture, responseFixture } from './planner-fixture.mjs';
 import { normalizeTrainingBackup } from '../lib/backups.ts';
@@ -18,6 +19,7 @@ export async function testPlanner(db, dispatch, mock) {
   }
   async function create() { const result = await call('/api/blocks', 'POST', { setup, complete: true }); assert.equal(result.status, 201); return result.data.block; }
   async function cool() { await db.prepare("UPDATE training_ai_usage SET started_at = ? WHERE owner_id = 'planner-owner'").bind(new Date(Date.now() - 300000).toISOString()).run(); await db.prepare("UPDATE training_plans SET generation = json_set(generation, '$.startedAt', ?) WHERE owner_id = 'planner-owner' AND generation IS NOT NULL").bind(new Date(Date.now() - 300000).toISOString()).run(); }
+  await insertExistingTestBlock(db, auth);
   const original = (await call('/api/training')).data;
   let block = await create();
   const path = '/api/blocks/' + encodeURIComponent(block.id), gen = path + '/generation';
