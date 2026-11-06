@@ -55,7 +55,7 @@ function CreateBlock({ onClose, onSaved, preview }: { onClose: () => void; onSav
 
 export default function BlockLibrary({ initial, displayName, preview = false }: { initial: BlockSummary[]; displayName: string; preview?: boolean }) {
   const [blocks, setBlocks] = useState(initial);
-  const [filter, setFilter] = useState<BlockStatus | 'all'>('all');
+  const [filter, setFilter] = useState<BlockStatus | 'all'>('active');
   const [search, setSearch] = useState('');
   const [creating, setCreating] = useState(false);
   const [notice, setNotice] = useState('');
@@ -73,7 +73,7 @@ export default function BlockLibrary({ initial, displayName, preview = false }: 
       {preview && <p className="preview-notice">Example data only. Preview changes reset when you leave this page.</p>}
       {notice && <p className="block-success" role="status">{notice}</p>}
       <div className="library-toolbar"><div className="block-filters" role="group" aria-label="Filter training blocks">
-        {(['all', ...BLOCK_STATUSES] as const).map(status => <button key={status} aria-pressed={filter === status} onClick={() => setFilter(status)}>{status === 'all' ? 'All blocks' : STATUS_LABELS[status]}<span>{status === 'all' ? blocks.length : counts(status)}</span></button>)}
+        {(['all', ...BLOCK_STATUSES] as const).map(status => <button key={status} aria-pressed={filter === status} onClick={() => setFilter(status)}>{status === 'all' ? 'All blocks' : status === 'active' ? 'In progress' : STATUS_LABELS[status]}<span>{status === 'all' ? blocks.length : counts(status)}</span></button>)}
       </div><label className="block-search"><Search size={16} /><span className="sr-only">Search training blocks</span><input type="search" placeholder="Find a block…" value={search} onChange={event => setSearch(event.target.value)} /></label></div>
       <div className="block-grid">
         {visible.map(block => {
@@ -89,7 +89,7 @@ export default function BlockLibrary({ initial, displayName, preview = false }: 
           </article>;
         })}
       </div>
-      {!visible.length && <section className="block-empty"><Layers3 size={34} /><h2>{search ? 'No matching blocks' : `No ${filter === 'all' ? 'training' : filter} blocks yet`}</h2><p>{search ? 'Try another name or clear your search.' : 'Your blocks will appear here as your running journey grows.'}</p><button className="button" onClick={() => { setSearch(''); setFilter('all'); }}>{search || filter !== 'all' ? 'Show all blocks' : 'View library'}</button></section>}
+      {!visible.length && <section className="block-empty"><Layers3 size={34} /><h2>{search ? 'No matching blocks' : filter === 'active' ? 'No blocks in progress' : `No ${filter === 'all' ? 'training' : filter} blocks yet`}</h2><p>{search ? 'Try another name or clear your search.' : filter === 'active' && blocks.length ? 'Open an existing block or create a new one.' : 'Create a training block to get started.'}</p><button className="button" onClick={() => { setSearch(''); setFilter('all'); }}>{search || filter !== 'all' ? 'Show all blocks' : 'View library'}</button></section>}
       <footer className="app-footer"><span><span className="footer-dot" /> One active block at a time · Every block stays yours</span><span>Archived blocks retain all workouts and results</span></footer>
     </main>
     {creating && <CreateBlock preview={preview} onClose={() => setCreating(false)} onSaved={block => {
