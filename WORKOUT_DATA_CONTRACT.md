@@ -116,3 +116,71 @@ schedule guards in a code rollback so those records remain protected/exportable.
 
 Plan generation remains separate work. Progress Overview consumes the structured
 measurements; target comparisons continue to use distance/duration rather than pace.
+
+## Phase 1 completion provenance and backup v6
+
+Additive migration 0007 adds nullable workouts.result_origins JSON. Server-managed
+resultOrigins maps actualDistance, actualDurationSeconds and/or
+actualPaceSecondsPerMile to values copied from known targets. Completion copies
+only missing actuals, optionally deriving a third numeric target from two known
+ones. Existing zero/manual results survive. Unchecking clears only values still
+matching their copied marker. Manual edits remove markers; manualResultFields
+communicates explicit same-value edits and is never persisted as workout data.
+Client-supplied provenance is ignored. Strength/mobility never copy running pace
+or distance; old text descriptions are never parsed. Phase may be Not applicable.
+Exports now use v6. Normalization accepts v1–v6 and restore must persist provenance
+alongside results. No migration backfills old workouts or marks them auto-copied.
+
+## Generated 5K measurement pairs (2026-10-31)
+
+New provider output supplies positive whole seconds plus numeric seconds/mile for
+ordinary running steps, without a distance field. The app calculates distance as
+duration / pace. Race output supplies an estimated duration with a null pace;
+the app fixes distance at exactly 5000 / 1609.344 miles and calculates race pace.
+This race duration remains an estimate, independent of the runner's goal time.
+Unexpected model distances or race paces are rejected; the app does not choose
+between contradictory triples or repair old snapshots silently.
+
+`lib/planner-math.ts` performs provider-independent calculations at full precision.
+Presentation formatting alone rounds. All three canonical fields remain stored
+and available in the existing UI; no workout columns or migration are added.
+New live generation snapshots record `calculationVersion: duration-pace-v1` and
+verify the calculated values when accepted/exported. Older snapshots lack that
+metadata and retain their original measurements and validation tolerance. Explicit
+rest days, race-step-only comparison and full-session limits remain unchanged.
+The model's goal judgment, paces and workload suitability still require their
+own assessment; correct arithmetic does not establish suitable training.
+
+## Visible generated workout steps (2026-11-04)
+
+Migration 0009 adds nullable `workouts.plan_structure` JSON, exposed as optional
+`planStructure: {title, notes, steps}`. Steps retain the canonical generated
+kind, label, durationSeconds, distanceMiles, paceSecondsPerMile and effort.
+The migration changes no existing rows or versions. It extends the existing
+prescription-change trigger so guidance-only changes are also tracked once.
+
+New accepted schedules store their editable structure separately from immutable
+`originalSource.session` and the block generation snapshot. Existing unmodified
+generated workouts can display their retained source steps after exact matching
+of type, original description and numeric targets. This is a read-only fallback;
+no description parsing, backfill or paid regeneration occurs. Modified or
+text-only history retains a visible instructions field and the linked editor.
+
+Generated workouts show a short title/session summary and always-visible step
+rows in the open Plan section, with readable durations, mm:ss pace and two-decimal
+display distances. Averages are labeled Average planned pace. Edit steps exposes
+duration and ordinary-step pace plus the workout title/coaching note. Ordinary
+step edits derive distance; race-duration edits retain the race's existing
+distance and derive pace. Full-session duration is shown separately from the
+race-only numeric progress targets. Presentation unit changes retain canonical
+values and untouched precision. Unknown values remain unknown.
+
+Structured totals are derived and validated on the server; contradictory API
+totals are rejected. Existing ownership, confirmation, optimistic locking and
+completion rules apply. Omitted structure on PATCH preserves it; old clients must
+edit steps to change existing structured numeric targets. Backup v6 accepts and
+exports this optional field, preserving source data independently. Restoring these
+extended backups requires this release to retain editable steps; an older reader
+may omit the optional field. Keep migration 0009 and structure-aware exports when
+rolling back unrelated features. Calculations remain in provider-independent
+`lib/workout-structure.ts`; no new service or OpenAI call is introduced.

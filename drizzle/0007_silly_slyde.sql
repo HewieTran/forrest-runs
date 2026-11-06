@@ -1,0 +1,1 @@
+ALTER TABLE `workouts` ADD `result_origins` text;

@@ -14,17 +14,18 @@ export async function GET(request: Request) {
 export async function PATCH(request: Request) {
   const user = await authenticated();
   if (!user) return json({ error: 'Please sign in before saving.' }, 401);
-  let input: RaceSettingsInput;
+  let input: RaceSettingsInput, confirmPlanChange = false;
   try {
     const values = await body(request);
     if (
       typeof values.raceName !== 'string' || !values.raceName.trim() || values.raceName.length > 120 ||
       !validDate(values.raceDate) || !Number.isInteger(values.version) || values.version < 1
     ) throw new Error('Enter a race name and valid race date.');
+    confirmPlanChange = values.confirmPlanChange === true;
     input = { raceName: values.raceName, raceDate: values.raceDate, version: values.version };
   } catch (error) {
     return json({ error: error instanceof Error ? error.message : 'Invalid settings.' }, 400);
   }
-  try { return json(await saveRaceSettings(user, input, blockIdFromRequest(request))); }
+  try { return json(await saveRaceSettings(user, input, blockIdFromRequest(request), confirmPlanChange)); }
   catch (error) { return serverError(error); }
 }

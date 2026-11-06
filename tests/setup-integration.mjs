@@ -145,9 +145,9 @@ export async function testSetup(db, dispatch) {
   const ownedDraft = (await call('/api/blocks', 'POST', { setup: historySetup })).data.block;
   const ownedPage = await dispatch('http://localhost/blocks/' + encodeURIComponent(ownedDraft.id) + '/setup', { headers: auth });
   const ownedText = (await ownedPage.text()).replace(/<[^>]*>/g, '');
-  assert.match(ownedText, /Use your recorded training/);
-  assert.match(ownedText, /4 mi\/week, about 1 running days\/week/);
+  assert.doesNotMatch(ownedText, /Use your recorded training/);
+  assert.doesNotMatch(ownedText, /4 mi\/week, about 1 running days\/week/);
   assert.deepEqual((await call('/api/blocks/' + encodeURIComponent(ownedDraft.id) + '/setup')).data.block.setup, historySetup);
-  console.log('PASS: recorded-history suggestions are scoped to the signed-in account and never modify the saved baseline.');
+  console.log('PASS: simplified intake hides baseline suggestions while preserving saved historical inputs.');
 
 }

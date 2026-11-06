@@ -1,12 +1,18 @@
 import { validDate } from './domain.ts';
-import { parseInput, KM_PER_MILE } from './workout-form.ts';
+import { parseInput, KM_PER_MILE, formatDuration } from './workout-form.ts';
 
 export const RESULT_DISTANCES = ['5k', '10k', 'half'] as const;
 export const RESULT_LABELS = { '5k': '5K', '10k': '10K', half: 'Half marathon' };
-export const SETUP_STEPS = ['Goal', 'Runner', 'Starting fitness', 'Availability', 'Review'] as const;
+export const SETUP_STEPS = ['Goal', 'Runner', 'Training days', 'Review'] as const;
 export const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 export type ResultDistance = typeof RESULT_DISTANCES[number];
 export type PerformanceResult = { time: string; date: string; source: 'race' | 'time-trial' };
+export type Benchmark = {
+  distance: ResultDistance | null;
+  durationSeconds: number | null;
+  date: string;
+  effortConfirmed: boolean;
+};
 
 // Keep the original shape readable/exportable. Reading a saved snapshot never
 // fills missing answers or writes an upgrade back to the database.
@@ -20,9 +26,10 @@ export type LegacyBlockSetup = {
   availability: { days: number[]; longRunDay: number | null };
 };
 export type IntakeSetup = Omit<LegacyBlockSetup, 'schemaVersion' | 'runner' | 'goal' | 'baseline' | 'availability'> & {
-  schemaVersion: 2;
+  schemaVersion: 2 | 3 | 4;
+  benchmark?: Benchmark;
   runner: LegacyBlockSetup['runner'] & { experience: 'novice' | 'intermediate' | 'advanced' | null };
-  goal: LegacyBlockSetup['goal'] & { mode: 'finish' | 'time'; paceGuidance: 'effort' | 'performance' };
+  goal: LegacyBlockSetup['goal'] & { mode: 'finish' | 'time'; paceGuidance: 'effort' | 'performance' | 'estimated'; targetDurationSeconds?: number | null };
   baseline: LegacyBlockSetup['baseline'] & { trainingChanges: 'none' | 'changed' | 'unsure' | null; trainingChangesNotes: string };
   availability: LegacyBlockSetup['availability'] & { maxSessionDurationSeconds: number | null; dayDurationLimits: Record<string, number>; otherCommitments: string };
 };
@@ -43,13 +50,29 @@ export function emptySetup(name = '', targetDate = '', startDate = ''): IntakeSe
 
 // Only an editable view is upgraded. New answers remain unknown until supplied.
 export function setupForEditing(setup: BlockSetup): IntakeSetup {
-  if (setup.schemaVersion === 2) return structuredClone(setup);
+  if (setup.schemaVersion !== 1) return structuredClone(setup);
   const result = emptySetup();
   return { ...result, step: setup.step, units: setup.units,
     runner: { ...result.runner, ...setup.runner },
     goal: { ...result.goal, ...setup.goal, mode: setup.goal.targetTime ? 'time' : 'finish', paceGuidance: setup.goal.targetTime ? 'performance' : 'effort' },
     baseline: { ...result.baseline, ...setup.baseline },
     availability: { ...result.availability, ...setup.availability },
+  };
+}
+
+export function setupTargetTime(setup: BlockSetup): string {
+  return setup.schemaVersion >= 3 ? formatDuration((setup as IntakeSetup).goal.targetDurationSeconds ?? null) : setup.goal.targetTime;
+}
+
+// Editing is an explicit upgrade. Historical answers remain in the snapshot;
+// deferred inputs never become fabricated zeroes or influence the new planner.
+export function simpleSetup(setup?: BlockSetup, name = '', raceDate = '', startDate = ''): IntakeSetup & { schemaVersion: 4; benchmark: Benchmark } {
+  const value = setup ? setupForEditing(setup) : emptySetup(name, raceDate, startDate);
+  const target = setup ? setup.schemaVersion >= 3 ? (setup as IntakeSetup).goal.targetDurationSeconds ?? null : durationSeconds(setup.goal.targetTime) : null;
+  return { ...value, schemaVersion: 4,
+    benchmark: value.schemaVersion === 4 && value.benchmark ? structuredClone(value.benchmark) : { distance: null, durationSeconds: null, date: '', effortConfirmed: false },
+    step: setup && setup.schemaVersion >= 3 ? setup.step : [0, 1, 2, 2, 3][value.step] ?? 0,
+    goal: { ...value.goal, mode: 'time', paceGuidance: 'performance', targetTime: '', targetDurationSeconds: target },
   };
 }
 
@@ -94,7 +117,7 @@ function sessionLimit(value: unknown): number | null {
 export function validateSetup(value: unknown, today?: string): BlockSetup {
   const input = record(value), runner = record(input.runner), baseline = record(input.baseline);
   const goal = record(input.goal), availability = record(input.availability), results = record(baseline.results);
-  if (![1, 2].includes(input.schemaVersion as number) || !Number.isInteger(input.step) || Number(input.step) < 0 || Number(input.step) > 4 || !['mi', 'km'].includes(String(input.units)))
+  if (![1, 2, 3, 4].includes(input.schemaVersion as number) || !Number.isInteger(input.step) || Number(input.step) < 0 || Number(input.step) > (Number(input.schemaVersion) >= 3 ? 3 : 4) || !['mi', 'km'].includes(String(input.units)))
     throw new Error('Reload this setup before saving.');
   const normalized: LegacyBlockSetup = {
     schemaVersion: 1, step: input.step as number, units: input.units as 'mi' | 'km',
@@ -124,7 +147,8 @@ export function validateSetup(value: unknown, today?: string): BlockSetup {
   if (input.schemaVersion === 1) return normalized;
 
   const updated = setupForEditing(normalized);
-  if (!['finish', 'time'].includes(String(goal.mode)) || !['effort', 'performance'].includes(String(goal.paceGuidance))) throw new Error('Choose your goal and pace guidance.');
+  const paceOptions = input.schemaVersion === 4 ? ['performance'] : input.schemaVersion === 3 ? ['estimated'] : ['effort', 'performance'];
+  if (!['finish', 'time'].includes(String(goal.mode)) || !paceOptions.includes(String(goal.paceGuidance))) throw new Error('Choose your goal and pace guidance.');
   if (runner.experience !== null && !['novice', 'intermediate', 'advanced'].includes(String(runner.experience))) throw new Error('Choose a running experience level or leave it blank.');
   if (baseline.trainingChanges !== null && !['none', 'changed', 'unsure'].includes(String(baseline.trainingChanges))) throw new Error('Choose whether anything has interrupted or limited your training.');
   updated.goal.mode = goal.mode as IntakeSetup['goal']['mode'];
@@ -142,6 +166,24 @@ export function validateSetup(value: unknown, today?: string): BlockSetup {
     updated.availability.dayDurationLimits[day] = seconds;
   }
   updated.availability.otherCommitments = text(availability.otherCommitments, 'other exercise commitments', 1000);
+  if (Number(input.schemaVersion) >= 3) {
+    const seconds = numeric(goal.targetDurationSeconds, 'target finish duration', false, true);
+    if (seconds !== null && seconds > 86400) throw new Error('Target finish time cannot exceed 24 hours.');
+    if (goal.mode !== 'time' || goal.targetTime !== '') throw new Error('Reload this setup. Finish duration is stored as numeric seconds.');
+    updated.schemaVersion = input.schemaVersion as 3 | 4;
+    updated.goal = { ...updated.goal, mode: 'time', paceGuidance: input.schemaVersion === 4 ? 'performance' : 'estimated', targetTime: '', targetDurationSeconds: seconds };
+  }
+  if (input.schemaVersion === 4) {
+    const benchmark = record(input.benchmark);
+    if (benchmark.distance !== null && !RESULT_DISTANCES.includes(benchmark.distance as ResultDistance)) throw new Error('Choose 5K, 10K or half-marathon for the benchmark distance.');
+    if (typeof benchmark.effortConfirmed !== 'boolean') throw new Error('Confirm whether this was a race or best-effort time trial.');
+    const duration = numeric(benchmark.durationSeconds, 'benchmark finish time', false, true);
+    if (duration !== null && duration > 86400) throw new Error('Benchmark finish time cannot exceed 24 hours.');
+    updated.benchmark = {
+      distance: benchmark.distance as ResultDistance | null, durationSeconds: duration,
+      date: date(benchmark.date, 'benchmark date', today), effortConfirmed: benchmark.effortConfirmed,
+    };
+  }
   // Name is a convenience, not another mandatory question. Do not change legacy names.
   if (!updated.goal.name) updated.goal.name = suggestedBlockName(updated);
   return updated;
@@ -157,6 +199,23 @@ export function setupIssues(setup: BlockSetup): SetupIssue[] {
   const need = (condition: boolean, step: number, field: string, message: string) => { if (condition) issues.push({ step, field, message }); };
   need(!value.goal.distanceKm, 0, 'goalKind', 'Choose a race distance.');
   need(value.goal.distanceKm !== null && value.goal.distanceKm !== 5, 0, 'goalKind', 'The first planner release supports 5K. Other race details can stay saved as a draft.');
+  if (value.schemaVersion >= 3) {
+    need(value.goal.targetDurationSeconds == null, 0, 'targetTime', 'Add your target finish time.');
+    need(!value.goal.startDate, 0, 'startDate', 'Choose a training start date.');
+    need(!value.goal.targetDate, 0, 'targetDate', 'Choose a race date.');
+    need(!value.runner.experience, 1, 'experience', 'Choose your running experience.');
+    need(value.runner.age === null, 1, 'age', 'Add your age.');
+    need(value.runner.height === null, 1, 'height', 'Add your height.');
+    need(value.runner.weight === null, 1, 'weight', 'Add your weight.');
+    if (value.schemaVersion === 4) {
+      need(!value.benchmark?.distance, 1, 'benchmarkDistance', 'Choose a benchmark distance.');
+      need(value.benchmark?.durationSeconds == null, 1, 'benchmarkTime', 'Add your benchmark finish time.');
+      need(!value.benchmark?.date, 1, 'benchmarkDate', 'Add the date you achieved this result.');
+      need(value.benchmark?.effortConfirmed !== true, 1, 'benchmarkEffort', 'Confirm this result was a race or best-effort time trial.');
+    }
+    need(value.availability.days.length === 0, 2, 'days', 'Choose the days you want scheduled.');
+    return issues;
+  }
   need(value.goal.mode === 'time' && !value.goal.targetTime, 0, 'targetTime', 'Add your target finish time, or choose Finish comfortably.');
   need(!value.goal.startDate, 0, 'startDate', 'Choose a training start date.');
   need(!value.goal.targetDate, 0, 'targetDate', 'Choose a race date.');
@@ -193,12 +252,16 @@ export function plannerIntake(setup: BlockSetup) {
   const value = setupForEditing(validateSetup(setup));
   if (setupIssues(value).length) throw new Error('Complete the required setup before preparing planner inputs.');
   const miles = (distance: number | null) => distance === null ? null : distance / (value.units === 'km' ? KM_PER_MILE : 1);
+  const simplified = value.schemaVersion >= 3;
+  const benchmark = value.schemaVersion === 4 ? value.benchmark : null;
+  const distanceMeters = { '5k': 5000, '10k': 10000, half: 21097.5 };
   return {
-    schemaVersion: 1,
-    goal: { distanceMeters: value.goal.distanceKm! * 1000, startDate: value.goal.startDate, raceDate: value.goal.targetDate, mode: value.goal.mode, targetDurationSeconds: value.goal.mode === 'time' ? durationSeconds(value.goal.targetTime) : null, paceGuidance: value.goal.paceGuidance },
-    runner: { age: value.runner.age, heightCm: value.runner.height === null ? null : value.runner.height * (value.units === 'mi' ? 2.54 : 1), weightKg: value.runner.weight === null ? null : value.runner.weight * (value.units === 'mi' ? 0.45359237 : 1), experience: value.runner.experience, vo2: value.runner.vo2 },
-    baseline: { weeklyDistanceMiles: miles(value.baseline.weeklyDistance), longestRunMiles: miles(value.baseline.longestRun), runsPerWeek: value.baseline.runsPerWeek, trainingChanges: value.baseline.trainingChanges, trainingChangesNotes: value.baseline.trainingChangesNotes,
-      results: RESULT_DISTANCES.filter(key => value.baseline.results[key].time && value.baseline.results[key].date).map(key => ({ distanceMeters: { '5k': 5000, '10k': 10000, half: 21097.5 }[key], durationSeconds: durationSeconds(value.baseline.results[key].time), date: value.baseline.results[key].date, source: value.baseline.results[key].source })) },
-    availability: { trainingDays: value.availability.days, maxSessionDurationSeconds: value.availability.maxSessionDurationSeconds, dayDurationLimits: value.availability.dayDurationLimits, longRunDay: value.availability.longRunDay, otherCommitments: value.availability.otherCommitments },
+    schemaVersion: value.schemaVersion === 4 ? 2 : 1,
+    goal: { distanceMeters: value.goal.distanceKm! * 1000, startDate: value.goal.startDate, raceDate: value.goal.targetDate, mode: value.goal.mode, targetDurationSeconds: simplified ? value.goal.targetDurationSeconds ?? null : value.goal.mode === 'time' ? durationSeconds(value.goal.targetTime) : null, paceGuidance: value.goal.paceGuidance },
+    runner: { age: value.runner.age, heightCm: value.runner.height === null ? null : value.runner.height * (value.units === 'mi' ? 2.54 : 1), weightKg: value.runner.weight === null ? null : value.runner.weight * (value.units === 'mi' ? 0.45359237 : 1), experience: value.runner.experience, vo2: simplified ? null : value.runner.vo2 },
+    baseline: { weeklyDistanceMiles: simplified ? null : miles(value.baseline.weeklyDistance), longestRunMiles: simplified ? null : miles(value.baseline.longestRun), runsPerWeek: simplified ? null : value.baseline.runsPerWeek, trainingChanges: simplified ? null : value.baseline.trainingChanges, trainingChangesNotes: simplified ? '' : value.baseline.trainingChangesNotes,
+      results: benchmark ? [{ distanceMeters: distanceMeters[benchmark.distance!], durationSeconds: benchmark.durationSeconds, date: benchmark.date, source: 'confirmed-race-or-best-effort-time-trial' }]
+        : RESULT_DISTANCES.filter(key => !simplified && value.baseline.results[key].time && value.baseline.results[key].date).map(key => ({ distanceMeters: distanceMeters[key], durationSeconds: durationSeconds(value.baseline.results[key].time), date: value.baseline.results[key].date, source: value.baseline.results[key].source })) },
+    availability: { trainingDays: value.availability.days, maxSessionDurationSeconds: simplified ? null : value.availability.maxSessionDurationSeconds, dayDurationLimits: simplified ? {} : value.availability.dayDurationLimits, longRunDay: simplified ? null : value.availability.longRunDay, otherCommitments: simplified ? '' : value.availability.otherCommitments },
   };
 }

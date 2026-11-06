@@ -135,3 +135,5 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+.plan-adjustment h2{font-size:1.15rem;margin:0 0 .75rem}.plan-adjustment ul{padding-left:1.25rem}.plan-adjustment-actions{display:flex;flex-wrap:wrap;gap:.65rem}.plan-adjustment-actions .button{white-space:normal;text-align:left}

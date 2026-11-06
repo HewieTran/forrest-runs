@@ -1,5 +1,17 @@
 # Forrest Runs development coordination
 
+## GitHub pull requests
+
+- Start each implementation change on a focused branch from the current GitHub
+  `main`. Submit it through a pull request and leave merge to Hieu unless he
+  explicitly authorizes it.
+- Check the deployed source revision against GitHub before making release
+  changes. Raise any drift and reconcile it in a separate pull request so
+  unrelated changes stay out of feature reviews.
+- Open the pull request before deploying a change to staging when practical.
+  Record the verification and deployed revision in the pull request. Report
+  review, merge, staging, and production status separately.
+
 ## Shared workout-data contract
 
 Hieu assigned Agent 2 the workout-data foundation on 2026-10-23, before Progress
@@ -34,3 +46,42 @@ never add a description-parsing backfill to a schema migration or live read.
   or infer rest from the absence of a workout.
 - Run the relevant domain/backup/migration tests, TypeScript, a production build,
   and the disposable Worker integration suite for shared storage/API changes.
+
+## Phase 1 integration on 2026-10-27
+
+Hieu authorized the simplified intake, UI and completion behavior as one integrated
+release. `PHASE_1_REQUIREMENTS.md` is the current product baseline and supersedes
+older intake/review requirements. The integrating agent owns this release's shared
+form/schema changes; do not introduce competing fields or parallel releases.
+Preserve all legacy snapshots and existing records. Backups now export v6.
+
+On 2026-10-31 Hieu approved restoring one confirmed performance benchmark in
+Runner before Stage 4. The updated PHASE_1_REQUIREMENTS.md and intake v4 contract
+define new generation; other deferred inputs and the automatic-save flow stay as-is.
+
+Generator Stage 4 adds structured goal assessment and calendar benchmark age
+context in existing generation JSON. New live plans must pass the assessment
+contract before automatic save; clarifications contain no schedule. Do not infer
+physiological impossibility from a fixed threshold, change input goals silently,
+or restore deferred fields. See PLANNER_TESTING.md for the distinction between
+synthetic control-flow tests and the outstanding real-model quality evaluation.
+
+Stage 6 recorded four real Luna responses for invented runner profiles in
+`evals/stage6-results.json`; PLANNER_EVALUATION.md contains results and open release
+gates. Never rerun paid cases or delete their reservation journal implicitly.
+The evaluation CLI defaults to dry-run; the recorded-output Worker replay is
+network-isolated. Hosted configuration is deployed in live mode; a complete successful personal
+trial remains pending.
+
+Hieu approved app-calculated measurements (option 1) after hosted arithmetic
+failures. Consume the pair-only provider contract in lib/planner-math.ts and
+WORKOUT_DATA_CONTRACT.md: the app derives distance for running steps and pace for
+an exact 5K race. Never silently repair/recalculate old three-number snapshots or
+relax schedule/goal checks. New snapshots carry calculationVersion provenance.
+
+On 2026-11-04 Hieu approved visible structured workout steps in Plan, concise
+headers, readable units and step-driven totals. The integrating agent owns this
+focused form/storage release. Consume optional planStructure and the read-only
+source fallback in lib/workout-structure.ts; preserve original generation/source
+snapshots, race-only progress targets, legacy linked forms and migration 0009's
+prescription-change trigger. See WORKOUT_DATA_CONTRACT.md before shared edits.

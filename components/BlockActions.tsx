@@ -1,18 +1,19 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import { Archive, CheckCircle2, Play, RotateCcw, X } from 'lucide-react';
+import { acceptedPlan, simulatedBlock } from '../lib/planner';
 import { BLOCK_TRANSITIONS, STATUS_LABELS } from '../lib/blocks';
 import type { BlockStatus, Plan } from '../lib/domain';
 
 const actions = {
-  active: { label: 'Activate block', Icon: Play, description: 'Make this your current training block. Workout results stay as recorded.' },
+  active: { label: 'Start training', Icon: Play, description: 'Make this your current training block. Workout results stay as recorded.' },
   completed: { label: 'Mark completed', Icon: CheckCircle2, description: 'Close this training block as completed. This does not mark individual workouts done or assert that your race goal was achieved.' },
   archived: { label: 'Archive block', Icon: Archive, description: 'Move this block to your archive. All workouts, notes, and results remain available. Archiving does not mean the goal was achieved.' },
   draft: { label: 'Move to drafts', Icon: RotateCcw, description: 'Reopen this block as a draft. Its workouts and results stay intact; it will not become active automatically.' },
 };
-export default function BlockActions({ plan, activeBlock, onChanged, disabled, preview = false }: {
+export default function BlockActions({ plan, activeBlock, onChanged, disabled, preview = false, management = false, ready = false }: {
   plan: Plan; activeBlock: Pick<Plan, 'id' | 'raceName'> | null;
-  onChanged: (block: Plan) => void; disabled: boolean; preview?: boolean;
+  onChanged: (block: Plan) => void; disabled: boolean; preview?: boolean; management?: boolean; ready?: boolean;
 }) {
   const [target, setTarget] = useState<BlockStatus | null>(null);
   const [saving, setSaving] = useState(false);
@@ -44,9 +45,10 @@ export default function BlockActions({ plan, activeBlock, onChanged, disabled, p
   }
   return <>
     <div className="block-action-buttons" aria-label="Block status actions">
-      {BLOCK_TRANSITIONS[plan.status].filter(status => status !== 'active' || !plan.setup).map(status => {
+      {!management && <label className="block-status-control"><span>Status</span><select aria-label="Training block status" value={plan.status} disabled={disabled || saving} onChange={event => { setError(''); setTarget(event.target.value as BlockStatus); }}><option value={plan.status}>{ready ? 'Not started' : STATUS_LABELS[plan.status]}</option>{BLOCK_TRANSITIONS[plan.status].filter(status => ['active', 'completed'].includes(status) && (status !== 'active' || (!simulatedBlock(plan) && (!plan.setup || acceptedPlan(plan))))).map(status => <option key={status} value={status}>{STATUS_LABELS[status]}</option>)}</select></label>}
+      {management && BLOCK_TRANSITIONS[plan.status].filter(status => status === 'archived' || status === 'draft').map(status => {
         const { Icon, label } = actions[status];
-        return <button className={`button ${status === 'active' ? 'primary' : ''}`} key={status} disabled={disabled} onClick={() => { setError(''); setTarget(status); }}><Icon size={15} />{label}</button>;
+        return <button className="button" key={status} disabled={disabled} onClick={() => { setError(''); setTarget(status); }}><Icon size={15} />{label}</button>;
       })}
     </div>
     <dialog ref={ref} className="settings-dialog lifecycle-dialog" aria-labelledby="lifecycle-title" onCancel={event => {
@@ -65,6 +67,6 @@ export default function BlockActions({ plan, activeBlock, onChanged, disabled, p
   </>;
 }
 
-export function BlockStatusBadge({ status }: { status: BlockStatus }) {
-  return <span className={`block-status block-status-${status}`}><span aria-hidden="true" />{STATUS_LABELS[status]}</span>;
+export function BlockStatusBadge({ status, ready = false }: { status: BlockStatus; ready?: boolean }) {
+  return <span className={`block-status block-status-${status}`}><span aria-hidden="true" />{ready ? 'Not started' : STATUS_LABELS[status]}</span>;
 }

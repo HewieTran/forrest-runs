@@ -1,4 +1,7 @@
+import type { Generation } from './planner';
 import type { BlockSetup } from './setup';
+import { structureMeasurements, validateWorkoutStructure, type WorkoutStructure } from './workout-structure.ts';
+import { RESULT_FIELDS, type ResultField, type ResultOrigins } from './workout-completion.ts';
 import { validateWorkoutMeasurements, type WorkoutMeasurements, type RestDay } from './workout-targets.ts';
 export { EMPTY_WORKOUT_MEASUREMENTS } from './workout-targets.ts';
 export type { WorkoutMeasurements, RestDay } from './workout-targets.ts';
@@ -19,12 +22,14 @@ export const PHASES = [
   'Taper',
   'Race Week',
 ] as const;
+export const WORKOUT_PHASES = [...PHASES, 'Not applicable'] as const;
 export type PaceGuide = { type: string; target: string; rule: string };
 export const BLOCK_STATUSES = ['draft', 'active', 'completed', 'archived'] as const;
 export type BlockStatus = (typeof BLOCK_STATUSES)[number];
 export type Plan = {
   id: string;
   setup?: BlockSetup | null;
+  generation?: Generation | null;
   status: BlockStatus;
   raceName: string;
   raceDate: string;
@@ -35,6 +40,8 @@ export type Plan = {
   updatedAt: string;
 };
 export type Workout = WorkoutMeasurements & {
+  planStructure?: WorkoutStructure | null;
+  resultOrigins?: ResultOrigins | null;
   id: string;
   planId: string;
   date: string;
@@ -75,7 +82,7 @@ export type WorkoutInput = Pick<
   | 'pain'
   | 'notes'
   | 'version'
-> & Partial<WorkoutMeasurements>;
+> & Partial<WorkoutMeasurements> & { planStructure?: WorkoutStructure | null; manualResultFields?: ResultField[] };
 export function isRun(workout: Pick<Workout, 'type'>) {
   return workout.type !== 'Strength' && workout.type !== 'Mobility';
 }
@@ -232,7 +239,7 @@ export function validateWorkout(input: unknown): WorkoutInput {
     throw new Error('Enter valid workout details.');
   const fields = input as Record<string, unknown>;
   if (!validDate(fields.date)) throw new Error('Enter a valid workout date.');
-  if (!PHASES.includes(fields.phase as (typeof PHASES)[number]))
+  if (!WORKOUT_PHASES.includes(fields.phase as (typeof WORKOUT_PHASES)[number]))
     throw new Error('Choose a training phase.');
   if (!TYPES.includes(fields.type as (typeof TYPES)[number]))
     throw new Error('Choose a workout type.');
@@ -274,8 +281,25 @@ export function validateWorkout(input: unknown): WorkoutInput {
     throw new Error(
       'Effort must be a whole number from 1 to 10, or left blank.',
     );
+  if (fields.manualResultFields !== undefined && (!Array.isArray(fields.manualResultFields) || fields.manualResultFields.some(key => !RESULT_FIELDS.includes(key))))
+    throw new Error('Invalid manually edited result fields.');
+  const structure = fields.planStructure == null ? fields.planStructure : validateWorkoutStructure(fields.planStructure);
+  const measurements = validateWorkoutMeasurements(fields);
+  if (structure) {
+    if (fields.type === 'Strength' || fields.type === 'Mobility' || (fields.type === 'Race') !== structure.steps.some(step => step.kind === 'race'))
+      throw new Error('The workout type must match its running steps.');
+    const calculated = structureMeasurements(structure);
+    for (const key of ['plannedDistance', 'plannedDurationSeconds', 'plannedPaceSecondsPerMile', 'targetMetric'] as const) {
+      const supplied = measurements[key], expected = calculated[key];
+      if (supplied !== undefined && (typeof supplied === 'number' && typeof expected === 'number' ? Math.abs(supplied - expected) > 1e-10 * Math.max(1, Math.abs(expected)) : supplied !== expected))
+        throw new Error('Edit the workout steps to update the calculated plan totals.');
+    }
+    Object.assign(measurements, validateWorkoutMeasurements({ ...fields, ...calculated }));
+  }
   return {
-    ...validateWorkoutMeasurements(fields),
+    ...(structure === undefined ? {} : { planStructure: structure }),
+    ...(fields.manualResultFields === undefined ? {} : { manualResultFields: [...new Set(fields.manualResultFields as ResultField[])] }),
+    ...measurements,
     date: fields.date as string,
     phase: fields.phase as string,
     type: fields.type as string,

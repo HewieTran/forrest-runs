@@ -70,3 +70,49 @@ Generation provenance, model/prompt versions, structured interval steps,
 feasibility checks and acceptance are not implemented here. Preserve a reviewed
 input/output snapshot and use the shared workout measurement contract when
 implementing them. No user baseline is sent to an AI provider by this release.
+
+## Simulation follow-on
+
+The simulation release adds a separate generation/review page after intake save.
+Generation provenance and accepted snapshots use the additive nullable
+training_plans.generation column (migration 0005), with v5 exports preserving it.
+See PLANNER_TESTING.md for simulation scope, explicit provider configuration,
+acceptance, activation restrictions, and rollback compatibility. The original
+intake remains saved and the production simulation never sends it to OpenAI.
+
+## Simplified Phase 1 intake v3
+
+`PHASE_1_REQUIREMENTS.md` supersedes earlier UI scope. New editable intake uses
+schemaVersion 3: Goal, Runner, Training days, Review. Required runner experience,
+age, height, weight, units; 5K, start/race dates, numeric targetDurationSeconds,
+selected weekdays. Optional name. goal.mode=time, paceGuidance=estimated;
+legacy targetTime is blank. Historical/deferred answers remain preserved but are
+excluded from canonical planner inputs. v1/v2 snapshots remain readable unchanged;
+explicit editing upgrades to v3 and version guards reject downgrades. Generation
+requires an adult and a 2–26 week future/current training window. The UI submits
+saveImmediately=true; validated output is committed with the existing atomic
+acceptance transaction, without a second review step. Accepted retry is idempotent.
+The old review/accept endpoints remain for compatibility and recovery only.
+
+## Confirmed benchmark intake v4 (2026-10-31)
+
+Hieu approved one required benchmark inside Runner before Stage 4. New editing
+uses setup schemaVersion 4 with `benchmark = {distance, durationSeconds, date,
+effortConfirmed}`. Distance is null/5k/10k/half, duration is positive whole seconds
+or null, date is blank or a valid past/current date, confirmation is boolean and
+defaults false. Partial valid answers can be saved; generation requires all four.
+No SQL migration, new table, bulk conversion, additional tab or review step.
+
+Canonical planner input version 2 carries exactly this confirmed result in
+baseline.results (meters/seconds/date/source). Race or best-effort time trial is
+confirmed collectively; no uncollected race-versus-trial classification is
+invented. Other deferred workload and availability fields remain unknown and
+excluded. Numeric running targets are required; 10K/half benchmarks do not expand
+the generated race beyond 5K. Simulation retains example labels and uses generic
+demo paces, not benchmark-calibrated coaching.
+
+Older setup versions remain readable without conversion or altered generation
+snapshots. Editing a draft upgrades explicitly with an empty, unconfirmed
+benchmark; past results are not silently selected. Older clients must reopen the
+Runner setup before a new generation. Exports retain envelope v6 and include the
+nested v4 setup. Freshness and feasibility handling are deferred to Stage 4.

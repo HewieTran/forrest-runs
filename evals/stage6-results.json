@@ -1,0 +1,1800 @@
+{
+  "synthetic": true,
+  "model": "gpt-6-luna",
+  "promptVersion": "5k-coach-v5-assessment",
+  "validatorVersion": "5k-v4-assessment",
+  "pricingVersion": "luna-standard-2026-10-31",
+  "budgetMicrodollars": 100000,
+  "asOfDate": "2026-10-31",
+  "attempts": [
+    {
+      "id": "matched-5k",
+      "input": {
+        "schemaVersion": 2,
+        "goal": {
+          "distanceMeters": 5000,
+          "startDate": "2026-10-31",
+          "raceDate": "2026-12-26",
+          "mode": "time",
+          "targetDurationSeconds": 1770,
+          "paceGuidance": "performance"
+        },
+        "runner": {
+          "age": 35,
+          "heightCm": 177.8,
+          "weightKg": 79.37866475,
+          "experience": "intermediate",
+          "vo2": null
+        },
+        "baseline": {
+          "weeklyDistanceMiles": null,
+          "longestRunMiles": null,
+          "runsPerWeek": null,
+          "trainingChanges": null,
+          "trainingChangesNotes": "",
+          "results": [
+            {
+              "distanceMeters": 5000,
+              "durationSeconds": 1800,
+              "date": "2026-10-17",
+              "source": "confirmed-race-or-best-effort-time-trial"
+            }
+          ]
+        },
+        "availability": {
+          "trainingDays": [
+            1,
+            3,
+            6
+          ],
+          "maxSessionDurationSeconds": null,
+          "dayDurationLimits": {},
+          "longRunDay": null,
+          "otherCommitments": ""
+        }
+      },
+      "expectedDecisions": [
+        "proceed"
+      ],
+      "startedAt": "2026-11-01T00:15:09.984Z",
+      "status": "completed",
+      "countedMicrodollars": 3512,
+      "httpStatus": 200,
+      "result": {
+        "output": {
+          "outcome": "plan",
+          "summary": "A conservative three-runs-per-week block from October 31 to December 26, with easy running, one controlled quality session most weeks, a gradual long run, and a taper. Your recent confirmed 30:00 5K supports pace guidance; the requested 29:30 is a modest but uncertain improvement, not a promised result. Current training volume is unknown, so start gently and adjust down if these sessions exceed what you have recently tolerated.",
+          "goalAssessment": "Your confirmed 30:00 5K from October 17 is a useful, recent benchmark. A 29:30 target asks for a 30-second improvement over eight weeks. That is a reasonable aspiration to train toward, but the benchmark does not establish that you will achieve it, and unknown recent workload adds uncertainty. The plan uses benchmark-informed paces, not the goal pace as an easy pace.",
+          "assumptions": [
+            "Paces are initial estimates informed by your recent 30:00 5K; effort and ability may require adjustment. Your current weekly workload and longest recent run are unknown.",
+            "The target is aspirational, not a measured current fitness level or a guaranteed result.",
+            "Easy running should feel conversational; keep quality repetitions controlled rather than all-out. Reduce or skip a session if you are not recovering well.",
+            "Session limits in the manifest are technical ceilings, not recommended durations."
+          ],
+          "questions": [],
+          "sessions": [
+            {
+              "date": "2026-10-31",
+              "type": "Easy Run",
+              "phase": "Base Build",
+              "title": "Easy re-entry",
+              "notes": "Comfortable, conversational effort; keep this short if it exceeds your recent routine.",
+              "steps": [
+                {
+                  "kind": "run",
+                  "label": "Easy throughout",
+                  "durationSeconds": 1500,
+                  "distanceMiles": 2.308,
+                  "paceSecondsPerMile": 650,
+                  "effort": "easy"
+                }
+              ]
+            },
+            {
+              "date": "2026-11-02",
+              "type": "Easy Run",
+              "phase": "Base Build",
+              "title": "Easy run",
+              "notes": "Relaxed, conversational pace; finish feeling comfortable.",
+              "steps": [
+                {
+                  "kind": "run",
+                  "label": "Easy throughout",
+                  "durationSeconds": 1800,
+                  "distanceMiles": 2.769,
+                  "paceSecondsPerMile": 650,
+                  "effort": "easy"
+                }
+              ]
+            },
+            {
+              "date": "2026-11-04",
+              "type": "Quality Run",
+              "phase": "Base Build",
+              "title": "Gentle 5K-pace introduction",
+              "notes": "Controlled repetitions, not a test. Jog easily between efforts.",
+              "steps": [
+                {
+                  "kind": "warmup",
+                  "label": "Easy warmup",
+                  "durationSeconds": 600,
+                  "distanceMiles": 0.923,
+                  "paceSecondsPerMile": 650,
+                  "effort": "easy"
+                },
+                {
+                  "kind": "run",
+                  "label": "Controlled faster running",
+                  "durationSeconds": 180,
+                  "distanceMiles": 0.31,
+                  "paceSecondsPerMile": 580,
+                  "effort": "hard"
+                },
+                {
+                  "kind": "recovery",
+                  "label": "Easy jog",
+                  "durationSeconds": 180,
+                  "distanceMiles": 0.277,
+                  "paceSecondsPerMile": 650,
+                  "effort": "easy"
+                },
+                {
+                  "kind": "run",
+                  "label": "Controlled faster running",
+                  "durationSeconds": 180,
+                  "distanceMiles": 0.31,
+                  "paceSecondsPerMile": 580,
+                  "effort": "hard"
+                },
+                {
+                  "kind": "recovery",
+                  "label": "Easy jog",
+                  "durationSeconds": 180,
+                  "distanceMiles": 0.277,
+                  "paceSecondsPerMile": 650,
+                  "effort": "easy"
+                },
+                {
+                  "kind": "run",
+                  "label": "Controlled faster running",
+                  "durationSeconds": 180,
+                  "distanceMiles": 0.31,
+                  "paceSecondsPerMile": 580,
+                  "effort": "hard"
+                },
+                {
+                  "kind": "cooldown",
+                  "label": "Easy cooldown",
+                  "durationSeconds": 600,
+                  "distanceMiles": 0.923,
+                  "paceSecondsPerMile": 650,
+                  "effort": "easy"
+                }
+              ]
+            },
+            {
+              "date": "2026-11-07",
+              "type": "Long Run",
+              "phase": "Base Build",
+              "title": "Easy longer run",
+              "notes": "Conversational throughout; shorten if this is a large jump from your usual long run.",
+              "steps": [
+                {
+                  "kind": "run",
+                  "label": "Easy throughout",
+                  "durationSeconds": 2100,
+                  "distanceMiles": 3.231,
+                  "paceSecondsPerMile": 650,
+                  "effort": "easy"
+                }
+              ]
+            },
+            {
+              "date": "2026-11-09",
+              "type": "Easy Run",
+              "phase": "Base Build",
+              "title": "Easy run",
+              "notes": "Relaxed and conversational.",
+              "steps": [
+                {
+                  "kind": "run",
+                  "label": "Easy throughout",
+                  "durationSeconds": 1800,
+                  "distanceMiles": 2.769,
+                  "paceSecondsPerMile": 650,
+                  "effort": "easy"
+                }
+              ]
+            },
+            {
+              "date": "2026-11-11",
+              "type": "Quality Run",
+              "phase": "Base Build",
+              "title": "Steady controlled repeats",
+              "notes": "Stay smooth and controlled. Jog easily between repetitions.",
+              "steps": [
+                {
+                  "kind": "warmup",
+                  "label": "Easy warmup",
+                  "durationSeconds": 600,
+                  "distanceMiles": 0.923,
+                  "paceSecondsPerMile": 650,
+                  "effort": "easy"
+                },
+                {
+                  "kind": "run",
+                  "label": "Steady repetition",
+                  "durationSeconds": 240,
+                  "distanceMiles": 0.414,
+                  "paceSecondsPerMile": 580,
+                  "effort": "hard"
+                },
+                {
+                  "kind": "recovery",
+                  "label": "Easy jog",
+                  "durationSeconds": 180,
+                  "distanceMiles": 0.277,
+                  "paceSecondsPerMile": 650,
+                  "effort": "easy"
+                },
+                {
+                  "kind": "run",
+                  "label": "Steady repetition",
+                  "durationSeconds": 240,
+                  "distanceMiles": 0.414,
+                  "paceSecondsPerMile": 580,
+                  "effort": "hard"
+                },
+                {
+                  "kind": "recovery",
+                  "label": "Easy jog",
+                  "durationSeconds": 180,
+                  "distanceMiles": 0.277,
+                  "paceSecondsPerMile": 650,
+                  "effort": "easy"
+                },
+                {
+                  "kind": "run",
+                  "label": "Steady repetition",
+                  "durationSeconds": 240,
+                  "distanceMiles": 0.414,
+                  "paceSecondsPerMile": 580,
+                  "effort": "hard"
+                },
+                {
+                  "kind": "cooldown",
+                  "label": "Easy cooldown",
+                  "durationSeconds": 600,
+                  "distanceMiles": 0.923,
+                  "paceSecondsPerMile": 650,
+                  "effort": "easy"
+                }
+              ]
+            },
+            {
+              "date": "2026-11-14",
+              "type": "Long Run",
+              "phase": "Base Build",
+              "title": "Easy longer run",
+              "notes": "Conversational pace; no fast finish.",
+              "steps": [
+                {
+                  "kind": "run",
+                  "label": "Easy throughout",
+                  "durationSeconds": 2400,
+                  "distanceMiles": 3.692,
+                  "paceSecondsPerMile": 650,
+                  "effort": "easy"
+                }
+              ]
+            },
+            {
+              "date": "2026-11-16",
+              "type": "Easy Run",
+              "phase": "Base Build",
+              "title": "Easy recovery run",
+              "notes": "Keep the effort light, especially if the weekend run felt demanding.",
+              "steps": [
+                {
+                  "kind": "run",
+                  "label": "Easy throughout",
+                  "durationSeconds": 1800,
+                  "distanceMiles": 2.769,
+                  "paceSecondsPerMile": 650,
+                  "effort": "easy"
+                }
+              ]
+            },
+            {
+              "date": "2026-11-18",
+              "type": "Quality Run",
+              "phase": "Base Build",
+              "title": "Controlled 5K-pace repeats",
+              "notes": "Even, controlled efforts; stop the faster running if form deteriorates.",
+              "steps": [
+                {
+                  "kind": "warmup",
+                  "label": "Easy warmup",
+                  "durationSeconds": 600,
+                  "distanceMiles": 0.923,
+                  "paceSecondsPerMile": 650,
+                  "effort": "easy"
+                },
+                {
+                  "kind": "run",
+                  "label": "Controlled repetition",
+                  "durationSeconds": 300,
+                  "distanceMiles": 0.517,
+                  "paceSecondsPerMile": 580,
+                  "effort": "hard"
+                },
+                {
+                  "kind": "recovery",
+                  "label": "Easy jog",
+                  "durationSeconds": 180,
+                  "distanceMiles": 0.277,
+                  "paceSecondsPerMile": 650,
+                  "effort": "easy"
+                },
+                {
+                  "kind": "run",
+                  "label": "Controlled repetition",
+                  "durationSeconds": 300,
+                  "distanceMiles": 0.517,
+                  "paceSecondsPerMile": 580,
+                  "effort": "hard"
+                },
+                {
+                  "kind": "recovery",
+                  "label": "Easy jog",
+                  "durationSeconds": 180,
+                  "distanceMiles": 0.277,
+                  "paceSecondsPerMile": 650,
+                  "effort": "easy"
+                },
+                {
+                  "kind": "run",
+                  "label": "Controlled repetition",
+                  "durationSeconds": 300,
+                  "distanceMiles": 0.517,
+                  "paceSecondsPerMile": 580,
+                  "effort": "hard"
+                },
+                {
+                  "kind": "cooldown",
+                  "label": "Easy cooldown",
+                  "durationSeconds": 600,
+                  "distanceMiles": 0.923,
+                  "paceSecondsPerMile": 650,
+                  "effort": "easy"
+                }
+              ]
+            },
+            {
+              "date": "2026-11-21",
+              "type": "Long Run",
+              "phase": "Base Build",
+              "title": "Easy longer run",
+              "notes": "Conversational throughout; keep the duration manageable for your current routine.",
+              "steps": [
+                {
+                  "kind": "run",
+                  "label": "Easy throughout",
+                  "durationSeconds": 2700,
+                  "distanceMiles": 4.154,
+                  "paceSecondsPerMile": 650,
+                  "effort": "easy"
+                }
+              ]
+            },
+            {
+              "date": "2026-11-23",
+              "type": "Easy Run",
+              "phase": "Base Build",
+              "title": "Easy run",
+              "notes": "Relaxed effort; leave plenty in reserve.",
+              "steps": [
+                {
+                  "kind": "run",
+                  "label": "Easy throughout",
+                  "durationSeconds": 1800,
+                  "distanceMiles": 2.769,
+                  "paceSecondsPerMile": 650,
+                  "effort": "easy"
+                }
+              ]
+            },
+            {
+              "date": "2026-11-25",
+              "type": "Quality Run",
+              "phase": "Base Build",
+              "title": "Steady intervals",
+              "notes": "Controlled, repeatable efforts rather than sprinting; easy jog recoveries.",
+              "steps": [
+                {
+                  "kind": "warmup",
+                  "label": "Easy warmup",
+                  "durationSeconds": 600,
+                  "distanceMiles": 0.923,
+                  "paceSecondsPerMile": 650,
+                  "effort": "easy"
+                },
+                {
+                  "kind": "run",
+                  "label": "Steady repetition",
+                  "durationSeconds": 360,
+                  "distanceMiles": 0.621,
+                  "paceSecondsPerMile": 580,
+                  "effort": "hard"
+                },
+                {
+                  "kind": "recovery",
+                  "label": "Easy jog",
+                  "durationSeconds": 180,
+                  "distanceMiles": 0.277,
+                  "paceSecondsPerMile": 650,
+                  "effort": "easy"
+                },
+                {
+                  "kind": "run",
+                  "label": "Steady repetition",
+                  "durationSeconds": 360,
+                  "distanceMiles": 0.621,
+                  "paceSecondsPerMile": 580,
+                  "effort": "hard"
+                },
+                {
+                  "kind": "recovery",
+                  "label": "Easy jog",
+                  "durationSeconds": 180,
+                  "distanceMiles": 0.277,
+                  "paceSecondsPerMile": 650,
+                  "effort": "easy"
+                },
+                {
+                  "kind": "run",
+                  "label": "Steady repetition",
+                  "durationSeconds": 360,
+                  "distanceMiles": 0.621,
+                  "paceSecondsPerMile": 580,
+                  "effort": "hard"
+                },
+                {
+                  "kind": "cooldown",
+                  "label": "Easy cooldown",
+                  "durationSeconds": 600,
+                  "distanceMiles": 0.923,
+                  "paceSecondsPerMile": 650,
+                  "effort": "easy"
+                }
+              ]
+            },
+            {
+              "date": "2026-11-28",
+              "type": "Long Run",
+              "phase": "Peak",
+              "title": "Easy longer run",
+              "notes": "Conversational pace; do not extend beyond what you can recover from comfortably.",
+              "steps": [
+                {
+                  "kind": "run",
+                  "label": "Easy throughout",
+                  "durationSeconds": 3000,
+                  "distanceMiles": 4.615,
+                  "paceSecondsPerMile": 650,
+                  "effort": "easy"
+                }
+              ]
+            },
+            {
+              "date": "2026-11-30",
+              "type": "Easy Run",
+              "phase": "Peak",
+              "title": "Easy recovery run",
+              "notes": "Keep this gentle after the longer run.",
+              "steps": [
+                {
+                  "kind": "run",
+                  "label": "Easy throughout",
+                  "durationSeconds": 1800,
+                  "distanceMiles": 2.769,
+                  "paceSecondsPerMile": 650,
+                  "effort": "easy"
+                }
+              ]
+            },
+            {
+              "date": "2026-12-02",
+              "type": "Quality Run",
+              "phase": "Peak",
+              "title": "Controlled sustained repeats",
+              "notes": "Comfortably hard but controlled; jog easily between efforts.",
+              "steps": [
+                {
+                  "kind": "warmup",
+                  "label": "Easy warmup",
+                  "durationSeconds": 600,
+                  "distanceMiles": 0.923,
+                  "paceSecondsPerMile": 650,
+                  "effort": "easy"
+                },
+                {
+                  "kind": "run",
+                  "label": "Controlled repetition",
+                  "durationSeconds": 420,
+                  "distanceMiles": 0.724,
+                  "paceSecondsPerMile": 580,
+                  "effort": "hard"
+                },
+                {
+                  "kind": "recovery",
+                  "label": "Easy jog",
+                  "durationSeconds": 180,
+                  "distanceMiles": 0.277,
+                  "paceSecondsPerMile": 650,
+                  "effort": "easy"
+                },
+                {
+                  "kind": "run",
+                  "label": "Controlled repetition",
+                  "durationSeconds": 420,
+                  "distanceMiles": 0.724,
+                  "paceSecondsPerMile": 580,
+                  "effort": "hard"
+                },
+                {
+                  "kind": "recovery",
+                  "label": "Easy jog",
+                  "durationSeconds": 180,
+                  "distanceMiles": 0.277,
+                  "paceSecondsPerMile": 650,
+                  "effort": "easy"
+                },
+                {
+                  "kind": "cooldown",
+                  "label": "Easy cooldown",
+                  "durationSeconds": 600,
+                  "distanceMiles": 0.923,
+                  "paceSecondsPerMile": 650,
+                  "effort": "easy"
+                }
+              ]
+            },
+            {
+              "date": "2026-12-05",
+              "type": "Long Run",
+              "phase": "Peak",
+              "title": "Peak easy run",
+              "notes": "Keep this fully conversational. Do not force the distance if it is beyond your recent tolerance.",
+              "steps": [
+                {
+                  "kind": "run",
+                  "label": "Easy throughout",
+                  "durationSeconds": 3000,
+                  "distanceMiles": 4.615,
+                  "paceSecondsPerMile": 650,
+                  "effort": "easy"
+                }
+              ]
+            },
+            {
+              "date": "2026-12-07",
+              "type": "Easy Run",
+              "phase": "Peak",
+              "title": "Easy run",
+              "notes": "Comfortable, relaxed effort.",
+              "steps": [
+                {
+                  "kind": "run",
+                  "label": "Easy throughout",
+                  "durationSeconds": 1800,
+                  "distanceMiles": 2.769,
+                  "paceSecondsPerMile": 650,
+                  "effort": "easy"
+                }
+              ]
+            },
+            {
+              "date": "2026-12-09",
+              "type": "Quality Run",
+              "phase": "Peak",
+              "title": "Short controlled intervals",
+              "notes": "Keep repetitions smooth and no faster than controlled 5K effort; jog easily between.",
+              "steps": [
+                {
+                  "kind": "warmup",
+                  "label": "Easy warmup",
+                  "durationSeconds": 600,
+                  "distanceMiles": 0.923,
+                  "paceSecondsPerMile": 650,
+                  "effort": "easy"
+                },
+                {
+                  "kind": "run",
+                  "label": "Controlled repetition",
+                  "durationSeconds": 300,
+                  "distanceMiles": 0.517,
+                  "paceSecondsPerMile": 580,
+                  "effort": "hard"
+                },
+                {
+                  "kind": "recovery",
+                  "label": "Easy jog",
+                  "durationSeconds": 180,
+                  "distanceMiles": 0.277,
+                  "paceSecondsPerMile": 650,
+                  "effort": "easy"
+                },
+                {
+                  "kind": "run",
+                  "label": "Controlled repetition",
+                  "durationSeconds": 300,
+                  "distanceMiles": 0.517,
+                  "paceSecondsPerMile": 580,
+                  "effort": "hard"
+                },
+                {
+                  "kind": "recovery",
+                  "label": "Easy jog",
+                  "durationSeconds": 180,
+                  "distanceMiles": 0.277,
+                  "paceSecondsPerMile": 650,
+                  "effort": "easy"
+                },
+                {
+                  "kind": "run",
+                  "label": "Controlled repetition",
+                  "durationSeconds": 300,
+                  "distanceMiles": 0.517,
+                  "paceSecondsPerMile": 580,
+                  "effort": "hard"
+                },
+                {
+                  "kind": "cooldown",
+                  "label": "Easy cooldown",
+                  "durationSeconds": 600,
+                  "distanceMiles": 0.923,
+                  "paceSecondsPerMile": 650,
+                  "effort": "easy"
+                }
+              ]
+            },
+            {
+              "date": "2026-12-12",
+              "type": "Long Run",
+              "phase": "Taper",
+              "title": "Shorter easy long run",
+              "notes": "Begin reducing load; keep the whole run conversational.",
+              "steps": [
+                {
+                  "kind": "run",
+                  "label": "Easy throughout",
+                  "durationSeconds": 2400,
+                  "distanceMiles": 3.692,
+                  "paceSecondsPerMile": 650,
+                  "effort": "easy"
+                }
+              ]
+            },
+            {
+              "date": "2026-12-14",
+              "type": "Easy Run",
+              "phase": "Taper",
+              "title": "Easy run",
+              "notes": "Relaxed effort and comfortable finish.",
+              "steps": [
+                {
+                  "kind": "run",
+                  "label": "Easy throughout",
+                  "durationSeconds": 1500,
+                  "distanceMiles": 2.308,
+                  "paceSecondsPerMile": 650,
+                  "effort": "easy"
+                }
+              ]
+            },
+            {
+              "date": "2026-12-16",
+              "type": "Quality Run",
+              "phase": "Taper",
+              "title": "Light race-effort reminders",
+              "notes": "Keep these brisk but relaxed; this is not a fitness test.",
+              "steps": [
+                {
+                  "kind": "warmup",
+                  "label": "Easy warmup",
+                  "durationSeconds": 600,
+                  "distanceMiles": 0.923,
+                  "paceSecondsPerMile": 650,
+                  "effort": "easy"
+                },
+                {
+                  "kind": "run",
+                  "label": "Brief controlled effort",
+                  "durationSeconds": 180,
+                  "distanceMiles": 0.31,
+                  "paceSecondsPerMile": 580,
+                  "effort": "hard"
+                },
+                {
+                  "kind": "recovery",
+                  "label": "Easy jog",
+                  "durationSeconds": 180,
+                  "distanceMiles": 0.277,
+                  "paceSecondsPerMile": 650,
+                  "effort": "easy"
+                },
+                {
+                  "kind": "run",
+                  "label": "Brief controlled effort",
+                  "durationSeconds": 180,
+                  "distanceMiles": 0.31,
+                  "paceSecondsPerMile": 580,
+                  "effort": "hard"
+                },
+                {
+                  "kind": "cooldown",
+                  "label": "Easy cooldown",
+                  "durationSeconds": 600,
+                  "distanceMiles": 0.923,
+                  "paceSecondsPerMile": 650,
+                  "effort": "easy"
+                }
+              ]
+            },
+            {
+              "date": "2026-12-19",
+              "type": "Long Run",
+              "phase": "Taper",
+              "title": "Short easy run",
+              "notes": "Keep it light and finish fresh.",
+              "steps": [
+                {
+                  "kind": "run",
+                  "label": "Easy throughout",
+                  "durationSeconds": 1500,
+                  "distanceMiles": 2.308,
+                  "paceSecondsPerMile": 650,
+                  "effort": "easy"
+                }
+              ]
+            },
+            {
+              "date": "2026-12-21",
+              "type": "Easy Run",
+              "phase": "Race Week",
+              "title": "Very easy shakeout",
+              "notes": "Stay relaxed; stop while feeling fresh.",
+              "steps": [
+                {
+                  "kind": "run",
+                  "label": "Easy throughout",
+                  "durationSeconds": 1200,
+                  "distanceMiles": 1.846,
+                  "paceSecondsPerMile": 650,
+                  "effort": "easy"
+                }
+              ]
+            },
+            {
+              "date": "2026-12-23",
+              "type": "Quality Run",
+              "phase": "Race Week",
+              "title": "Short race-week tune-up",
+              "notes": "A few brief, controlled pickups; avoid straining and finish fresh.",
+              "steps": [
+                {
+                  "kind": "warmup",
+                  "label": "Easy warmup",
+                  "durationSeconds": 480,
+                  "distanceMiles": 0.738,
+                  "paceSecondsPerMile": 650,
+                  "effort": "easy"
+                },
+                {
+                  "kind": "run",
+                  "label": "Brief controlled effort",
+                  "durationSeconds": 120,
+                  "distanceMiles": 0.207,
+                  "paceSecondsPerMile": 580,
+                  "effort": "hard"
+                },
+                {
+                  "kind": "recovery",
+                  "label": "Easy jog",
+                  "durationSeconds": 180,
+                  "distanceMiles": 0.277,
+                  "paceSecondsPerMile": 650,
+                  "effort": "easy"
+                },
+                {
+                  "kind": "run",
+                  "label": "Brief controlled effort",
+                  "durationSeconds": 120,
+                  "distanceMiles": 0.207,
+                  "paceSecondsPerMile": 580,
+                  "effort": "hard"
+                },
+                {
+                  "kind": "cooldown",
+                  "label": "Easy cooldown",
+                  "durationSeconds": 480,
+                  "distanceMiles": 0.738,
+                  "paceSecondsPerMile": 650,
+                  "effort": "easy"
+                }
+              ]
+            },
+            {
+              "date": "2026-12-26",
+              "type": "Race",
+              "phase": "Race Week",
+              "title": "5K race",
+              "notes": "Estimated duration reflects your 30:00 benchmark, not a predicted result. Start controlled, then build effort if you feel strong; the 29:30 target is aspirational.",
+              "steps": [
+                {
+                  "kind": "race",
+                  "label": "5K race; controlled start, strong finish if able",
+                  "durationSeconds": 1800,
+                  "distanceMiles": 3.106856,
+                  "paceSecondsPerMile": 579.4,
+                  "effort": "race"
+                }
+              ]
+            }
+          ],
+          "assessment": {
+            "decision": "proceed",
+            "reason": "A confirmed 5K from 14 days ago and intermediate experience provide a recent basis for conservative numeric paces. The 29:30 target is close to the 30:00 benchmark, though improvement is uncertain. Unknown current workload means the proposed volume should be adjusted downward if it is beyond recent training.",
+            "actions": []
+          }
+        },
+        "assessmentContext": {
+          "asOfDate": "2026-10-31",
+          "benchmarkAgeDays": 14,
+          "benchmarkAgeAtStartDays": 14,
+          "trainingWindowDays": 56
+        },
+        "responseId": "recorded-fixture-1",
+        "model": "gpt-6-luna",
+        "usage": {
+          "inputTokens": 2928,
+          "outputTokens": 6438
+        },
+        "promptVersion": "5k-coach-v5-assessment",
+        "validatorVersion": "5k-v4-assessment"
+      },
+      "expectationMet": true,
+      "latencyMs": 54064,
+      "finishedAt": "2026-11-01T00:16:04.048Z"
+    },
+    {
+      "id": "unsupported-goal",
+      "input": {
+        "schemaVersion": 2,
+        "goal": {
+          "distanceMeters": 5000,
+          "startDate": "2026-10-31",
+          "raceDate": "2027-01-23",
+          "mode": "time",
+          "targetDurationSeconds": 900,
+          "paceGuidance": "performance"
+        },
+        "runner": {
+          "age": 35,
+          "heightCm": 177.8,
+          "weightKg": 79.37866475,
+          "experience": "novice",
+          "vo2": null
+        },
+        "baseline": {
+          "weeklyDistanceMiles": null,
+          "longestRunMiles": null,
+          "runsPerWeek": null,
+          "trainingChanges": null,
+          "trainingChangesNotes": "",
+          "results": [
+            {
+              "distanceMeters": 5000,
+              "durationSeconds": 2100,
+              "date": "2026-10-24",
+              "source": "confirmed-race-or-best-effort-time-trial"
+            }
+          ]
+        },
+        "availability": {
+          "trainingDays": [
+            1,
+            3,
+            6
+          ],
+          "maxSessionDurationSeconds": null,
+          "dayDurationLimits": {},
+          "longRunDay": null,
+          "otherCommitments": ""
+        }
+      },
+      "expectedDecisions": [
+        "adjust_goal"
+      ],
+      "startedAt": "2026-11-01T00:16:04.049Z",
+      "status": "completed",
+      "countedMicrodollars": 591,
+      "httpStatus": 200,
+      "result": {
+        "output": {
+          "outcome": "needs_clarification",
+          "summary": "I can\u2019t responsibly build a plan aimed at a 15-minute 5K from the information provided. Please revise the target time, consider a later race date, or both; I\u2019ll use your confirmed 35-minute 5K as the current benchmark.",
+          "goalAssessment": "Your confirmed 5K was 35:00 on 2026-10-24. Going from that result to 15:00 in 12 weeks is unsupported for a novice runner and would require an extreme performance change. This is not a judgment about your long-term potential, but I won\u2019t create a schedule that chases that target.",
+          "assumptions": [
+            "The 35:00 result is the supplied current benchmark; it is not an equivalent 15:00-level performance.",
+            "I have not inferred current weekly training, longest run, or running frequency because those fields are unknown.",
+            "No training schedule is provided until the target and/or race date is reconsidered."
+          ],
+          "questions": [
+            "Would you like to choose a less demanding 5K target, a later race date, or both? Please provide any revised target time and/or race date."
+          ],
+          "sessions": [],
+          "assessment": {
+            "decision": "adjust_goal",
+            "reason": "The recent confirmed 35:00 5K, novice experience, and 84-day training window do not support a 15:00 target. The gap is too large to treat as a suitable training objective; a later race or less demanding target may be worth considering, without assuming either guarantees a particular result.",
+            "actions": [
+              "target_time",
+              "race_date"
+            ]
+          }
+        },
+        "assessmentContext": {
+          "asOfDate": "2026-10-31",
+          "benchmarkAgeDays": 7,
+          "benchmarkAgeAtStartDays": 7,
+          "trainingWindowDays": 84
+        },
+        "responseId": "recorded-fixture-2",
+        "model": "gpt-6-luna",
+        "usage": {
+          "inputTokens": 3459,
+          "outputTokens": 489
+        },
+        "promptVersion": "5k-coach-v5-assessment",
+        "validatorVersion": "5k-v4-assessment"
+      },
+      "expectationMet": true,
+      "latencyMs": 6205,
+      "finishedAt": "2026-11-01T00:16:10.255Z"
+    },
+    {
+      "id": "old-benchmark",
+      "input": {
+        "schemaVersion": 2,
+        "goal": {
+          "distanceMeters": 5000,
+          "startDate": "2026-10-31",
+          "raceDate": "2026-12-26",
+          "mode": "time",
+          "targetDurationSeconds": 1770,
+          "paceGuidance": "performance"
+        },
+        "runner": {
+          "age": 35,
+          "heightCm": 177.8,
+          "weightKg": 79.37866475,
+          "experience": "intermediate",
+          "vo2": null
+        },
+        "baseline": {
+          "weeklyDistanceMiles": null,
+          "longestRunMiles": null,
+          "runsPerWeek": null,
+          "trainingChanges": null,
+          "trainingChangesNotes": "",
+          "results": [
+            {
+              "distanceMeters": 5000,
+              "durationSeconds": 1800,
+              "date": "2020-11-01",
+              "source": "confirmed-race-or-best-effort-time-trial"
+            }
+          ]
+        },
+        "availability": {
+          "trainingDays": [
+            1,
+            3,
+            6
+          ],
+          "maxSessionDurationSeconds": null,
+          "dayDurationLimits": {},
+          "longRunDay": null,
+          "otherCommitments": ""
+        }
+      },
+      "expectedDecisions": [
+        "refresh_benchmark",
+        "clarify"
+      ],
+      "startedAt": "2026-11-01T00:16:10.257Z",
+      "status": "completed",
+      "countedMicrodollars": 453,
+      "httpStatus": 200,
+      "result": {
+        "output": {
+          "outcome": "needs_clarification",
+          "summary": "I can\u2019t responsibly set performance-based paces from the only confirmed result: a 30:00 5K from November 2020. It is about six years old, so it may not represent your current fitness. Please provide a more recent benchmark before I build the plan.",
+          "goalAssessment": "The 29:30 target is only 30 seconds faster than that historical result, but the age of the result makes it unreliable for assessing whether the target or its training paces are appropriate now. This is uncertainty about current fitness, not a prediction that the target is or is not achievable.",
+          "assumptions": [],
+          "questions": [
+            "Do you have a more recent confirmed race or best-effort time trial? If so, provide its distance, finish time, and date."
+          ],
+          "sessions": [],
+          "assessment": {
+            "decision": "refresh_benchmark",
+            "reason": "The sole confirmed 5K result is from 2020, about six years before this plan. It is too old to provide useful current pace guidance; present fitness and the target\u2019s feasibility remain uncertain.",
+            "actions": [
+              "benchmark"
+            ]
+          }
+        },
+        "assessmentContext": {
+          "asOfDate": "2026-10-31",
+          "benchmarkAgeDays": 2190,
+          "benchmarkAgeAtStartDays": 2190,
+          "trainingWindowDays": 56
+        },
+        "responseId": "recorded-fixture-3",
+        "model": "gpt-6-luna",
+        "usage": {
+          "inputTokens": 2930,
+          "outputTokens": 319
+        },
+        "promptVersion": "5k-coach-v5-assessment",
+        "validatorVersion": "5k-v4-assessment"
+      },
+      "expectationMet": true,
+      "latencyMs": 4138,
+      "finishedAt": "2026-11-01T00:16:14.396Z"
+    },
+    {
+      "id": "half-benchmark",
+      "input": {
+        "schemaVersion": 2,
+        "goal": {
+          "distanceMeters": 5000,
+          "startDate": "2026-10-31",
+          "raceDate": "2026-12-26",
+          "mode": "time",
+          "targetDurationSeconds": 1770,
+          "paceGuidance": "performance"
+        },
+        "runner": {
+          "age": 35,
+          "heightCm": 177.8,
+          "weightKg": 79.37866475,
+          "experience": "intermediate",
+          "vo2": null
+        },
+        "baseline": {
+          "weeklyDistanceMiles": null,
+          "longestRunMiles": null,
+          "runsPerWeek": null,
+          "trainingChanges": null,
+          "trainingChangesNotes": "",
+          "results": [
+            {
+              "distanceMeters": 21097.5,
+              "durationSeconds": 8100,
+              "date": "2026-10-17",
+              "source": "confirmed-race-or-best-effort-time-trial"
+            }
+          ]
+        },
+        "availability": {
+          "trainingDays": [
+            1,
+            3,
+            6
+          ],
+          "maxSessionDurationSeconds": null,
+          "dayDurationLimits": {},
+          "longRunDay": null,
+          "otherCommitments": ""
+        }
+      },
+      "expectedDecisions": [
+        "proceed"
+      ],
+      "startedAt": "2026-11-01T00:16:14.399Z",
+      "status": "completed",
+      "countedMicrodollars": 2302,
+      "httpStatus": 200,
+      "result": {
+        "output": {
+          "outcome": "plan",
+          "summary": "A conservative three-run-per-week block from October 31 to your December 26 5K, with easy running, one controlled quality session most weeks, gradual long-run development, and a taper. The plan uses your recent confirmed half-marathon as the performance reference; it does not assume a known current weekly mileage.",
+          "goalAssessment": "Your 2:15:00 half-marathon from October 17 corresponds very roughly to a 5K near 30 minutes, not an achieved 5K result. A 29:30 target is a modest stretch relative to that estimate and may be within reach, but the conversion is uncertain and eight weeks is a short window. The benchmark supports a conservative plan, not a promise of that finish time.",
+          "assumptions": [
+            "Numeric paces are informed by the confirmed 2:15:00 half-marathon; the resulting 5K equivalent is uncertain and is not an achieved 5K result.",
+            "The target is aspirational, not measured current fitness or a guaranteed result.",
+            "Current weekly mileage, longest run, and recent training changes are unknown; start conservatively and shorten or skip a session if the workload is not familiar.",
+            "Easy running should feel conversational; keep quality controlled rather than forcing a pace. The listed paces are guides, not a substitute for adjusting to conditions or how you feel.",
+            "The schedule follows the supplied available dates and three-day pattern. No medical clearance is inferred."
+          ],
+          "questions": [],
+          "sessions": [
+            {
+              "date": "2026-10-31",
+              "type": "Easy Run",
+              "phase": "Base Build",
+              "title": "Easy re-entry",
+              "notes": "Comfortable, conversational effort; keep this short and relaxed.",
+              "steps": [
+                {
+                  "kind": "run",
+                  "label": "Easy throughout; conversational",
+                  "durationSeconds": 1800,
+                  "distanceMiles": 2.5,
+                  "paceSecondsPerMile": 720,
+                  "effort": "easy"
+                }
+              ]
+            },
+            {
+              "date": "2026-11-02",
+              "type": "Easy Run",
+              "phase": "Base Build",
+              "title": "Easy aerobic run",
+              "notes": "Relaxed effort; avoid turning this into a workout.",
+              "steps": [
+                {
+                  "kind": "run",
+                  "label": "Easy, conversational",
+                  "durationSeconds": 1920,
+                  "distanceMiles": 2.667,
+                  "paceSecondsPerMile": 720,
+                  "effort": "easy"
+                }
+              ]
+            },
+            {
+              "date": "2026-11-04",
+              "type": "Quality Run",
+              "phase": "Base Build",
+              "title": "Gentle steady introduction",
+              "notes": "Keep the steady portion controlled and smooth, not hard; easy effort on either side.",
+              "steps": [
+                {
+                  "kind": "warmup",
+                  "label": "Easy warm-up",
+                  "durationSeconds": 600,
+                  "distanceMiles": 0.833,
+                  "paceSecondsPerMile": 720,
+                  "effort": "easy"
+                },
+                {
+                  "kind": "run",
+                  "label": "Steady, comfortably focused",
+                  "durationSeconds": 600,
+                  "distanceMiles": 1,
+                  "paceSecondsPerMile": 600,
+                  "effort": "steady"
+                },
+                {
+                  "kind": "cooldown",
+                  "label": "Easy cooldown",
+                  "durationSeconds": 600,
+                  "distanceMiles": 0.833,
+                  "paceSecondsPerMile": 720,
+                  "effort": "easy"
+                }
+              ]
+            },
+            {
+              "date": "2026-11-07",
+              "type": "Long Run",
+              "phase": "Base Build",
+              "title": "Easy long run",
+              "notes": "Stay conversational throughout; take walk breaks if needed.",
+              "steps": [
+                {
+                  "kind": "run",
+                  "label": "Easy throughout",
+                  "durationSeconds": 2400,
+                  "distanceMiles": 3.333,
+                  "paceSecondsPerMile": 720,
+                  "effort": "easy"
+                }
+              ]
+            },
+            {
+              "date": "2026-11-09",
+              "type": "Easy Run",
+              "phase": "Base Build",
+              "title": "Recovery-paced run",
+              "notes": "Very relaxed, especially if still recovering from the weekend.",
+              "steps": [
+                {
+                  "kind": "run",
+                  "label": "Easy and conversational",
+                  "durationSeconds": 1800,
+                  "distanceMiles": 2.5,
+                  "paceSecondsPerMile": 720,
+                  "effort": "easy"
+                }
+              ]
+            },
+            {
+              "date": "2026-11-11",
+              "type": "Quality Run",
+              "phase": "Base Build",
+              "title": "Short steady intervals",
+              "notes": "Keep each steady segment controlled. Easy recoveries should feel genuinely easy.",
+              "steps": [
+                {
+                  "kind": "warmup",
+                  "label": "Easy warm-up",
+                  "durationSeconds": 600,
+                  "distanceMiles": 0.833,
+                  "paceSecondsPerMile": 720,
+                  "effort": "easy"
+                },
+                {
+                  "kind": "run",
+                  "label": "Steady segment 1",
+                  "durationSeconds": 300,
+                  "distanceMiles": 0.5,
+                  "paceSecondsPerMile": 600,
+                  "effort": "steady"
+                },
+                {
+                  "kind": "recovery",
+                  "label": "Easy recovery",
+                  "durationSeconds": 180,
+                  "distanceMiles": 0.25,
+                  "paceSecondsPerMile": 720,
+                  "effort": "easy"
+                },
+                {
+                  "kind": "run",
+                  "label": "Steady segment 2",
+                  "durationSeconds": 300,
+                  "distanceMiles": 0.5,
+                  "paceSecondsPerMile": 600,
+                  "effort": "steady"
+                },
+                {
+                  "kind": "cooldown",
+                  "label": "Easy cooldown",
+                  "durationSeconds": 600,
+                  "distanceMiles": 0.833,
+                  "paceSecondsPerMile": 720,
+                  "effort": "easy"
+                }
+              ]
+            },
+            {
+              "date": "2026-11-14",
+              "type": "Long Run",
+              "phase": "Base Build",
+              "title": "Easy long run",
+              "notes": "Conversational effort throughout; do not chase distance or pace.",
+              "steps": [
+                {
+                  "kind": "run",
+                  "label": "Easy throughout",
+                  "durationSeconds": 2700,
+                  "distanceMiles": 3.75,
+                  "paceSecondsPerMile": 720,
+                  "effort": "easy"
+                }
+              ]
+            },
+            {
+              "date": "2026-11-16",
+              "type": "Easy Run",
+              "phase": "Base Build",
+              "title": "Easy aerobic run",
+              "notes": "Keep it light and conversational.",
+              "steps": [
+                {
+                  "kind": "run",
+                  "label": "Easy, relaxed",
+                  "durationSeconds": 1920,
+                  "distanceMiles": 2.667,
+                  "paceSecondsPerMile": 720,
+                  "effort": "easy"
+                }
+              ]
+            },
+            {
+              "date": "2026-11-18",
+              "type": "Quality Run",
+              "phase": "Base Build",
+              "title": "Controlled tempo blocks",
+              "notes": "Steady effort should remain repeatable, with no straining; ease off if form falters.",
+              "steps": [
+                {
+                  "kind": "warmup",
+                  "label": "Easy warm-up",
+                  "durationSeconds": 600,
+                  "distanceMiles": 0.833,
+                  "paceSecondsPerMile": 720,
+                  "effort": "easy"
+                },
+                {
+                  "kind": "run",
+                  "label": "Steady block 1",
+                  "durationSeconds": 420,
+                  "distanceMiles": 0.7,
+                  "paceSecondsPerMile": 600,
+                  "effort": "steady"
+                },
+                {
+                  "kind": "recovery",
+                  "label": "Easy recovery",
+                  "durationSeconds": 180,
+                  "distanceMiles": 0.25,
+                  "paceSecondsPerMile": 720,
+                  "effort": "easy"
+                },
+                {
+                  "kind": "run",
+                  "label": "Steady block 2",
+                  "durationSeconds": 420,
+                  "distanceMiles": 0.7,
+                  "paceSecondsPerMile": 600,
+                  "effort": "steady"
+                },
+                {
+                  "kind": "cooldown",
+                  "label": "Easy cooldown",
+                  "durationSeconds": 600,
+                  "distanceMiles": 0.833,
+                  "paceSecondsPerMile": 720,
+                  "effort": "easy"
+                }
+              ]
+            },
+            {
+              "date": "2026-11-21",
+              "type": "Long Run",
+              "phase": "Base Build",
+              "title": "Easy long run",
+              "notes": "Comfortable and conversational; finish feeling you could continue.",
+              "steps": [
+                {
+                  "kind": "run",
+                  "label": "Easy throughout",
+                  "durationSeconds": 3000,
+                  "distanceMiles": 4.167,
+                  "paceSecondsPerMile": 720,
+                  "effort": "easy"
+                }
+              ]
+            },
+            {
+              "date": "2026-11-23",
+              "type": "Easy Run",
+              "phase": "Base Build",
+              "title": "Easy aerobic run",
+              "notes": "Relaxed pace; prioritize recovery between runs.",
+              "steps": [
+                {
+                  "kind": "run",
+                  "label": "Easy, conversational",
+                  "durationSeconds": 1920,
+                  "distanceMiles": 2.667,
+                  "paceSecondsPerMile": 720,
+                  "effort": "easy"
+                }
+              ]
+            },
+            {
+              "date": "2026-11-25",
+              "type": "Quality Run",
+              "phase": "Base Build",
+              "title": "Steady tempo practice",
+              "notes": "Controlled, not a race effort; keep the warm-up and cooldown easy.",
+              "steps": [
+                {
+                  "kind": "warmup",
+                  "label": "Easy warm-up",
+                  "durationSeconds": 600,
+                  "distanceMiles": 0.833,
+                  "paceSecondsPerMile": 720,
+                  "effort": "easy"
+                },
+                {
+                  "kind": "run",
+                  "label": "Steady tempo",
+                  "durationSeconds": 900,
+                  "distanceMiles": 1.5,
+                  "paceSecondsPerMile": 600,
+                  "effort": "steady"
+                },
+                {
+                  "kind": "cooldown",
+                  "label": "Easy cooldown",
+                  "durationSeconds": 600,
+                  "distanceMiles": 0.833,
+                  "paceSecondsPerMile": 720,
+                  "effort": "easy"
+                }
+              ]
+            },
+            {
+              "date": "2026-11-28",
+              "type": "Long Run",
+              "phase": "Base Build",
+              "title": "Easy long run",
+              "notes": "Stay at an easy conversational effort and keep the route manageable.",
+              "steps": [
+                {
+                  "kind": "run",
+                  "label": "Easy throughout",
+                  "durationSeconds": 3300,
+                  "distanceMiles": 4.583,
+                  "paceSecondsPerMile": 720,
+                  "effort": "easy"
+                }
+              ]
+            },
+            {
+              "date": "2026-11-30",
+              "type": "Easy Run",
+              "phase": "Base Build",
+              "title": "Recovery run",
+              "notes": "Easy means easy; cut short if tired or unusually uncomfortable.",
+              "steps": [
+                {
+                  "kind": "run",
+                  "label": "Relaxed and conversational",
+                  "durationSeconds": 1800,
+                  "distanceMiles": 2.5,
+                  "paceSecondsPerMile": 720,
+                  "effort": "easy"
+                }
+              ]
+            },
+            {
+              "date": "2026-12-02",
+              "type": "Quality Run",
+              "phase": "Peak",
+              "title": "Controlled 5K-rhythm intervals",
+              "notes": "Stay smooth, not all-out. Use the easy recoveries to regain comfortable breathing.",
+              "steps": [
+                {
+                  "kind": "warmup",
+                  "label": "Easy warm-up",
+                  "durationSeconds": 600,
+                  "distanceMiles": 0.833,
+                  "paceSecondsPerMile": 720,
+                  "effort": "easy"
+                },
+                {
+                  "kind": "run",
+                  "label": "Brisk interval 1",
+                  "durationSeconds": 240,
+                  "distanceMiles": 0.4,
+                  "paceSecondsPerMile": 600,
+                  "effort": "hard"
+                },
+                {
+                  "kind": "recovery",
+                  "label": "Easy recovery",
+                  "durationSeconds": 180,
+                  "distanceMiles": 0.25,
+                  "paceSecondsPerMile": 720,
+                  "effort": "easy"
+                },
+                {
+                  "kind": "run",
+                  "label": "Brisk interval 2",
+                  "durationSeconds": 240,
+                  "distanceMiles": 0.4,
+                  "paceSecondsPerMile": 600,
+                  "effort": "hard"
+                },
+                {
+                  "kind": "recovery",
+                  "label": "Easy recovery",
+                  "durationSeconds": 180,
+                  "distanceMiles": 0.25,
+                  "paceSecondsPerMile": 720,
+                  "effort": "easy"
+                },
+                {
+                  "kind": "run",
+                  "label": "Brisk interval 3",
+                  "durationSeconds": 240,
+                  "distanceMiles": 0.4,
+                  "paceSecondsPerMile": 600,
+                  "effort": "hard"
+                },
+                {
+                  "kind": "cooldown",
+                  "label": "Easy cooldown",
+                  "durationSeconds": 600,
+                  "distanceMiles": 0.833,
+                  "paceSecondsPerMile": 720,
+                  "effort": "easy"
+                }
+              ]
+            },
+            {
+              "date": "2026-12-05",
+              "type": "Long Run",
+              "phase": "Peak",
+              "title": "Easy long run",
+              "notes": "Easy conversational running; no fast finish.",
+              "steps": [
+                {
+                  "kind": "run",
+                  "label": "Easy throughout",
+                  "durationSeconds": 3300,
+                  "distanceMiles": 4.583,
+                  "paceSecondsPerMile": 720,
+                  "effort": "easy"
+                }
+              ]
+            },
+            {
+              "date": "2026-12-07",
+              "type": "Easy Run",
+              "phase": "Peak",
+              "title": "Easy aerobic run",
+              "notes": "Keep the effort comfortable and even.",
+              "steps": [
+                {
+                  "kind": "run",
+                  "label": "Easy, conversational",
+                  "durationSeconds": 1920,
+                  "distanceMiles": 2.667,
+                  "paceSecondsPerMile": 720,
+                  "effort": "easy"
+                }
+              ]
+            },
+            {
+              "date": "2026-12-09",
+              "type": "Quality Run",
+              "phase": "Peak",
+              "title": "Steady tempo",
+              "notes": "Controlled steady effort, not maximal; finish with good form and reserve.",
+              "steps": [
+                {
+                  "kind": "warmup",
+                  "label": "Easy warm-up",
+                  "durationSeconds": 600,
+                  "distanceMiles": 0.833,
+                  "paceSecondsPerMile": 720,
+                  "effort": "easy"
+                },
+                {
+                  "kind": "run",
+                  "label": "Steady tempo",
+                  "durationSeconds": 1080,
+                  "distanceMiles": 1.8,
+                  "paceSecondsPerMile": 600,
+                  "effort": "steady"
+                },
+                {
+                  "kind": "cooldown",
+                  "label": "Easy cooldown",
+                  "durationSeconds": 600,
+                  "distanceMiles": 0.833,
+                  "paceSecondsPerMile": 720,
+                  "effort": "easy"
+                }
+              ]
+            },
+            {
+              "date": "2026-12-12",
+              "type": "Long Run",
+              "phase": "Peak",
+              "title": "Longest easy run",
+              "notes": "Remain conversational; this is not a test. Stop the progression here and recover well.",
+              "steps": [
+                {
+                  "kind": "run",
+                  "label": "Easy throughout",
+                  "durationSeconds": 3600,
+                  "distanceMiles": 5,
+                  "paceSecondsPerMile": 720,
+                  "effort": "easy"
+                }
+              ]
+            },
+            {
+              "date": "2026-12-14",
+              "type": "Easy Run",
+              "phase": "Taper",
+              "title": "Taper easy run",
+              "notes": "Reduced, relaxed running; let fatigue settle.",
+              "steps": [
+                {
+                  "kind": "run",
+                  "label": "Easy and conversational",
+                  "durationSeconds": 1800,
+                  "distanceMiles": 2.5,
+                  "paceSecondsPerMile": 720,
+                  "effort": "easy"
+                }
+              ]
+            },
+            {
+              "date": "2026-12-16",
+              "type": "Quality Run",
+              "phase": "Taper",
+              "title": "Short controlled intervals",
+              "notes": "Keep brisk portions smooth and controlled. Do not add repetitions.",
+              "steps": [
+                {
+                  "kind": "warmup",
+                  "label": "Easy warm-up",
+                  "durationSeconds": 600,
+                  "distanceMiles": 0.833,
+                  "paceSecondsPerMile": 720,
+                  "effort": "easy"
+                },
+                {
+                  "kind": "run",
+                  "label": "Brisk interval 1",
+                  "durationSeconds": 180,
+                  "distanceMiles": 0.3,
+                  "paceSecondsPerMile": 600,
+                  "effort": "hard"
+                },
+                {
+                  "kind": "recovery",
+                  "label": "Easy recovery",
+                  "durationSeconds": 180,
+                  "distanceMiles": 0.25,
+                  "paceSecondsPerMile": 720,
+                  "effort": "easy"
+                },
+                {
+                  "kind": "run",
+                  "label": "Brisk interval 2",
+                  "durationSeconds": 180,
+                  "distanceMiles": 0.3,
+                  "paceSecondsPerMile": 600,
+                  "effort": "hard"
+                },
+                {
+                  "kind": "cooldown",
+                  "label": "Easy cooldown",
+                  "durationSeconds": 600,
+                  "distanceMiles": 0.833,
+                  "paceSecondsPerMile": 720,
+                  "effort": "easy"
+                }
+              ]
+            },
+            {
+              "date": "2026-12-19",
+              "type": "Long Run",
+              "phase": "Taper",
+              "title": "Short easy run",
+              "notes": "Keep this shorter than prior long runs and comfortably conversational.",
+              "steps": [
+                {
+                  "kind": "run",
+                  "label": "Easy throughout",
+                  "durationSeconds": 2100,
+                  "distanceMiles": 2.917,
+                  "paceSecondsPerMile": 720,
+                  "effort": "easy"
+                }
+              ]
+            },
+            {
+              "date": "2026-12-21",
+              "type": "Easy Run",
+              "phase": "Race Week",
+              "title": "Easy race-week run",
+              "notes": "Relaxed effort; finish fresh, not fatigued.",
+              "steps": [
+                {
+                  "kind": "run",
+                  "label": "Easy and conversational",
+                  "durationSeconds": 1500,
+                  "distanceMiles": 2.083,
+                  "paceSecondsPerMile": 720,
+                  "effort": "easy"
+                }
+              ]
+            },
+            {
+              "date": "2026-12-23",
+              "type": "Quality Run",
+              "phase": "Race Week",
+              "title": "Brief pre-race sharpening",
+              "notes": "Keep brisk portions controlled with plenty of easy running; finish feeling fresh.",
+              "steps": [
+                {
+                  "kind": "warmup",
+                  "label": "Easy warm-up",
+                  "durationSeconds": 600,
+                  "distanceMiles": 0.833,
+                  "paceSecondsPerMile": 720,
+                  "effort": "easy"
+                },
+                {
+                  "kind": "run",
+                  "label": "Brisk segment 1",
+                  "durationSeconds": 120,
+                  "distanceMiles": 0.2,
+                  "paceSecondsPerMile": 600,
+                  "effort": "hard"
+                },
+                {
+                  "kind": "recovery",
+                  "label": "Easy recovery",
+                  "durationSeconds": 180,
+                  "distanceMiles": 0.25,
+                  "paceSecondsPerMile": 720,
+                  "effort": "easy"
+                },
+                {
+                  "kind": "run",
+                  "label": "Brisk segment 2",
+                  "durationSeconds": 120,
+                  "distanceMiles": 0.2,
+                  "paceSecondsPerMile": 600,
+                  "effort": "hard"
+                },
+                {
+                  "kind": "cooldown",
+                  "label": "Easy cooldown",
+                  "durationSeconds": 600,
+                  "distanceMiles": 0.833,
+                  "paceSecondsPerMile": 720,
+                  "effort": "easy"
+                }
+              ]
+            },
+            {
+              "date": "2026-12-26",
+              "type": "Race",
+              "phase": "Race Week",
+              "title": "5K race",
+              "notes": "Warm up as you normally tolerate. Start controlled, then build effort if feeling strong. The estimated duration is not a guarantee.",
+              "steps": [
+                {
+                  "kind": "race",
+                  "label": "5K race; pace by effort, avoid forcing the goal early",
+                  "durationSeconds": 1815,
+                  "distanceMiles": 3.106856,
+                  "paceSecondsPerMile": 584,
+                  "effort": "race"
+                }
+              ]
+            }
+          ],
+          "assessment": {
+            "decision": "proceed",
+            "reason": "A confirmed half-marathon from two weeks before the block provides a recent, useful but imperfect fitness reference. The 29:30 target is only somewhat faster than a rough 5K equivalence, and the three available weekly days allow a conservative schedule. Current workload is unknown, so progression stays cautious.",
+            "actions": []
+          }
+        },
+        "assessmentContext": {
+          "asOfDate": "2026-10-31",
+          "benchmarkAgeDays": 14,
+          "benchmarkAgeAtStartDays": 14,
+          "trainingWindowDays": 56
+        },
+        "responseId": "recorded-fixture-4",
+        "model": "gpt-6-luna",
+        "usage": {
+          "inputTokens": 2930,
+          "outputTokens": 4017
+        },
+        "promptVersion": "5k-coach-v5-assessment",
+        "validatorVersion": "5k-v4-assessment"
+      },
+      "expectationMet": true,
+      "latencyMs": 33051,
+      "finishedAt": "2026-11-01T00:16:47.451Z"
+    }
+  ]
+}

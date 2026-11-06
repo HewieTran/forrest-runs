@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 
 const require = createRequire(import.meta.url);
 const wranglerRequire = createRequire(require.resolve('wrangler/package.json'));
-export const { Miniflare } = wranglerRequire('miniflare');
+export const { Miniflare, createFetchMock } = wranglerRequire('miniflare');
 
 export async function migrationFiles() {
   const journal = JSON.parse(await readFile('drizzle/meta/_journal.json', 'utf8'));

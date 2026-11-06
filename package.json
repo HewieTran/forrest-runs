@@ -11,7 +11,11 @@
     "build": "node scripts/run-framework.mjs build",
     "start": "node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js dev --config dist/server/wrangler.json --local --persist-to .wrangler/state --ip 127.0.0.1 --inspector-port 0",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
-    "db:generate": "drizzle-kit generate"
+    "db:generate": "drizzle-kit generate",
+    "test:planner": "node --experimental-strip-types --test tests/planner.test.mjs tests/openai-plan.test.mjs tests/planner-policy.test.mjs tests/benchmark.test.mjs tests/plan-assessment.test.mjs tests/plan-validation.test.mjs tests/planner-math.test.mjs tests/evaluate-planner.test.mjs tests/simulated-plan.test.mjs",
+    "test:planner:integration": "node --experimental-strip-types tests/planner-worker.mjs",
+    "eval:planner": "node --experimental-strip-types scripts/evaluate-planner.mjs",
+    "test:planner:replay": "node --experimental-strip-types tests/live-plan-replay.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

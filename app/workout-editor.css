@@ -34,11 +34,40 @@
 .structured-workout-editor .actual-pace-calculation button:disabled { opacity: .5; cursor: default; }
 .structured-workout-editor .result-extra-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .structured-workout-editor .result-notes { grid-column: 1 / -1; }
+.plan-step-totals { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 15px; margin: 0; }
+.plan-step-totals dt { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+.plan-step-totals dd { margin: 0; font-size: 17px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.workout-steps { margin-top: 24px; }
+.structured-workout-editor .workout-steps .measurement-heading { margin-bottom: 12px; }
+.step-edit-button { border: 0; background: none; color: var(--green); text-decoration: underline; font: inherit; font-size: 12px; cursor: pointer; padding: 6px 0; }
+.step-column-head, .workout-step-row { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1fr); gap: 18px; align-items: center; }
+.step-column-head { font-size: 11px; color: var(--muted); padding: 10px 12px; }
+.workout-step-list { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.workout-step-row { padding: 15px 12px; background: #fafcf9; }
+.workout-step-row + .workout-step-row { border-top: 1px solid var(--line); }
+.step-name { display: flex; align-items: center; gap: 11px; min-width: 0; }
+.step-number { display: grid; place-items: center; width: 24px; height: 24px; flex-shrink: 0; background: var(--sage); color: var(--green); border-radius: 50%; font-size: 11px; }
+.step-name strong { display: block; font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }
+.step-name small, .step-value small { display: block; color: var(--muted); font-size: 11px; margin-top: 4px; }
+.step-value { min-width: 0; margin: 0 !important; }
+.step-value > span { display: none; }
+.step-value:has(input) > span { display: block; font-size: 10px; margin-bottom: 5px; }
+.step-value strong { font-size: 13px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.structured-workout-editor .step-value input { width: 100%; min-width: 0; }
+.structured-workout-editor .step-value .is-error { color: #a13732; }
+.step-coaching-note { font-size: 12px; line-height: 1.7; margin: 14px 0 0; padding: 12px; background: var(--sage); border-radius: 8px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.structured-workout-editor .visible-workout-instructions { margin-top: 20px; }
 @media (max-width: 1000px) {
   .structured-workout-editor .measurement-grid { grid-template-columns: 1fr; }
   .structured-workout-editor .measurement-label { justify-content: space-between; }
 }
 @media (max-width: 600px) {
+  .plan-step-totals { grid-template-columns: 1fr 1fr; gap: 18px; }
+  .plan-step-totals dd { font-size: 16px; }
+  .step-column-head { display: none; }
+  .workout-step-row { grid-template-columns: 1fr 1fr; gap: 12px; padding: 15px; }
+  .step-name { grid-column: 1 / -1; }
+  .step-value > span { display: block; font-size: 11px; color: var(--muted); margin-bottom: 5px; }
   .structured-workout-editor .workout-meta-grid { grid-template-columns: 1fr 1fr; }
   .structured-workout-editor .workout-meta-grid > label:last-child { grid-column: 1 / -1; }
   .structured-workout-editor input, .structured-workout-editor textarea, .structured-workout-editor select { font-size: 16px; }
