@@ -96,3 +96,49 @@
 .setup-history-suggestion .button{font-size:11px}
 @media(max-width:700px){.setup-stepper small{display:none}.setup-panel input,.setup-panel select,.setup-panel textarea,.setup-panel .setup-optional select{font-size:16px}.setup-required{display:inline}.setup-form-actions .button{min-height:42px}}
 @media(max-width:700px){.setup-fields,.setup-results .setup-fields{grid-template-columns:1fr}.setup-results .setup-fields>label:last-child{grid-column:auto}}
+
+/* Reviewable OpenAI plan drafts */
+.plan-generation { max-width: 1000px; }
+.plan-intake, .plan-week { border: 1px solid var(--border, #d8ddd8); border-radius: 12px; margin: 20px 0; background: var(--surface, #fff); }
+.plan-intake > summary, .plan-week > summary { cursor: pointer; padding: 18px 22px; font-weight: 600; line-height: 1.5; }
+.plan-intake > .setup-review { padding: 0 22px 18px; }
+.plan-proposal { margin: 36px 0; }
+.plan-proposal h2 { margin-bottom: 18px; }
+.plan-proposal h3 { margin: 26px 0 10px; font-size: 17px; }
+.plan-proposal p, .plan-proposal li { line-height: 1.65; }
+.plan-week > summary span { float: right; font-size: 13px; font-weight: 400; color: #56645b; }
+.plan-day { margin: 0 22px; padding: 20px 0; border-top: 1px solid #e3e8e3; }
+.plan-day-heading { display: flex; gap: 12px; justify-content: space-between; line-height: 1.5; }
+.plan-day-heading span, .plan-day small { color: #56645b; font-size: 13px; }
+.plan-day h4 { margin: 12px 0 8px; }
+.plan-day ol { padding-left: 22px; font-size: 14px; }
+.plan-rest { padding: 14px 0; }
+@media(max-width:600px) { .plan-week > summary span { display: block; float: none; } .plan-day-heading { flex-direction: column; gap: 2px; } }
+
+.block-card-delete { margin-top: 16px; padding-top: 14px; border-top: 1px solid #e3e8e3; }
+.button.delete-block-trigger { color: #9c322f; border-color: #dac8c5; background: transparent; }
+.button.delete-block-confirm { color: #fff; background: #a3302b; border-color: #a3302b; }
+.delete-block-confirmation { display: flex; flex-direction: column; gap: 8px; margin: 22px 0; line-height: 1.5; }
+.delete-block-confirmation input { width: 100%; padding: 12px; border: 1px solid #b7beb8; border-radius: 8px; font: inherit; }
+.delete-block-dialog .block-dialog-name, .delete-block-confirmation strong { overflow-wrap: anywhere; }
+
+/* Phase 1: direct workout completion and dedicated block settings. */
+.workout-row { display:flex; align-items:stretch; min-width:0; }
+.workout-row .workout-summary { flex:1; min-width:0; }
+.quick-workout-check { display:flex; align-items:center; justify-content:center; width:46px; flex:none; cursor:pointer; }
+.quick-workout-check input { width:20px; height:20px; min-height:0; accent-color:var(--green); cursor:pointer; }
+.copied-results-label { display:block; color:var(--muted); font-size:12px; margin-top:5px; }
+.block-card-settings { display:inline-flex; align-items:center; gap:6px; margin-left:auto; padding:9px 12px; color:var(--muted); border:1px solid var(--line); border-radius:8px; font-size:13px; }
+.block-status-control { display:flex; align-items:center; gap:8px; font-size:13px; }
+.block-status-control select { background:var(--paper); color:var(--ink); border:1px solid var(--line); padding:9px 12px; border-radius:8px; }
+.block-settings-page { max-width:850px; }
+.block-settings-page .panel { padding:24px; margin:22px 0; }
+.block-settings-page h2 { margin:0 0 16px; font-size:20px; }
+.block-settings-page fieldset { border:0; padding:0; margin:0; }
+.block-settings-page label { display:grid; gap:8px; margin-bottom:20px; font-size:14px; font-weight:600; }
+.block-settings-page input { width:100%; padding:11px 12px; border:1px solid var(--line); border-radius:8px; color:var(--ink); background:var(--paper); font:inherit; }
+.block-settings-management .block-action-buttons { display:inline-flex; margin-right:12px; }
+.dashboard-title a.progress-expanded-link.primary { background:var(--green); color:white; border-color:var(--green); padding:9px 14px; border-radius:8px; }
+@media(max-width:600px) { .quick-workout-check { width:36px; } .block-settings-page .panel { padding:18px; } .block-status-control { flex-wrap:wrap; } }
+
+.setup-benchmark{border-top:1px solid var(--line);margin-top:28px;padding-top:24px}.setup-benchmark h3{font-size:17px;font-weight:600;margin:0 0 9px}.setup-benchmark .setup-check{margin-top:20px;align-items:flex-start;line-height:1.6}.setup-benchmark .setup-check input{flex-shrink:0;margin-top:3px;min-height:16px}.setup-benchmark>small{display:block;font-size:11px;color:var(--muted);line-height:1.6;margin-top:8px}.setup-benchmark>small.setup-field-error{color:#a13732}

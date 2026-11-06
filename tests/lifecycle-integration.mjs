@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 
-export async function testLifecycle(db, dispatch) {
+export async function testLifecycle(db, dispatch, expectedSeedCount = 158) {
   const auth = { 'oai-authenticated-user-id': 'lifecycle-owner', 'oai-authenticated-user-email': 'lifecycle@example.test' };
   const foreign = { 'oai-authenticated-user-id': 'lifecycle-foreign', 'oai-authenticated-user-email': 'foreign@example.test' };
   async function call(path, method = 'GET', body, headers = auth) {
@@ -11,11 +11,17 @@ export async function testLifecycle(db, dispatch) {
   // Follow the library's real link: legacy block IDs contain a colon, unlike new UUIDs.
   const originalLibrary = await dispatch('http://localhost/blocks', { headers: auth });
   const originalLibraryHtml = await originalLibrary.text();
+  assert.match(originalLibraryHtml, /aria-pressed="true">In progress/);
   const continuePath = originalLibraryHtml.match(/href="([^"]+)"[^>]*>Continue training/)?.[1];
   assert.equal(continuePath, '/blocks/' + encodeURIComponent(starter.id));
+  const activeHome = await dispatch('http://localhost/', { headers: auth, redirect: 'manual' });
+  assert.equal(activeHome.status, 307);
+  assert.equal(activeHome.headers.get('location'), continuePath);
   const originalDetail = await dispatch('http://localhost' + continuePath, { headers: auth });
   const originalDetailHtml = await originalDetail.text();
   assert.match(originalDetailHtml, /aria-label="Weekly workout tracker"/, 'The Continue training link must render the legacy block tracker, including when a streamed 404 returns HTTP 200.');
+  assert.match(originalDetailHtml, /<a href="\/" class="brand">/);
+  assert.match(originalDetailHtml, /aria-label="Training blocks" href="\/blocks"/);
   const originalForeign = await dispatch('http://localhost' + continuePath, { headers: foreign });
   const originalForeignHtml = await originalForeign.text();
   assert.ok(originalForeignHtml.includes('Block unavailable.'));
@@ -79,14 +85,16 @@ export async function testLifecycle(db, dispatch) {
   const archiveExport = await call('/api/export');
   assert.ok(archiveExport.data.blocks.find(block => block.id === draft.id && block.status === 'archived'));
   assert.equal(archiveExport.data.workouts.filter(workout => workout.planId === draft.id).length, 5);
-  assert.equal((await dispatch('http://localhost/api/blocks/' + encodeURIComponent(draft.id), { method: 'DELETE', headers: auth })).status, 405);
+  assert.equal((await dispatch('http://localhost/api/blocks/' + encodeURIComponent(draft.id), { method: 'DELETE', headers: auth })).status, 400);
   console.log('PASS: exact summary calculations, competing activations, stale versions, lifecycle transitions, and untouched archived workout records.');
 
   const page = await dispatch('http://localhost/blocks', { headers: auth });
   assert.equal(page.status, 200);
   const pageText = await page.text();
   assert.match(pageText, /Training blocks/);
-  assert.match(pageText, /Spring 10K/);
+  assert.match(pageText, /aria-pressed="true">In progress/);
+  assert.match(pageText, /No blocks in progress/);
+  assert.doesNotMatch(pageText, /<h2><a [^>]*>Spring 10K<\/a><\/h2>/);
   const detail = await dispatch('http://localhost/blocks/' + encodeURIComponent(draft.id), { headers: auth });
   assert.equal(detail.status, 200);
   assert.match(await detail.text(), /aria-label="Weekly workout tracker"/);
@@ -105,11 +113,13 @@ export async function testLifecycle(db, dispatch) {
   assert.equal(privatePage.status, 404);
   const home = await dispatch('http://localhost/', { headers: auth });
   assert.equal(home.status, 200);
-  assert.match(await home.text(), /Training blocks/);
+  const homeText = await home.text();
+  assert.match(homeText, /No blocks in progress/);
+  assert.match(homeText, /Create training block/);
   const firstPost = { 'oai-authenticated-user-id': 'first-post-owner', 'oai-authenticated-user-email': 'test-runner@example.test' };
   const first = await call('/api/blocks', 'POST', { raceName: 'Next goal', raceDate: '2027-05-01' }, firstPost);
   assert.equal(first.status, 201);
-  assert.equal((await call('/api/training', 'GET', undefined, firstPost)).data.workouts.length, 158);
+  assert.equal((await call('/api/training', 'GET', undefined, firstPost)).data.workouts.length, expectedSeedCount);
   assert.equal((await call('/api/blocks', 'GET', undefined, firstPost)).data.blocks.length, 2);
   console.log('PASS: library/detail pages, foreign-block 404, home navigation, and preservation of the initial import when creating a first draft.');
 }

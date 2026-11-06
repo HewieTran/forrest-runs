@@ -2,6 +2,22 @@
 
 A private, browser-based running training log. Phase 1 imports the Dashboard and Workout Tracker sheets, supports editing and rescheduling workouts, records actual results, and calculates progress and milestones.
 
+Generated workouts now show concise headers, visible step rows, readable durations
+and paces, and calculated totals. Edit steps updates the prescription separately
+from its immutable original snapshot. Existing unmodified generated records use
+their retained source steps without regeneration; text-only history keeps visible
+instructions and the linked measurement form. See WORKOUT_DATA_CONTRACT.md for
+migration 0009, optional backup v6 structure and race-target behavior. The mobile
+layout is captured in [docs/workout-steps-mobile.jpg](docs/workout-steps-mobile.jpg).
+
+The 2026-11-04 release passed 92 unit tests, TypeScript, the production build,
+planner and portable Worker integration suites, and five network-isolated captured
+response replays. Disposable storage tests cover step edits, save/reload, ownership,
+confirmation, concurrency, immutable snapshots and backup restoration. Browser QA
+checked desktop/mobile display, invalid edits, calculated totals and kilometer
+formatting with synthetic data. No paid model calls were made for this release;
+this does not establish a successful hosted personal generation or coaching quality.
+
 ## Stack
 
 React and TypeScript; responsive CSS; Vinext and Cloudflare Workers; D1 with Drizzle migrations; Sites-managed ChatGPT sign-in. A signed-in user can own multiple training blocks, with at most one active block. Every data operation checks account ownership and the selected block.
@@ -103,3 +119,68 @@ Overall completion includes future workouts. Through-yesterday completion uses d
 ## Deferred
 
 Goal feasibility assessment (Stage 5), automatic training generation (Stage 6), generated-plan review and activation (Stage 7), public sharing, wearable/Strava integrations, and a native mobile app remain future stages. Guided runner/goal inputs and saved snapshots are available from Stage 4. The block library, manual drafts, block-scoped tracker, and lifecycle controls are available from Stage 3. Multiple-block storage and scoped APIs are in place from Stage 2; responsive browser layouts and user ownership are in place from phase 1.
+
+## Free planner development tests
+
+`npm run test:planner` exercises the planner contract and provider adapter with
+synthetic inputs and injected responses. After building the current app source,
+`npm run test:planner:integration` exercises the production Worker and storage in
+Miniflare, with external networking disabled and disposable databases. Neither
+command needs an OpenAI account/key, imported workbook, or live database. See
+[PLANNER_TESTING.md](PLANNER_TESTING.md) for scope and limitations. These tests
+verify application behavior; real model quality remains unverified.
+
+## Phase 1 release baseline
+
+See [PHASE_1_REQUIREMENTS.md](PHASE_1_REQUIREMENTS.md) for Hieu's current product
+requirements. New intake is 5K-only with experience, age, body measurements, goal
+time, training weekdays and one confirmed dated performance benchmark. Validated generation saves directly; numeric results
+copy on completion and preserve manual edits when unchecked. Block settings own
+Archive/Delete. Existing imported blocks and older snapshots remain supported.
+
+Run `node --experimental-strip-types --test tests/*.test.mjs`, TypeScript and the
+production build. Then `node --experimental-strip-types tests/portable-worker.mjs`
+checks storage/API flows without the private workbook. The planner Worker suite
+adds mocked provider requests and verifies both legacy and new numeric flows,
+including explicit start/completion. Outbound networking is denied in these tests.
+The original workbook reconciliation suite still requires its private ignored seed.
+
+AWS migration impact: add nullable result_origins JSON/text, retain intake v4 and
+backup v6, and move these fields with the existing result records. Completion and
+planner rules remain provider-independent; D1/auth/provider adapters retain their
+existing boundary. This release does not add new hosting services.
+
+## Generator Stage 4: benchmark and goal assessment
+
+The current generator stages are documented in PHASE_1_REQUIREMENTS.md and
+PLANNER_TESTING.md; earlier stage numbers above describe historical releases.
+New live output must provide a consistent structured assessment before automatic
+saving. Unsupported goals and unrepresentative benchmarks return questions plus
+buttons for relevant existing fields; no workouts are created. Calendar benchmark
+ages inform judgment without a universal expiry. Requests preserve the runner’s
+inputs and never recommend changing reported experience to qualify. There is no
+new migration or database instance. Simulation remains uncalibrated; broad
+planning-quality validation remains limited; hosted configuration is recorded below.
+
+## Generator Stage 6: initial live evaluation
+
+Four synthetic profiles were evaluated using the dedicated key and Luna only;
+estimated total API cost was $0.006858. See PLANNER_EVALUATION.md for exact results,
+quality observations and limitations. Recorded outputs pass an offline production
+Worker save/reload/backup regression. `npm run eval:planner` is a free dry run;
+`npm run test:planner:replay` is an offline replay after building. The locked paid
+runner requires explicit `--live`, preserves dispatched cases and has a $0.10 cap.
+Hosted key/model configuration is deployed in live mode. A complete successful
+hosted trial remains open; no DB migration is needed. Invalid generated responses
+now report safe validation reasons separately from input/goal issues.
+
+## Calculated plan measurements
+
+New live generation uses a pair-only model response. The app computes distance
+from duration/pace for normal steps and race pace from estimated duration/exact
+5K distance. Full precision is retained before display rounding, and canonical
+workout fields/UI stay unchanged. lib/planner-math.ts is independent of hosting,
+identity and storage. New snapshots record calculationVersion; historical plans
+are never recalculated. Goal suitability and schedule validation remain separate.
+See WORKOUT_DATA_CONTRACT.md and PLANNER_TESTING.md. No new DB or dependency is
+required. A single-case live evaluation has its own $0.025 cap and no auto retry.

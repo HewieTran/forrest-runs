@@ -2,13 +2,16 @@
 
 import { useId, useRef, useState, type FormEvent } from 'react';
 import { Check, Link2, LoaderCircle } from 'lucide-react';
-import { isRun, PHASES, TYPES, validDate, validateWorkout, type Workout, type WorkoutInput } from '../lib/domain';
+import { isRun, WORKOUT_PHASES, TYPES, validDate, validateWorkout, type Workout, type WorkoutInput } from '../lib/domain';
+import { applyCompletion, type ResultField as CopiedField } from '../lib/workout-completion';
 import {
   changePlanUnit, editLinkedPlan, formatDistance, formatDuration, formatPace,
   initialLinkedPlan, inputFeedback, parseInput, PLAN_FIELDS,
   type DistanceUnit, type InputKind, type PlanField,
 } from '../lib/workout-form';
 import '../app/workout-editor.css';
+import WorkoutSteps from './WorkoutSteps';
+import { workoutStructure, structureMeasurements, sessionDuration, readableDuration, readableDistance, type WorkoutStructure } from '../lib/workout-structure';
 
 type ResultField = 'actualDistance' | 'actualDuration' | 'actualPace' | 'effort';
 type ErrorField = InputKind | 'date';
@@ -22,6 +25,9 @@ export default function WorkoutEditor({ workout, saving, error, onSave, onCancel
   const [unit, setUnit] = useState<DistanceUnit>('mi');
   const [plan, setPlan] = useState(() => initialLinkedPlan(workout));
   const [planChanged, setPlanChanged] = useState(false);
+  const [structure, setStructure] = useState(() => workoutStructure(workout));
+  const [structureChanged, setStructureChanged] = useState(false);
+  const [stepsValid, setStepsValid] = useState(true);
   const [results, setResults] = useState({
     actualDistance: formatDistance(workout.actualDistance, 'mi'),
     actualDuration: formatDuration(workout.actualDurationSeconds),
@@ -34,7 +40,12 @@ export default function WorkoutEditor({ workout, saving, error, onSave, onCancel
   const [submitted, setSubmitted] = useState(false);
   const [localError, setLocalError] = useState('');
   const running = isRun(draft);
-  const activeFields: ErrorField[] = running ? ['date', ...PLAN_FIELDS, 'actualDistance', 'actualDuration', 'actualPace', 'effort'] : ['date', 'duration', 'actualDuration', 'effort'];
+  const activeFields: ErrorField[] = structure ? ['date', 'actualDistance', 'actualDuration', 'actualPace', 'effort'] : running ? ['date', ...PLAN_FIELDS, 'actualDistance', 'actualDuration', 'actualPace', 'effort'] : ['date', 'duration', 'actualDuration', 'effort'];
+  function editStructure(next: WorkoutStructure) {
+    setStructure(next); setStructureChanged(true); setPlanChanged(true);
+    setPlan(changePlanUnit(initialLinkedPlan({ ...draft, ...structureMeasurements(next) }), unit));
+    onDirty(true); setLocalError('');
+  }
 
   function update<K extends keyof Workout>(key: K, value: Workout[K]) {
     setDraft(previous => ({ ...previous, [key]: value })); onDirty(true); setLocalError('');
@@ -49,6 +60,16 @@ export default function WorkoutEditor({ workout, saving, error, onSave, onCancel
     if (key !== 'effort') setExactResults(previous => ({ ...previous, [key]: parseInput(value, key, unit) }));
     setChangedResults(previous => new Set(previous).add(key)); onDirty(true); setLocalError('');
     setTouched(previous => { const next = new Set(previous); next.delete(key); return next; });
+  }
+  function toggleCompleted(done: boolean) {
+    const manual = [...changedResults].filter(key => key !== 'effort').map(key => key === 'actualDuration' ? 'actualDurationSeconds' : key === 'actualPace' ? 'actualPaceSecondsPerMile' : key) as CopiedField[];
+    const before = { ...draft, actualDistance: exactResults.actualDistance, actualDurationSeconds: exactResults.actualDuration, actualPaceSecondsPerMile: exactResults.actualPace,
+      plannedDistance: plan.exact.distance, plannedDurationSeconds: plan.exact.duration, plannedPaceSecondsPerMile: plan.exact.pace };
+    const next = applyCompletion(before, { done }, manual);
+    setDraft(next);
+    setExactResults({ actualDistance: next.actualDistance, actualDuration: next.actualDurationSeconds ?? null, actualPace: next.actualPaceSecondsPerMile ?? null });
+    setResults(current => ({ ...current, actualDistance: formatDistance(next.actualDistance, unit), actualDuration: formatDuration(next.actualDurationSeconds ?? null), actualPace: formatPace(next.actualPaceSecondsPerMile ?? null, unit) }));
+    onDirty(true);
   }
   function feedback(key: ErrorField, strict = submitted || touched.has(key)) {
     if (key === 'date') return !validDate(draft.date) && strict ? { state: 'error' as const, message: 'Choose a valid date from 1900 to 2200.' } : null;
@@ -89,6 +110,7 @@ export default function WorkoutEditor({ workout, saving, error, onSave, onCancel
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setSubmitted(true);
+    if (!stepsValid) { setLocalError('Review the highlighted workout steps before saving.'); return; }
     const invalid = activeFields.find(key => feedback(key, true)?.state === 'error');
     if (invalid) {
       setLocalError('Review the highlighted fields before saving.');
@@ -104,9 +126,11 @@ export default function WorkoutEditor({ workout, saving, error, onSave, onCancel
     }
     if (changedResults.has('actualDuration')) measurements.actualDurationSeconds = exactResults.actualDuration;
     if (changedResults.has('actualPace')) measurements.actualPaceSecondsPerMile = exactResults.actualPace;
-    const description = draft.plannedWorkout.trim() || `${draft.type}${plan.exact.distance !== null ? ` · ${formatDistance(plan.exact.distance, 'mi')} mi` : plan.exact.duration !== null ? ` · ${formatDuration(plan.exact.duration)}` : ''}`;
+    const description = structureChanged && structure ? structure.title : draft.plannedWorkout.trim() || `${draft.type}${plan.exact.distance !== null ? ` · ${formatDistance(plan.exact.distance, 'mi')} mi` : plan.exact.duration !== null ? ` · ${formatDuration(plan.exact.duration)}` : ''}`;
     try {
       onSave(validateWorkout({ ...measurements, date: draft.date, phase: draft.phase, type: draft.type,
+        ...(structureChanged || structure && draft.type !== workout.type ? { planStructure: structure } : {}),
+        manualResultFields: [...changedResults].filter(key => key !== 'effort').map(key => key === 'actualDuration' ? 'actualDurationSeconds' : key === 'actualPace' ? 'actualPaceSecondsPerMile' : key),
         plannedWorkout: description, targetPace: draft.targetPace, actualPace: draft.actualPace,
         done: draft.done, actualDistance: changedResults.has('actualDistance') ? actualDistance : workout.actualDistance,
         effort: results.effort === '' ? null : Number(results.effort), pain: draft.pain, notes: draft.notes, version: workout.version,
@@ -117,18 +141,26 @@ export default function WorkoutEditor({ workout, saving, error, onSave, onCancel
     <fieldset disabled={saving}><legend className="sr-only">Workout details</legend><div className="form-grid workout-meta-grid">
       <label>Date<input name="date" type="date" min="1900-01-01" max="2200-12-31" value={draft.date} onInput={event => update('date', event.currentTarget.value)} onBlur={() => setTouched(previous => new Set(previous).add('date'))} aria-invalid={feedback('date')?.state === 'error'} aria-describedby={`${id}-date-feedback`} /><span id={`${id}-date-feedback`} className="measurement-feedback is-error" hidden={!feedback('date')}>{feedback('date')?.message}</span></label>
       <label>Workout type<select value={draft.type} onChange={event => update('type', event.target.value)}>{TYPES.map(type => <option key={type}>{type}</option>)}</select></label>
-      <label>Training phase<select value={draft.phase} onChange={event => update('phase', event.target.value)}>{PHASES.map(phase => <option key={phase}>{phase}</option>)}</select></label>
+      <label>Training phase<select value={draft.phase} onChange={event => update('phase', event.target.value)}>{WORKOUT_PHASES.map(phase => <option key={phase}>{phase}</option>)}</select></label>
     </div></fieldset>
     <fieldset disabled={saving}><legend className="sr-only">Plan</legend>
-      <div className="measurement-heading"><h4>Plan</h4>{running && <label className="measurement-unit-select">Distance units<select aria-label="Distance units" value={unit} onChange={event => changeUnit(event.target.value as DistanceUnit)}><option value="mi">mi</option><option value="km">km</option></select></label>}</div>
+      <div className="measurement-heading"><h4>Plan</h4>{running && <label className="measurement-unit-select">Distance units<select aria-label="Distance units" value={unit} disabled={!stepsValid} onChange={event => changeUnit(event.target.value as DistanceUnit)}><option value="mi">mi</option><option value="km">km</option></select></label>}</div>
+      {structure ? <>
+        <dl className="plan-step-totals"><div><dt>{draft.type === 'Race' ? 'Race distance' : 'Planned distance'}</dt><dd>{plan.exact.distance === null ? 'Follow effort' : readableDistance(plan.exact.distance, unit)}</dd></div>
+          <div><dt>{draft.type === 'Race' ? 'Estimated race pace' : 'Average planned pace'}</dt><dd>{plan.exact.pace === null ? 'Follow effort' : `${formatPace(plan.exact.pace, unit)} /${unit}`}</dd></div>
+          <div><dt>{draft.type === 'Race' ? 'Estimated race duration' : 'Planned duration'}</dt><dd>{plan.exact.duration === null ? '—' : readableDuration(plan.exact.duration)}</dd></div></dl>
+        <p className="linked-measurement-hint">{!stepsValid ? 'Fix the highlighted step entries before saving. Totals show the last valid values.' : draft.type === 'Race' ? `Full session: ${readableDuration(sessionDuration(structure))}, including warm-up and cool-down. Race targets are used for progress tracking.` : 'Totals are calculated from the steps. Follow each step’s pace during the run.'}</p>
+        <WorkoutSteps key={unit} structure={structure} unit={unit} onChange={editStructure} onValidity={valid => { setStepsValid(valid); onDirty(true); setLocalError(''); }} />
+      </> : <>
       <div className={`form-grid measurement-grid ${!running ? 'support-measurement-grid' : ''}`}>
         {running && measurementField('distance', 'Planned distance', unit, plan.calculated === 'distance')}
         {running && measurementField('pace', 'Target pace', '/'+unit, plan.calculated === 'pace')}
         {measurementField('duration', 'Target duration', 'h:mm:ss', running && plan.calculated === 'duration')}
       </div>
       <p className="linked-measurement-hint">{running && <Link2 size={14} />}{!running ? 'Duration target is optional for strength and mobility.' : planPaused ? 'Calculations paused until the entries are valid.' : 'Enter any two. When you edit a value, the least recently edited box recalculates.'}</p>
-      {draft.targetPace && <p className="legacy-workout-value">Original pace / effort: {draft.targetPace}<small>Preserved. Enter a single numeric pace above to add a structured target.</small></p>}
-      <details className="workout-optional-details"><summary>Workout instructions <span>Optional</span></summary><label>Instructions<textarea rows={2} maxLength={1000} value={draft.plannedWorkout} onChange={event => update('plannedWorkout', event.target.value)} placeholder="Warmup, intervals, or effort guidance" /></label></details>
+      {draft.targetPace && draft.plannedPaceSecondsPerMile == null && <p className="legacy-workout-value">Original pace / effort: {draft.targetPace}<small>Preserved. Enter a single numeric pace above to add a structured target.</small></p>}
+      <label className="visible-workout-instructions">Workout instructions<textarea rows={4} maxLength={1000} value={draft.plannedWorkout} onChange={event => update('plannedWorkout', event.target.value)} placeholder="Warmup, intervals, or effort guidance" /></label>
+      </>}
     </fieldset>
     <fieldset disabled={saving}><legend className="sr-only">Actual</legend><div className="measurement-heading"><h4>Actual</h4><span>What you recorded</span></div>
       <div className={`form-grid measurement-grid ${!running ? 'support-measurement-grid' : ''}`}>
@@ -138,7 +170,8 @@ export default function WorkoutEditor({ workout, saving, error, onSave, onCancel
       </div>
       {running && <p className="actual-pace-calculation">Calculated pace <strong>{formatPace(calculatedPace, unit) || '—'}{calculatedPace !== null && ` /${unit}`}</strong><button type="button" disabled={calculatedPace === null} onClick={() => { if (calculatedPace !== null) editResult('actualPace', formatPace(calculatedPace, unit)); }}>Use pace</button></p>}
       {draft.actualPace && <p className="legacy-workout-value">Original pace / activity: {draft.actualPace}<small>Preserved alongside your structured results.</small></p>}
-      <p className="field-hint">Leave unknown results blank. Planned values never fill in your actual results.</p>
+      <p className="field-hint">Checking completed fills missing results from the plan. Unchecking clears copied results and preserves manual entries.</p>
+      {draft.resultOrigins && Object.keys(draft.resultOrigins).length > 0 && <p className="copied-result-label">Filled from plan. Edit a value to record your own result.</p>}
       <details className="workout-optional-details"><summary>Effort, pain &amp; notes <span>Optional</span></summary><div className="form-grid result-extra-grid">
         {measurementField('effort', 'Effort (1–10)', '')}
         <label>Pain<select value={draft.pain} onChange={event => update('pain', event.target.value)}>{painOptions.map(pain => <option key={pain} value={pain}>{pain || 'Not recorded'}</option>)}</select></label>
@@ -146,6 +179,6 @@ export default function WorkoutEditor({ workout, saving, error, onSave, onCancel
       </div></details>
     </fieldset>
     {(localError || error) && <div className="form-error" role="alert">{localError || error}</div>}
-    <div className="editor-footer"><label className="checkbox-label"><input type="checkbox" checked={draft.done} disabled={saving} onChange={event => update('done', event.target.checked)} />Workout completed</label><div className="button-group"><button type="button" className="button quiet" disabled={saving} onClick={onCancel}>Cancel</button><button type="submit" className="button primary" disabled={saving}>{saving ? <LoaderCircle className="spin" size={16} /> : <Check size={16} />}{saving ? 'Saving…' : 'Save workout'}</button></div></div>
+    <div className="editor-footer"><label className="checkbox-label"><input type="checkbox" checked={draft.done} disabled={saving} onChange={event => toggleCompleted(event.target.checked)} />Workout completed</label><div className="button-group"><button type="button" className="button quiet" disabled={saving} onClick={onCancel}>Cancel</button><button type="submit" className="button primary" disabled={saving}>{saving ? <LoaderCircle className="spin" size={16} /> : <Check size={16} />}{saving ? 'Saving…' : 'Save workout'}</button></div></div>
   </form>;
 }

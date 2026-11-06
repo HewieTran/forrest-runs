@@ -8,7 +8,10 @@ import {
 } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
 import { BLOCK_STATUSES } from '../lib/domain';
+import type { Generation } from '../lib/planner';
 import type { BlockSetup } from '../lib/setup';
+import type { ResultOrigins } from '../lib/workout-completion';
+import type { WorkoutStructure } from '../lib/workout-structure';
 
 // A user can own many blocks; the partial index permits only one active block.
 export const plans = sqliteTable('training_plans', {
@@ -16,6 +19,7 @@ export const plans = sqliteTable('training_plans', {
   ownerId: text('owner_id').notNull(),
   status: text('status', { enum: BLOCK_STATUSES }).notNull().default('active'),
   setup: text('setup', { mode: 'json' }).$type<BlockSetup>(),
+  generation: text('generation', { mode: 'json' }).$type<Generation>(),
   raceName: text('race_name').notNull(),
   raceDate: text('race_date').notNull(),
   paceGuide: text('pace_guide', { mode: 'json' })
@@ -44,6 +48,7 @@ export const workouts = sqliteTable(
     type: text('type').notNull(),
     plannedWorkout: text('planned_workout').notNull(),
     targetPace: text('target_pace').notNull(),
+    planStructure: text('plan_structure', { mode: 'json' }).$type<WorkoutStructure>(),
     done: integer('done', { mode: 'boolean' }).notNull().default(false),
     // SQL NULL means unknown, which is distinct from a recorded zero.
     actualDistance: real('actual_distance'),
@@ -55,6 +60,7 @@ export const workouts = sqliteTable(
     plannedPaceSecondsPerMile: real('planned_pace_seconds_per_mile'),
     actualPaceSecondsPerMile: real('actual_pace_seconds_per_mile'),
     actualPace: text('actual_pace').notNull().default(''),
+    resultOrigins: text('result_origins', { mode: 'json' }).$type<ResultOrigins>(),
     effort: integer('effort'),
     pain: text('pain').notNull().default(''),
     notes: text('notes').notNull().default(''),
@@ -78,3 +84,29 @@ export const restDays = sqliteTable('training_rest_days', {
   version: integer('version').notNull().default(1),
   updatedAt: text('updated_at').notNull(),
 }, (table) => [uniqueIndex('training_rest_days_plan_date_idx').on(table.planId, table.date)]);
+
+// Initialization is account state, independent of how many blocks remain.
+export const accountState = sqliteTable('training_account_state', {
+  ownerId: text('owner_id').primaryKey(),
+  initializedAt: text('initialized_at').notNull(),
+});
+
+// Operational accounting survives block deletion and is never restored from a
+// training backup. Store no prompts, fitness data, API keys or provider bodies.
+export const aiUsage = sqliteTable('training_ai_usage', {
+  id: text('id').primaryKey(),
+  ownerId: text('owner_id').notNull(),
+  blockId: text('block_id').notNull(), // Deliberately no cascading foreign key.
+  period: text('period').notNull(),
+  startedAt: text('started_at').notNull(),
+  finishedAt: text('finished_at'),
+  model: text('model').notNull(),
+  pricingVersion: text('pricing_version').notNull(),
+  status: text('status', { enum: ['reserved', 'settled', 'uncertain'] }).notNull(),
+  reservedMicrodollars: integer('reserved_microdollars').notNull(),
+  chargedMicrodollars: integer('charged_microdollars').notNull(),
+  inputTokens: integer('input_tokens'),
+  outputTokens: integer('output_tokens'),
+  outcome: text('outcome'),
+}, table => [index('training_ai_usage_period_idx').on(table.period, table.status),
+  index('training_ai_usage_owner_started_idx').on(table.ownerId, table.startedAt)]);

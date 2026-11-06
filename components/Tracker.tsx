@@ -1,5 +1,6 @@
 'use client';
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { acceptedPlan, simulatedBlock, changesPrescription } from '../lib/planner';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Activity,
   ArrowUpRight,
@@ -38,6 +39,10 @@ import WorkoutEditor from './WorkoutEditor';
 import { formatPace, formatDuration } from '../lib/workout-form';
 import BlockActions, { BlockStatusBadge } from './BlockActions';
 import type { Plan } from '../lib/domain';
+import { applyCompletion } from '../lib/workout-completion';
+import { setupTargetTime } from '../lib/setup';
+import { blockReady } from '../lib/blocks';
+import { workoutSummary, workoutStructure } from '../lib/workout-structure';
 
 const formatNumber = (value: number) =>
   value.toLocaleString('en-US', { maximumFractionDigits: 2 });
@@ -56,130 +61,6 @@ function WorkoutIcon({ type }: { type: string }) {
   return <Icon size={17} />;
 }
 
-function RaceSettings({
-  data,
-  onClose,
-  onSaved,
-  preview,
-}: {
-  data: AppData;
-  onClose: () => void;
-  onSaved: (data: AppData) => void;
-  preview: boolean;
-}) {
-  const dialogRef = useRef<HTMLDialogElement>(null);
-  const [raceName, setRaceName] = useState(data.plan.raceName);
-  const [raceDate, setRaceDate] = useState(data.plan.raceDate);
-  const [error, setError] = useState('');
-  const [saving, setSaving] = useState(false);
-  useEffect(() => {
-    dialogRef.current?.showModal();
-    const dialog = dialogRef.current;
-    return () => {
-      dialog?.close();
-    };
-  }, []);
-  async function submit(event: FormEvent) {
-    event.preventDefault();
-    setSaving(true);
-    setError('');
-    try {
-      if (preview) {
-        onSaved({
-          ...data,
-          plan: { ...data.plan, raceName: raceName, raceDate: raceDate },
-        });
-        onClose();
-        return;
-      }
-      const response = await fetch(`/api/training?blockId=${encodeURIComponent(data.plan.id)}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          raceName: raceName,
-          raceDate: raceDate,
-          version: data.plan.version,
-        }),
-      });
-      const result = (await response.json()) as AppData & { error?: string };
-      if (!response.ok)
-        throw new Error(result.error || 'Settings could not be saved.');
-      onSaved(result);
-      onClose();
-    } catch (caughtError) {
-      setError(
-        caughtError instanceof Error
-          ? caughtError.message
-          : 'Please try again.',
-      );
-    } finally {
-      setSaving(false);
-    }
-  }
-  return (
-    <dialog
-      ref={dialogRef}
-      className="settings-dialog"
-      onCancel={(event) => {
-        if (saving) event.preventDefault();
-        else onClose();
-      }}
-    >
-      <div className="dialog-heading">
-        <div>
-          <p className="section-eyebrow">Your finish line</p>
-          <h2>Block settings</h2>
-        </div>
-        <button
-          className="icon-button"
-          aria-label="Close block settings"
-          disabled={saving}
-          onClick={onClose}
-        >
-          <X size={20} />
-        </button>
-      </div>
-      <form onSubmit={submit}>
-        <label>
-          Block name
-          <input
-            value={raceName}
-            onChange={(event) => setRaceName(event.target.value)}
-            maxLength={120}
-            required
-            disabled={saving}
-          />
-        </label>
-        <label>
-          Target / race date
-          <input
-            type="date"
-            min="1900-01-01"
-            max="2200-12-31"
-            value={raceDate}
-            onInput={(event) => setRaceDate(event.currentTarget.value)}
-            onChange={(event) => setRaceDate(event.target.value)}
-            required
-            disabled={saving}
-          />
-        </label>
-        <p className="field-hint">
-          Changing the race date updates the countdown. Workout dates stay as
-          scheduled.
-        </p>
-        {error && (
-          <p className="form-error" role="alert">
-            {error}
-          </p>
-        )}
-        <button type="submit" className="button primary" disabled={saving}>
-          {saving ? 'Saving…' : 'Save settings'}
-        </button>
-      </form>
-    </dialog>
-  );
-}
-
 export default function Tracker({
   initial,
   preview = false,
@@ -191,7 +72,7 @@ export default function Tracker({
 }) {
   const [data, setData] = useState(initial);
   const [currentActive, setCurrentActive] = useState(activeBlock);
-  const [selectedWeek, setSelectedWeek] = useState(weekStart(initial.today));
+  const [selectedWeek, setSelectedWeek] = useState(() => { const dates = initial.workouts.map(workout => workout.date).sort(); return weekStart(dates.length && (initial.today < dates[0] || initial.today > dates[dates.length - 1]) ? dates[0] : initial.today); });
   const [filter, setFilter] = useState<Filter>('all');
   const [expandedWorkoutId, setExpandedWorkoutId] = useState<string | null>(
     () =>
@@ -203,7 +84,6 @@ export default function Tracker({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [toast, setToast] = useState('');
-  const [showRaceSettings, setShowRaceSettings] = useState(false);
   // Derive the dashboard from the same saved records shown in the workout list.
   const progress = summarize(data.workouts, data.today);
   const weekEnd = addDays(selectedWeek, 6);
@@ -268,7 +148,7 @@ export default function Tracker({
       selectedWeek <= data.today && weekEnd >= data.today
         ? data.today
         : selectedWeek,
-    phase: selectedPhase ?? 'Base Build',
+    phase: selectedPhase ?? 'Not applicable',
     type: 'Easy Run',
     plannedWorkout: '',
     targetPace: '',
@@ -344,16 +224,20 @@ export default function Tracker({
   }
   // Preview edits are local. Live edits update the screen only after a successful API response.
   async function saveWorkout(id: string, input: WorkoutInput) {
+    const existing = data.workouts.find(workout => workout.id === id);
+    const confirmPlanChange = acceptedPlan(data.plan) && (id === 'new' || !!existing && changesPrescription(existing, input));
+    if (confirmPlanChange && !window.confirm('Changing prescribed workouts will mark this generated block as altered. The original plan will be kept. Save these changes?')) return;
     setSaving(true);
     setError('');
     try {
       let savedWorkout: Workout;
       if (preview) {
+        const previewInput = id === 'new' ? input : applyCompletion(existing!, input, input.manualResultFields);
         savedWorkout = {
           ...(id === 'new'
             ? newWorkout
             : data.workouts.find((workout) => workout.id === id)!),
-          ...input,
+          ...previewInput,
           id: id === 'new' ? `preview-workout-${Date.now()}-${Math.random().toString(16).slice(2)}` : id,
           version: input.version + 1,
           updatedAt: new Date().toISOString(),
@@ -366,7 +250,7 @@ export default function Tracker({
           {
             method: id === 'new' ? 'POST' : 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(input),
+            body: JSON.stringify({ ...input, confirmPlanChange }),
           },
         );
         const result = (await response.json()) as {
@@ -377,8 +261,10 @@ export default function Tracker({
           throw new Error(result.error || 'The workout could not be saved.');
         savedWorkout = result.workout;
       }
+      const latestPlan = !preview && confirmPlanChange ? await fetch(`/api/blocks/${encodeURIComponent(data.plan.id)}/setup`).then(response => response.ok ? response.json() as Promise<{ block: Plan }> : null).catch(() => null) : null;
       setData((current) => ({
         ...current,
+        plan: latestPlan?.block ?? current.plan,
         workouts:
           id === 'new'
             ? [...current.workouts, savedWorkout]
@@ -430,7 +316,7 @@ export default function Tracker({
         className={`workout-card ${isExpanded ? 'expanded' : ''}`}
         key={workout.id}
       >
-        <button
+        <div className="workout-row"><button
           className="workout-summary"
           aria-expanded={isExpanded}
           onClick={() => toggleWorkoutEditor(workout.id)}
@@ -450,7 +336,7 @@ export default function Tracker({
               <h3>{formatWorkoutTitle(workout.type)}</h3>
               <WorkoutIcon type={workout.type} />
             </div>
-            <p>{workout.plannedWorkout}</p>
+            <p>{workoutSummary(workout)}</p>
             {workout.done &&
               (workout.actualDistance !== null || workout.actualPace || workout.actualPaceSecondsPerMile !== null || workout.actualDurationSeconds !== null) && (
                 <span className="actual-summary">
@@ -458,14 +344,15 @@ export default function Tracker({
                 </span>
               )}
           </div>
-          <span className="target-preview">{workout.plannedPaceSecondsPerMile !== null ? `${formatPace(workout.plannedPaceSecondsPerMile, 'mi')} /mi` : workout.targetPace}</span>
+          <span className="target-preview">{workoutStructure(workout) ? 'Step paces' : workout.plannedPaceSecondsPerMile !== null ? `${formatPace(workout.plannedPaceSecondsPerMile, 'mi')} /mi` : workout.targetPace}</span>
           <span
             className={`status ${workout.done ? 'complete' : isOverdue ? 'unlogged' : workout.date === data.today ? 'today' : ''}`}
           >
             {workout.done && <Check size={13} />} {status}
           </span>
           <Pencil className="edit-icon" size={17} />
-        </button>
+        </button><label className="quick-workout-check"><span className="sr-only">Complete {formatWorkoutTitle(workout.type)} on {formatDate(workout.date)}</span><input type="checkbox" checked={workout.done} disabled={saving} onChange={event => { if (confirmDiscardChanges()) void saveWorkout(workout.id, { ...workout, done: event.target.checked }); }} /></label></div>
+        {workout.resultOrigins && Object.keys(workout.resultOrigins).length > 0 && <span className="copied-result-label">Includes results filled from plan</span>}
         {isExpanded && (
           <WorkoutEditor
             key={`${workout.id}:${workout.version}`}
@@ -493,13 +380,9 @@ export default function Tracker({
         <a className="block-breadcrumb" href={preview ? '/preview?view=blocks' : '/blocks'}><ChevronLeft size={15} /> All training blocks</a>
         <section className="page-heading block-detail-heading">
           <div>
-            <div className="overline">Your road to race day · Training log</div>
+
             <h1>{data.plan.raceName}</h1>
-            <button
-              className="race-subtitle"
-              disabled={!!data.plan.setup}
-              onClick={() => setShowRaceSettings(true)}
-            >
+            <div className="race-subtitle">
               <span>Target date</span>
               <span className="dot">·</span>
               <span>
@@ -509,8 +392,7 @@ export default function Tracker({
                   year: 'numeric',
                 })}
               </span>
-              <Settings2 size={15} />
-            </button>
+            </div>
           </div>
           <div className="countdown">
             <Flag size={20} />
@@ -539,16 +421,18 @@ export default function Tracker({
           </div>
         )}
         <section className="block-detail-toolbar" aria-label="Block management">
-          <div><BlockStatusBadge status={data.plan.status} /><span className="block-source">{data.plan.sourceName ? 'Imported training log' : data.plan.setup ? 'Guided setup' : 'Manual training block'} · {data.workouts.length} workouts</span></div>
-          <BlockActions plan={data.plan} activeBlock={currentActive} preview={preview} disabled={saving || hasUnsavedChanges} onChanged={block => {
+          <div><BlockStatusBadge status={data.plan.status} ready={blockReady({ ...data.plan, workoutCount: data.workouts.length })} /><span className="block-source">{simulatedBlock(data.plan) ? 'SIMULATION · Example schedule' : acceptedPlan(data.plan) ? data.plan.generation?.alteredAt ? 'OpenAI plan · Altered' : 'OpenAI training plan' : data.plan.sourceName ? 'Imported training log' : data.plan.setup ? 'Guided setup' : 'Manual training block'} · {data.workouts.length} workouts</span></div>
+          <BlockActions plan={data.plan} activeBlock={currentActive} preview={preview} disabled={saving || hasUnsavedChanges} ready={blockReady({ ...data.plan, workoutCount: data.workouts.length })} onChanged={block => {
             setData(current => ({ ...current, plan: block }));
             if (block.status === 'active') setCurrentActive({ id: block.id, raceName: block.raceName });
             else if (currentActive?.id === block.id) setCurrentActive(null);
             setToast('Block status updated. Your workout results are unchanged.');
           }} />
+          <a className="icon-button block-settings-link" aria-label="Training block settings" onClick={event => { if (!confirmDiscardChanges()) event.preventDefault(); }} href={preview ? '/preview?view=settings' : `/blocks/${encodeURIComponent(data.plan.id)}/settings`}><Settings2 size={19} /></a>
           {hasUnsavedChanges && <p className="small-muted block-management-hint">Save or cancel your workout edits before changing block status.</p>}
         </section>
-        {data.plan.setup && <section className="block-callout setup-snapshot-notice"><Flag size={21} /><div><strong>Your starting setup is saved with this block.</strong><p>{data.plan.setup.goal.distanceKm ?? 'Distance not set'} km · Target {data.plan.setup.goal.targetTime || 'time not set'} · {data.plan.setup.availability.days.length} available running days</p><p>A reviewed training schedule is required before activation.</p><a className="button" href={preview ? '/preview?view=setup' : `/blocks/${encodeURIComponent(data.plan.id)}/setup`}>{data.plan.status === 'draft' ? 'Continue guided setup' : 'View starting setup'}</a></div></section>}
+        {simulatedBlock(data.plan) && <p className="block-callout" role="status"><strong>Simulation mode.</strong> This example schedule demonstrates the app flow. It is not a personalized running plan and cannot be activated.</p>}
+        {data.plan.setup && <section className="block-callout setup-snapshot-notice"><Flag size={21} /><div><strong>Your starting setup is saved with this block.</strong><p>{data.plan.setup.goal.distanceKm ?? 'Distance not set'} km · Target {setupTargetTime(data.plan.setup) || 'time not set'} · {data.plan.setup.availability.days.length} available running days</p>{acceptedPlan(data.plan) ? <p>{data.plan.generation?.alteredAt ? 'Altered since acceptance. Your original generated plan is preserved.' : 'Your generated plan is saved. Workout logging does not change the original prescription.'} <a href={`/blocks/${encodeURIComponent(data.plan.id)}/plan`}>View original plan →</a></p> : <p>Generate a schedule before starting this block.</p>}<a className="button" href={preview ? '/preview?view=setup' : `/blocks/${encodeURIComponent(data.plan.id)}/setup`}>{data.plan.status === 'draft' && !acceptedPlan(data.plan) ? 'Continue guided setup' : 'View starting setup'}</a></div></section>}
         {data.workouts.length === 0 && !data.plan.setup && <div className="block-callout block-empty-guide"><Flag size={20} /><div><strong>Your training starts with one workout.</strong><p>Add your own schedule below.{data.plan.status === 'draft' ? ' This block is a draft until you activate it.' : ''}</p>{data.plan.status === 'draft' && <a className="text-link" href={preview ? '/preview?view=setup' : `/blocks/${encodeURIComponent(data.plan.id)}/setup`}>Or start guided setup for this empty draft →</a>}</div></div>}
         <div className="content-grid">
           <section
@@ -624,7 +508,7 @@ export default function Tracker({
                       setFilter('all');
                     }
                   }}
-                  disabled={saving || !!data.plan.setup}
+                  disabled={saving || (!!data.plan.setup && !acceptedPlan(data.plan))}
                 >
                   <Plus size={16} />
                   <span>Add workout</span>
@@ -738,7 +622,7 @@ export default function Tracker({
           <aside className="dashboard" aria-label="Overall training progress">
             <div className="dashboard-title">
               <h2>Your progress</h2>
-              <a className="progress-expanded-link" href={preview ? '/preview?view=progress' : `/blocks/${encodeURIComponent(data.plan.id)}/progress`}>View progress ↗</a>
+              <a className="button primary progress-expanded-link" href={preview ? '/preview?view=progress' : `/blocks/${encodeURIComponent(data.plan.id)}/progress`}>View progress ↗</a>
               <span
                 className="live-dot"
                 title="Calculated from saved workouts"
@@ -978,17 +862,7 @@ export default function Tracker({
           </button>
         </div>
       )}
-      {showRaceSettings && (
-        <RaceSettings
-          data={data}
-          preview={preview}
-          onClose={() => setShowRaceSettings(false)}
-          onSaved={(value) => {
-            setData(value);
-            setToast('Block settings saved.');
-          }}
-        />
-      )}
+
     </div>
   );
 }

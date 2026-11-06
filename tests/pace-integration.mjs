@@ -23,9 +23,9 @@ export async function testPaces(db,dispatch){
   assert.equal(cleared.data.workout.plannedDistance,5);assert.equal(cleared.data.workout.targetPace,input.targetPace);
   saved=(await call(path,'PATCH',{...cleared.data.workout,plannedPaceSecondsPerMile:720.25,actualPaceSecondsPerMile:680})).data.workout;
   const reloaded=(await call('/api/training'+scope)).data.workouts.find(w=>w.id===saved.id);assert.deepEqual(reloaded,saved);
-  const backup=(await call('/api/export'+scope)).data;assert.equal(backup.schemaVersion,4);assert.deepEqual(normalizeTrainingBackup(backup),backup);await testRestore(backup);
+  const backup=(await call('/api/export'+scope)).data;assert.equal(backup.schemaVersion,6);assert.deepEqual(normalizeTrainingBackup(backup),backup);await testRestore(backup);
   const before=(await db.prepare('SELECT * FROM workouts WHERE id=?').bind(saved.id).first());
   for(const value of [0,-1,86401,'not a number'])await assert.rejects(()=>db.prepare('UPDATE workouts SET planned_pace_seconds_per_mile=? WHERE id=?').bind(value,saved.id).run());
   assert.deepEqual(await db.prepare('SELECT * FROM workouts WHERE id=?').bind(saved.id).first(),before);
-  console.log('PASS: numeric paces persist/reload, old clients preserve them, ownership/concurrency checks hold, v4 backups restore, and database constraints reject invalid pace values.');
+  console.log('PASS: numeric paces persist/reload, old clients preserve them, ownership/concurrency checks hold, v5 backups restore, and database constraints reject invalid pace values.');
 }

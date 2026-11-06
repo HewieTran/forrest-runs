@@ -52,6 +52,7 @@ export async function insertInitialTraining(
 ) {
   if (!env.DB) throw new Error('The training database is unavailable.');
   const statements = [
+    env.DB.prepare('INSERT INTO training_account_state (owner_id, initialized_at) VALUES (?,?)').bind(plan.ownerId, plan.createdAt),
     env.DB.prepare(
       'INSERT INTO training_plans (id,owner_id,race_name,race_date,pace_guide,source_name,version,created_at,updated_at) VALUES (?,?,?,?,?,?,1,?,?)',
     ).bind(
