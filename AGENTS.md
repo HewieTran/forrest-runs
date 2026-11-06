@@ -1,5 +1,17 @@
 # Forrest Runs development coordination
 
+## GitHub pull requests
+
+- Start each implementation change on a focused branch from the current GitHub
+  `main`. Submit it through a pull request and leave merge to Hieu unless he
+  explicitly authorizes it.
+- Check the deployed source revision against GitHub before making release
+  changes. Raise any drift and reconcile it in a separate pull request so
+  unrelated changes stay out of feature reviews.
+- Open the pull request before deploying a change to staging when practical.
+  Record the verification and deployed revision in the pull request. Report
+  review, merge, staging, and production status separately.
+
 ## Shared workout-data contract
 
 Hieu assigned Agent 2 the workout-data foundation on 2026-10-23, before Progress

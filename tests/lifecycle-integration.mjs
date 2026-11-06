@@ -11,11 +11,17 @@ export async function testLifecycle(db, dispatch) {
   // Follow the library's real link: legacy block IDs contain a colon, unlike new UUIDs.
   const originalLibrary = await dispatch('http://localhost/blocks', { headers: auth });
   const originalLibraryHtml = await originalLibrary.text();
+  assert.match(originalLibraryHtml, /aria-pressed="true">In progress/);
   const continuePath = originalLibraryHtml.match(/href="([^"]+)"[^>]*>Continue training/)?.[1];
   assert.equal(continuePath, '/blocks/' + encodeURIComponent(starter.id));
+  const activeHome = await dispatch('http://localhost/', { headers: auth, redirect: 'manual' });
+  assert.equal(activeHome.status, 307);
+  assert.equal(activeHome.headers.get('location'), continuePath);
   const originalDetail = await dispatch('http://localhost' + continuePath, { headers: auth });
   const originalDetailHtml = await originalDetail.text();
   assert.match(originalDetailHtml, /aria-label="Weekly workout tracker"/, 'The Continue training link must render the legacy block tracker, including when a streamed 404 returns HTTP 200.');
+  assert.match(originalDetailHtml, /<a href="\/" class="brand">/);
+  assert.match(originalDetailHtml, /aria-label="Training blocks" href="\/blocks"/);
   const originalForeign = await dispatch('http://localhost' + continuePath, { headers: foreign });
   const originalForeignHtml = await originalForeign.text();
   assert.ok(originalForeignHtml.includes('Block unavailable.'));
@@ -86,7 +92,9 @@ export async function testLifecycle(db, dispatch) {
   assert.equal(page.status, 200);
   const pageText = await page.text();
   assert.match(pageText, /Training blocks/);
-  assert.match(pageText, /Spring 10K/);
+  assert.match(pageText, /aria-pressed="true">In progress/);
+  assert.match(pageText, /No blocks in progress/);
+  assert.doesNotMatch(pageText, /<h2><a [^>]*>Spring 10K<\/a><\/h2>/);
   const detail = await dispatch('http://localhost/blocks/' + encodeURIComponent(draft.id), { headers: auth });
   assert.equal(detail.status, 200);
   assert.match(await detail.text(), /aria-label="Weekly workout tracker"/);
@@ -105,7 +113,9 @@ export async function testLifecycle(db, dispatch) {
   assert.equal(privatePage.status, 404);
   const home = await dispatch('http://localhost/', { headers: auth });
   assert.equal(home.status, 200);
-  assert.match(await home.text(), /Training blocks/);
+  const homeText = await home.text();
+  assert.match(homeText, /No blocks in progress/);
+  assert.match(homeText, /Create training block/);
   const firstPost = { 'oai-authenticated-user-id': 'first-post-owner', 'oai-authenticated-user-email': 'test-runner@example.test' };
   const first = await call('/api/blocks', 'POST', { raceName: 'Next goal', raceDate: '2027-05-01' }, firstPost);
   assert.equal(first.status, 201);
