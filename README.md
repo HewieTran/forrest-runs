@@ -44,7 +44,7 @@ The physical tables remain `training_plans` and `workouts`; a block is a plan, a
 
 - `GET /api/blocks` returns only the current account's block metadata and summary counts, ordered newest first then ID. It omits internal owner IDs and workout rows. Summaries use one grouped join with the existing owner and workout/block indexes; the UI sorts the active block first.
 - `GET /api/training?blockId=ID` loads exactly that owned block. Unknown or foreign blocks return the same 404 and never trigger an import.
-- Without `blockId`, reads select the active block; if none exists, the oldest block by creation time then ID. Only an account with no blocks receives the initial import or empty starter block.
+- Without `blockId`, reads select the active block or fall back to the oldest block by creation time and ID. New accounts start with an empty library. Only the configured owner can receive the initial spreadsheet import.
 - `PATCH /api/training`, `POST /api/workouts`, and `PATCH /api/workouts/:id` accept `?blockId=ID`. The current UI pins every save to the block being viewed. Workout membership is enforced server-side, and existing version checks still reject stale edits. Supplied owner IDs, plan IDs, versions on creation, and import metadata cannot redirect a workout or forge source values.
 - For backward compatibility, writes without `blockId` work while the account has exactly one block. With multiple blocks they return 409 and require a reload/selection, protecting older tabs from saving into a newly active block. Malformed or repeated block IDs return 400. All responses use private, non-cacheable data headers.
 

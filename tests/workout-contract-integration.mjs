@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { insertExistingTestBlock } from './d1-helpers.mjs';
 import { normalizeTrainingBackup } from '../lib/backups.ts';
 import { summarize } from '../lib/domain.ts';
 import { emptySetup } from '../lib/setup.ts';
@@ -12,6 +13,7 @@ export async function testWorkoutContract(db, dispatch) {
     const response = await dispatch('http://localhost' + path, { method, headers: { ...headers, ...(body ? { 'Content-Type': 'application/json' } : {}) }, body: body ? JSON.stringify(body) : undefined });
     return { status: response.status, data: await response.json() };
   }
+  await insertExistingTestBlock(db, owner);
   const initial = (await call('/api/training')).data;
   const blockId = initial.plan.id, scope = '?blockId=' + encodeURIComponent(blockId);
   const restPath = '/api/blocks/' + encodeURIComponent(blockId) + '/rest-days';

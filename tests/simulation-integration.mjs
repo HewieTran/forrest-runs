@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { insertExistingTestBlock } from './d1-helpers.mjs';
 import { currentPlannerFixture as plannerFixture } from './planner-fixture.mjs';
 import { centralToday } from '../lib/domain.ts';
 import { normalizeTrainingBackup } from '../lib/backups.ts';
@@ -10,6 +11,7 @@ export async function testSimulation(db, dispatch) {
     const response = await dispatch('http://localhost' + path, { method, headers, body: body ? JSON.stringify(body) : undefined });
     return { status: response.status, data: await response.json() };
   }
+  await insertExistingTestBlock(db, headers);
   const original = (await call('/api/training')).data.plan;
   const created = await call('/api/blocks', 'POST', { setup: plannerFixture(centralToday()).setup, complete: true });
   assert.equal(created.status, 201);

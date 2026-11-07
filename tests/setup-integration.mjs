@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { insertExistingTestBlock } from './d1-helpers.mjs';
 import { emptySetup, setupForEditing } from '../lib/setup.ts';
 import { normalizeTrainingBackup } from '../lib/backups.ts';
 import { exampleSetup, legacySetup } from './setup-fixture.mjs';
@@ -12,6 +13,7 @@ export async function testSetup(db, dispatch) {
     const response = await dispatch('http://localhost' + path, { method, headers: { ...headers, ...(body ? { 'Content-Type': 'application/json' } : {}) }, body: body ? JSON.stringify(body) : undefined });
     return { status: response.status, data: await response.json() };
   }
+  await insertExistingTestBlock(db, auth);
   const original = (await call('/api/training')).data.plan;
   const partial = emptySetup('Unfinished goal', '2027-05-01'); partial.step = 1;
   const created = await call('/api/blocks', 'POST', { setup: partial, complete: false, ownerId: 'foreign', status: 'active' });

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { insertExistingTestBlock } from './d1-helpers.mjs';
 
 export async function testLifecycle(db, dispatch, expectedSeedCount = 158) {
   const auth = { 'oai-authenticated-user-id': 'lifecycle-owner', 'oai-authenticated-user-email': 'lifecycle@example.test' };
@@ -7,6 +8,7 @@ export async function testLifecycle(db, dispatch, expectedSeedCount = 158) {
     const response = await dispatch('http://localhost' + path, { method, headers: { ...headers, ...(body ? { 'Content-Type': 'application/json' } : {}) }, body: body ? JSON.stringify(body) : undefined });
     return { status: response.status, data: await response.json(), headers: response.headers };
   }
+  await insertExistingTestBlock(db, auth);
   const starter = (await call('/api/training')).data.plan;
   // Follow the library's real link: legacy block IDs contain a colon, unlike new UUIDs.
   const originalLibrary = await dispatch('http://localhost/blocks', { headers: auth });
@@ -120,6 +122,23 @@ export async function testLifecycle(db, dispatch, expectedSeedCount = 158) {
   const first = await call('/api/blocks', 'POST', { raceName: 'Next goal', raceDate: '2027-05-01' }, firstPost);
   assert.equal(first.status, 201);
   assert.equal((await call('/api/training', 'GET', undefined, firstPost)).data.workouts.length, expectedSeedCount);
-  assert.equal((await call('/api/blocks', 'GET', undefined, firstPost)).data.blocks.length, 2);
+  assert.equal((await call('/api/blocks', 'GET', undefined, firstPost)).data.blocks.length, expectedSeedCount ? 2 : 1);
   console.log('PASS: library/detail pages, foreign-block 404, home navigation, and preservation of the initial import when creating a first draft.');
+
+  const newcomer = { ...auth, 'oai-authenticated-user-id': 'new-runner' };
+  const firstHome = await dispatch('http://localhost/', { headers: newcomer, redirect: 'manual' });
+  assert.equal(firstHome.status, 200);
+  const firstHomeText = await firstHome.text();
+  assert.match(firstHomeText, /No blocks in progress/);
+  assert.match(firstHomeText, /Create training block/);
+  assert.deepEqual((await call('/api/blocks', 'GET', undefined, newcomer)).data.blocks, []);
+  assert.deepEqual((await call('/api/export', 'GET', undefined, newcomer)).data.blocks, []);
+  assert.equal((await call('/api/training', 'GET', undefined, newcomer)).status, 404);
+  const firstOwn = await call('/api/blocks', 'POST', { raceName: 'First race', raceDate: '2027-05-01' }, newcomer);
+  assert.equal(firstOwn.status, 201);
+  assert.equal((await change(firstOwn.data.block, 'active', newcomer)).status, 200);
+  const reopened = await dispatch('http://localhost/', { headers: newcomer, redirect: 'manual' });
+  assert.equal(reopened.headers.get('location'), '/blocks/' + firstOwn.data.block.id);
+  assert.deepEqual((await call('/api/blocks', 'GET', undefined, newcomer)).data.blocks.map(block => block.id), [firstOwn.data.block.id]);
+  console.log('PASS: a new account starts empty and can create, activate, and reopen its first block.');
 }

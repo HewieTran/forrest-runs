@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { insertExistingTestBlock } from './d1-helpers.mjs';
 import { normalizeTrainingBackup } from '../lib/backups.ts';
 import { plannerFixture } from './planner-fixture.mjs';
 import { centralToday } from '../lib/domain.ts';
@@ -12,6 +13,7 @@ export async function testDeleteBlocks(db, dispatch) {
   }
   async function preview(block) { const result = await call('/api/blocks/' + encodeURIComponent(block.id)); assert.equal(result.status, 200); return result.data.deletion; }
   function confirm(d) { return { version: d.version, confirmation: d.name, revision: d.revision }; }
+  await insertExistingTestBlock(db, auth);
   const original = (await call('/api/training')).data.plan;
   let block = (await call('/api/blocks', 'POST', { raceName: 'Disposable test block', raceDate: '2027-01-24' })).data.block;
   const path = '/api/blocks/' + block.id;

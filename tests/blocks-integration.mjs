@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { normalizeTrainingBackup } from '../lib/backups.ts';
-import { Miniflare, applyAllMigrations } from './d1-helpers.mjs';
+import { Miniflare, applyAllMigrations, insertExistingTestBlock } from './d1-helpers.mjs';
 
 // Entire suite uses a disposable local D1 and synthetic identities only.
 export async function testBlocks(db, dispatch) {
@@ -35,6 +35,7 @@ export async function testBlocks(db, dispatch) {
   const fresh = { 'oai-authenticated-user-id': 'unknown-read', 'oai-authenticated-user-email': 'unknown@example.test' };
   assert.equal((await call('/api/training?blockId=missing', 'GET', undefined, fresh)).status, 404);
   assert.equal((await db.prepare("SELECT COUNT(*) AS count FROM training_plans WHERE owner_id = 'unknown-read'").first()).count, 0);
+  await insertExistingTestBlock(db, other);
   const foreignId = (await call('/api/training', 'GET', undefined, other)).data.plan.id;
   const foreignQuery = '?blockId=' + encodeURIComponent(foreignId);
   assert.equal((await call('/api/training' + foreignQuery)).status, 404);
