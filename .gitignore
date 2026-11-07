@@ -12,6 +12,7 @@
 # Generated builds and framework state
 /dist/
 /.next/
+/.next-node-proof/
 /.vinext/
 /out/
 next-env.d.ts

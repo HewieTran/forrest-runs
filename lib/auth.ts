@@ -1,10 +1,9 @@
-import { getChatGPTUser } from '../app/chatgpt-auth';
+import { getAuthenticatedUser } from '@forrest/platform';
 import type { AppUser } from './user';
 
-// Sites currently supplies identity. Keep that provider behind this app boundary.
-// The existing provider ID passes through unchanged to preserve record ownership.
+// Runtime adapters supply identity through the same ownership contract.
 export async function getCurrentUser(): Promise<AppUser | null> {
-  return getChatGPTUser();
+  return getAuthenticatedUser();
 }
 
-export { chatGPTSignInPath as signInPath } from '../app/chatgpt-auth';
+export { signInPath, signInLabel } from '@forrest/platform';
