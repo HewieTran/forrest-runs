@@ -24,6 +24,7 @@
       }
     ],
     "paths": {
+      "@forrest/platform": ["./runtime/sites.ts"],
       "@/*": [
         "./*"
       ]
