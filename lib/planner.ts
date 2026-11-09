@@ -1,14 +1,15 @@
 import { PLAN_CALCULATION_VERSION, verifyCalculatedMeasurements } from './planner-math.ts';
 import { PlanValidationError, PLAN_VALIDATION_CODES, type PlanValidationCode } from './plan-validation.ts';
 import { z } from 'zod';
+import { METERS_PER_MILE, raceForMeters } from './race-distance.ts';
 import { GoalAssessment, AssessmentContext, assessmentContext, type PlanningContext } from './plan-assessment.ts';
 import { addDays, dateDiff, PHASES, validDate, type WorkoutInput } from './domain.ts';
 import { plannerIntake, validateSetup, type BlockSetup } from './setup.ts';
 import { workoutStructure } from './workout-structure.ts';
 
-export const PLANNER_VERSION = '5k-v6-calculated';
-export const PROMPT_VERSION = '5k-coach-v6-calculated';
-export function requiresAssessment(version: string) { return ['5k-coach-v5-assessment', PROMPT_VERSION].includes(version); }
+export const PLANNER_VERSION = 'race-v7-calculated';
+export const PROMPT_VERSION = 'race-coach-v7-calculated';
+export function requiresAssessment(version: string) { return ['5k-coach-v5-assessment', '5k-coach-v6-calculated', PROMPT_VERSION].includes(version); }
 export type PlannerIntake = ReturnType<typeof plannerIntake>;
 const number = z.number().finite().positive();
 const Step = z.object({
@@ -60,6 +61,8 @@ export function scheduleDays(input: PlannerIntake): ScheduleDay[] {
 }
 export function sessionSeconds(session: PlanSession) { return session.steps.reduce((sum, step) => sum + step.durationSeconds, 0); }
 export function validatePlanOutput(value: unknown, input: PlannerIntake, requireAssessment = false): PlanOutput {
+  const race = raceForMeters(input.goal.distanceMeters);
+  if (!race) throw new PlanValidationError('race');
   const parsed = Output.safeParse(value);
   if (!parsed.success) throw new PlanValidationError('output_shape');
   const output = parsed.data;
@@ -89,7 +92,7 @@ export function validatePlanOutput(value: unknown, input: PlannerIntake, require
     if (sessionSeconds(session) > day.limitSeconds) throw new PlanValidationError('session_limit');
     if ((day.kind === 'race') !== (session.type === 'Race')) throw new PlanValidationError('race');
     const raceSteps = session.steps.filter(step => step.kind === 'race');
-    if (day.kind === 'race' ? raceSteps.length !== 1 || Math.abs((raceSteps[0].distanceMiles ?? 0) * 1609.344 - 5000) > 1 : raceSteps.length !== 0)
+    if (day.kind === 'race' ? raceSteps.length !== 1 || Math.abs((raceSteps[0].distanceMiles ?? 0) * METERS_PER_MILE - race.meters) > 1 : raceSteps.length !== 0)
       throw new PlanValidationError('race');
     if (session.type === 'Quality Run' && (!session.steps.some(step => step.kind === 'warmup') || !session.steps.some(step => step.kind === 'cooldown')))
       throw new PlanValidationError('warmup_cooldown');

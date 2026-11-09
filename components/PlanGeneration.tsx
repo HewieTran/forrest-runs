@@ -4,6 +4,7 @@ import AppHeader from './AppHeader';
 import PlanAdjustment from './PlanAdjustment';
 import { displayGenerationError } from '../lib/plan-validation';
 import { SetupReview } from './SetupWizard';
+import { raceForKilometers } from '../lib/race-distance';
 import { DAY_NAMES } from '../lib/setup';
 import { acceptedPlan, simulatedBlock, scheduleDays, sessionSeconds } from '../lib/planner';
 import { formatDate, weekStart, type Plan } from '../lib/domain';
@@ -14,6 +15,7 @@ export default function PlanGeneration({ initial, displayName, configured, mode,
   const [clock, setClock] = useState(Date.now());
   useEffect(() => { const timer = setInterval(() => setClock(Date.now()), 10000); return () => clearInterval(timer); }, []);
   const generation = block.generation, output = generation?.output;
+  const race = raceForKilometers((generation?.setupSnapshot ?? block.setup)?.goal.distanceKm ?? null)?.label ?? 'race';
   const simulation = generation ? simulatedBlock(block) : mode === 'simulation';
   const inFlight = generation?.status === 'generating' && clock - Date.parse(generation.startedAt) < 180000;
   const cooldown = generation ? Math.max(0, Math.ceil((60000 - clock + Date.parse(generation.startedAt)) / 1000)) : 0;
@@ -37,7 +39,7 @@ export default function PlanGeneration({ initial, displayName, configured, mode,
   }
   return <><AppHeader displayName={displayName} /><main className="main-content plan-generation">
     <a className="text-link" href={accepted ? base : '/blocks'}>← {accepted ? 'Back to this block' : 'Training blocks'}</a>
-    <section className="page-heading"><h1>{simulation ? 'Try a simulated 5K plan' : accepted ? 'Original training plan' : 'Build your 5K plan'}</h1><p className="blocks-intro">{block.raceName} · {formatDate(block.raceDate, { month: 'long', day: 'numeric', year: 'numeric' })}</p></section>
+    <section className="page-heading"><h1>{simulation ? `Try a simulated ${race} plan` : accepted ? 'Original training plan' : `Build your ${race} plan`}</h1><p className="blocks-intro">{block.raceName} · {formatDate(block.raceDate, { month: 'long', day: 'numeric', year: 'numeric' })}</p></section>
     {simulation && <p className="block-callout" role="status"><strong>SIMULATION · No AI calls or API charges.</strong> This example uses your dates, selected days and experience to demonstrate numeric targets. It is not a personalized training recommendation. You can save it as a demonstration draft; it cannot become your active training block.</p>}
     <details className="plan-intake"><summary>{accepted ? 'Starting intake' : 'Review saved intake'}</summary>{block.setup && <SetupReview setup={generation?.setupSnapshot ?? block.setup} />}</details>
     {raceExtra && <p className="block-callout">Race day is {DAY_NAMES[raceDay]}, outside your selected running days. The plan includes the race on that date; the race stays on its actual date.</p>}

@@ -4,6 +4,74 @@ import { centralToday, addDays } from '../lib/domain.ts';
 import { normalizeTrainingBackup } from '../lib/backups.ts';
 import { testRestore } from './blocks-integration.mjs';
 import { editWorkoutStep, structureMeasurements } from '../lib/workout-structure.ts';
+import { preparePlanner, validatePlanOutput } from '../lib/planner.ts';
+import { simulatedPlan } from '../lib/simulated-plan.ts';
+import { responseFixture } from './planner-fixture.mjs';
+
+export async function testAdditionalRaceDistances(dispatch, fetchMock) {
+  const today = centralToday();
+  for (const [kilometers, label, weeks, targetSeconds] of [
+    [10, '10K', 8, 3600],
+    [21.0975, 'Half marathon', 12, 7500],
+    [42.195, 'Full marathon', 18, 15300],
+  ]) {
+    const raceDate = addDays(today, weeks * 7);
+    const setup = simpleSetup(undefined, '', raceDate, today);
+    setup.goal.distanceKm = kilometers;
+    setup.goal.targetDurationSeconds = targetSeconds;
+    setup.runner = { ...setup.runner, experience: 'intermediate', age: 35, height: 68, weight: 150 };
+    setup.benchmark = { distance: 'half', durationSeconds: 7200, date: today, effortConfirmed: true };
+    // Race day must appear even when it falls on an unselected weekday.
+    const raceWeekday = new Date(raceDate + 'T12:00:00Z').getUTCDay();
+    setup.availability.days = [1, 3, 5].filter(day => day !== raceWeekday);
+    const input = preparePlanner(setup, today);
+    const simulation = simulatedPlan(input).output;
+    assert.match(simulation.sessions.at(-1).title, new RegExp(label));
+    const wrongDistance = structuredClone(simulation);
+    wrongDistance.sessions.at(-1).steps[0].distanceMiles = 5000 / 1609.344;
+    assert.throws(() => validatePlanOutput(wrongDistance, input), { code: 'race' });
+    const output = {
+      ...simulation,
+      assessment: { decision: 'proceed', reason: 'Synthetic provider fixture.', actions: [] },
+    };
+    // Differentiate the requested finish time from the provider's estimate.
+    const race = output.sessions.at(-1).steps[0];
+    race.durationSeconds = targetSeconds + 180;
+    fetchMock.get('https://api.openai.com').intercept({ path: '/v1/responses', method: 'POST' })
+      .reply(200, responseFixture(output));
+    const headers = {
+      'Content-Type': 'application/json',
+      'oai-authenticated-user-id': `race-test-${weeks}`,
+      'oai-authenticated-user-email': 'runner@example.test',
+    };
+    const call = (path, method = 'GET', body) => dispatch('http://localhost' + path, {
+      method, headers, body: body === undefined ? undefined : JSON.stringify(body),
+    });
+    const created = await call('/api/blocks', 'POST', { setup, complete: true });
+    assert.equal(created.status, 201);
+    const { block } = await created.json();
+    assert.equal(block.raceName, `${label} training · ${raceDate}`);
+    const generated = await call(`/api/blocks/${block.id}/generation`, 'POST', { version: block.version, consent: true, saveImmediately: true });
+    const result = await generated.json();
+    assert.equal(generated.status, 200, JSON.stringify(result));
+    assert.equal(result.block.generation.status, 'accepted');
+    const scope = `?blockId=${block.id}`;
+    const loaded = await (await call('/api/training' + scope)).json();
+    assert.equal(loaded.plan.generation.input.goal.distanceMeters, kilometers * 1000);
+    assert.equal(loaded.workouts.length + loaded.restDays.length, weeks * 7 + 1);
+    const [savedRace] = loaded.workouts.filter(workout => workout.type === 'Race');
+    const exactMiles = kilometers * 1000 / 1609.344;
+    assert.equal(savedRace.date, raceDate);
+    assert.equal(savedRace.plannedDistance, exactMiles);
+    assert.equal(savedRace.plannedDurationSeconds, targetSeconds + 180);
+    assert.equal(savedRace.plannedPaceSecondsPerMile, (targetSeconds + 180) / exactMiles);
+    assert.equal(loaded.plan.paceGuide[0].type, `${label} plan`);
+    const backup = await (await call('/api/export' + scope)).json();
+    assert.deepEqual(normalizeTrainingBackup(backup), backup);
+  }
+  console.log('PASS: 10K, half marathon and full marathon generate, save, reload and export with exact race distance and derived pace.');
+}
+
 export async function testPhaseOne(db,dispatch,provider='simulation'){
  const headers={'Content-Type':'application/json','oai-authenticated-user-id':'phase-one-owner','oai-authenticated-user-email':'phase-one@example.test'};
  const other={...headers,'oai-authenticated-user-id':'phase-one-other'};

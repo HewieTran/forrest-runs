@@ -1,7 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { requestOpenAIPlan, PlanProviderError } from '../lib/openai-plan.ts';
-import { plannerFixture, responseFixture } from './planner-fixture.mjs';
+import { preparePlanner } from '../lib/planner.ts';
+import { simulatedPlan } from '../lib/simulated-plan.ts';
+import { currentPlannerFixture, plannerFixture, responseFixture } from './planner-fixture.mjs';
 const { input, output } = plannerFixture();
 const config = { apiKey: 'synthetic-key', model: 'gpt-6-luna' };
 test('Responses request uses strict structured output, minimal intake and no response storage', async () => {
@@ -19,6 +21,24 @@ test('Responses request uses strict structured output, minimal intake and no res
   assert.equal('name' in JSON.parse(body.input).intake.goal, false);
   assert.deepEqual(result.output, output);
   assert.deepEqual(result.usage, { inputTokens: 1000, outputTokens: 2000 });
+});
+
+test('marathon request carries the exact race distance and assesses endurance separately from speed', async () => {
+  const { setup } = currentPlannerFixture();
+  setup.goal.distanceKm = 42.195;
+  setup.goal.targetDurationSeconds = 14400;
+  const marathon = preparePlanner(setup, setup.goal.startDate);
+  const output = {
+    ...simulatedPlan(marathon).output,
+    assessment: { decision: 'proceed', reason: 'Synthetic response for request validation.', actions: [] },
+  };
+  await requestOpenAIPlan(marathon, config, async (_url, init) => {
+    const body = JSON.parse(init.body);
+    assert.equal(JSON.parse(body.input).intake.goal.distanceMeters, 42195);
+    assert.match(body.instructions, /fixes race distance at Full marathon \(42195 meters\)/);
+    assert.match(body.instructions, /assess endurance readiness separately from speed/);
+    return Response.json(responseFixture(output));
+  });
 });
 test('refusals, truncated or malformed output, upstream failures and timeouts never yield a plan', async () => {
   const cases = [

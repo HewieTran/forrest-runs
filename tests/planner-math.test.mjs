@@ -1,10 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { calculatePlanMeasurements, verifyCalculatedMeasurements, FIVE_K_MILES, PLAN_CALCULATION_VERSION } from '../lib/planner-math.ts';
+import { calculatePlanMeasurements, verifyCalculatedMeasurements, PLAN_CALCULATION_VERSION } from '../lib/planner-math.ts';
 import { validatePlanOutput, validateGeneration, PROMPT_VERSION, PLANNER_VERSION } from '../lib/planner.ts';
 import { requestOpenAIPlan, PLAN_JSON_SCHEMA } from '../lib/openai-plan.ts';
 import { currentPlannerFixture, providerOutput, responseFixture } from './planner-fixture.mjs';
 const today = '2026-10-31', { setup, input, output } = currentPlannerFixture(today);
+const FIVE_K_MILES = 5000 / 1609.344;
 const config = { apiKey: 'synthetic', model: 'gpt-6-luna', asOfDate: today };
 function calculate(wire) { return validatePlanOutput(calculatePlanMeasurements(wire, input), input, true); }
 

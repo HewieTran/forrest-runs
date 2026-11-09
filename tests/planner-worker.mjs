@@ -63,13 +63,14 @@ try {
  const db=await numeric.getD1Database('DB');await applyAllMigrations(db);
  const { simpleSetup }=await import('../lib/setup.ts');const { centralToday,addDays }=await import('../lib/domain.ts');
  const { preparePlanner }=await import('../lib/planner.ts');const { simulatedPlan }=await import('../lib/simulated-plan.ts');
- const { responseFixture }=await import('./planner-fixture.mjs');const { testPhaseOne }=await import('./phase-one-integration.mjs');
+ const { responseFixture }=await import('./planner-fixture.mjs');const { testAdditionalRaceDistances,testPhaseOne }=await import('./phase-one-integration.mjs');
  const today=centralToday(),setup=simpleSetup(undefined,'',addDays(today,28),today);
  setup.step=3;setup.goal.targetDurationSeconds=1801;setup.runner={...setup.runner,experience:'novice',age:35,height:68,weight:150};setup.availability.days=[1,3,6];
  setup.benchmark={distance:'5k',durationSeconds:2100,date:today,effortConfirmed:true};
  const output={...simulatedPlan(preparePlanner(setup,today)).output,assessment:{decision:'proceed',reason:'Synthetic provider fixture, not a training judgment.',actions:[]}};
  fetchMock.get('https://api.openai.com').intercept({path:'/v1/responses',method:'POST'}).reply(200,responseFixture(output));
  await testPhaseOne(db,(input,init)=>numeric.dispatchFetch(input,init),'openai');
+ await testAdditionalRaceDistances((input,init)=>numeric.dispatchFetch(input,init),fetchMock);
 }finally{await numeric.dispose();}
 
 const accounting = new Miniflare({ ...options, bindings: { TRAINING_PLANNER_MODE: 'openai', OPENAI_API_KEY: 'synthetic-key', OPENAI_PLAN_MODEL: 'gpt-6-luna' } });

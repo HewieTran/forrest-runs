@@ -1,3 +1,4 @@
+import { raceDistanceLabel, raceForKilometers } from './race-distance.ts';
 import { validDate } from './domain.ts';
 import { parseInput, KM_PER_MILE, formatDuration } from './workout-form.ts';
 
@@ -190,7 +191,7 @@ export function validateSetup(value: unknown, today?: string): BlockSetup {
 }
 
 export function suggestedBlockName(setup: IntakeSetup) {
-  const distance = setup.goal.distanceKm === 5 ? '5K' : setup.goal.distanceKm ? `${setup.goal.distanceKm} km` : 'Running';
+  const distance = setup.goal.distanceKm === null ? 'Running' : raceDistanceLabel(setup.goal.distanceKm);
   return `${distance} training${setup.goal.targetDate ? ` · ${setup.goal.targetDate}` : ''}`;
 }
 
@@ -198,7 +199,7 @@ export function setupIssues(setup: BlockSetup): SetupIssue[] {
   const value = setupForEditing(setup), issues: SetupIssue[] = [];
   const need = (condition: boolean, step: number, field: string, message: string) => { if (condition) issues.push({ step, field, message }); };
   need(!value.goal.distanceKm, 0, 'goalKind', 'Choose a race distance.');
-  need(value.goal.distanceKm !== null && value.goal.distanceKm !== 5, 0, 'goalKind', 'The first planner release supports 5K. Other race details can stay saved as a draft.');
+  need(value.goal.distanceKm !== null && !raceForKilometers(value.goal.distanceKm), 0, 'goalKind', 'Choose 5K, 10K, half marathon or full marathon to generate a plan.');
   if (value.schemaVersion >= 3) {
     need(value.goal.targetDurationSeconds == null, 0, 'targetTime', 'Add your target finish time.');
     need(!value.goal.startDate, 0, 'startDate', 'Choose a training start date.');
@@ -250,14 +251,15 @@ export function convertSetupUnits<T extends BlockSetup>(setup: T, units: 'mi' | 
 // are never passed as quantities; missing measurements remain null.
 export function plannerIntake(setup: BlockSetup) {
   const value = setupForEditing(validateSetup(setup));
-  if (setupIssues(value).length) throw new Error('Complete the required setup before preparing planner inputs.');
+  const race = raceForKilometers(value.goal.distanceKm);
+  if (!race || setupIssues(value).length) throw new Error('Complete the required setup before preparing planner inputs.');
   const miles = (distance: number | null) => distance === null ? null : distance / (value.units === 'km' ? KM_PER_MILE : 1);
   const simplified = value.schemaVersion >= 3;
   const benchmark = value.schemaVersion === 4 ? value.benchmark : null;
   const distanceMeters = { '5k': 5000, '10k': 10000, half: 21097.5 };
   return {
     schemaVersion: value.schemaVersion === 4 ? 2 : 1,
-    goal: { distanceMeters: value.goal.distanceKm! * 1000, startDate: value.goal.startDate, raceDate: value.goal.targetDate, mode: value.goal.mode, targetDurationSeconds: simplified ? value.goal.targetDurationSeconds ?? null : value.goal.mode === 'time' ? durationSeconds(value.goal.targetTime) : null, paceGuidance: value.goal.paceGuidance },
+    goal: { distanceMeters: race.meters, startDate: value.goal.startDate, raceDate: value.goal.targetDate, mode: value.goal.mode, targetDurationSeconds: simplified ? value.goal.targetDurationSeconds ?? null : value.goal.mode === 'time' ? durationSeconds(value.goal.targetTime) : null, paceGuidance: value.goal.paceGuidance },
     runner: { age: value.runner.age, heightCm: value.runner.height === null ? null : value.runner.height * (value.units === 'mi' ? 2.54 : 1), weightKg: value.runner.weight === null ? null : value.runner.weight * (value.units === 'mi' ? 0.45359237 : 1), experience: value.runner.experience, vo2: simplified ? null : value.runner.vo2 },
     baseline: { weeklyDistanceMiles: simplified ? null : miles(value.baseline.weeklyDistance), longestRunMiles: simplified ? null : miles(value.baseline.longestRun), runsPerWeek: simplified ? null : value.baseline.runsPerWeek, trainingChanges: simplified ? null : value.baseline.trainingChanges, trainingChangesNotes: simplified ? '' : value.baseline.trainingChangesNotes,
       results: benchmark ? [{ distanceMeters: distanceMeters[benchmark.distance!], durationSeconds: benchmark.durationSeconds, date: benchmark.date, source: 'confirmed-race-or-best-effort-time-trial' }]

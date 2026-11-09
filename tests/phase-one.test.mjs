@@ -24,7 +24,7 @@ test('benchmark intake supports all experience levels without deferred workload 
   assert.throws(()=>validatePlanOutput(invalid,input));
  }
  for(const field of ['experience','age','height','weight']) {const setup=phaseOneSetup();setup.runner[field]=null;assert.ok(setupIssues(setup).some(issue=>issue.field===field));}
- const bad=phaseOneSetup();bad.goal.distanceKm=10;assert.ok(setupIssues(bad).length);
+ const bad=phaseOneSetup();bad.goal.distanceKm=15;assert.ok(setupIssues(bad).length);
 });
 test('editing legacy intake preserves historical answers but defers them in new generation',()=>{
  const old=exampleSetup(),snapshot=structuredClone(old),upgraded=simpleSetup(old);
