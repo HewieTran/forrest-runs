@@ -41,6 +41,14 @@ when an old or unrepresentative result needs refreshing.
   target time, race date, benchmark or training days as relevant. Never suggest
   changing reported experience to qualify, silently change an input, or guarantee
   that a later date makes a goal achievable. The draft remains saved.
+- Show the supported training window on Goal. When dates fall outside it, allow
+  saving the draft and direct the runner to the dates before generation.
+- On Review, an unsupported goal can show a more conservative estimated finish
+  time for the existing schedule and/or a specific schedule for the existing
+  target. For extra calendar days, prefer an earlier start that is still today
+  or later and within the planner window. Otherwise offer a later race date as
+  an option for flexible dates. Apply pre-fills the changed fields and offers
+  Undo until the draft is edited or saved. Only Generate requests another plan.
 - The four-tab input summary and automatic save flow remain. Edit links open the
   relevant existing field. Repeating a blocked request requires editing inputs in
   the UI; API rate/budget limits also remain enforced server-side.

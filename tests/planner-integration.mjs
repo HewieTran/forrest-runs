@@ -132,6 +132,10 @@ export async function testPlanner(db, dispatch, mock) {
   await cool();
   failure = result.data.block;
   const clarification = { ...output, outcome: 'needs_clarification', sessions: [], questions: ['Would you prefer to review your target finish time or race date?'], assessment: { decision: 'adjust_goal', reason: 'The synthetic assessment asks for a more supportable goal.', actions: ['target_time','race_date'] } };
+  clarification.assessment.suggestions = {
+    finishTime: { durationSeconds: 2100, reason: 'Closer to the example benchmark.' },
+    schedule: { additionalDays: 14, trainingDays: null, reason: 'An example extension.' },
+  };
   pool.intercept({ path: '/v1/responses', method: 'POST' }).reply(200, responseFixture(clarification));
   result = await call('/api/blocks/' + failure.id + '/generation', 'POST', { version: failure.version, consent: true, saveImmediately: true });
   assert.equal(result.status, 200);
@@ -139,6 +143,7 @@ export async function testPlanner(db, dispatch, mock) {
   assert.deepEqual(result.data.block.setup, setup);
   assert.deepEqual(result.data.block.generation.output.assessment.actions, ['target_time', 'race_date']);
   const blockedData = (await call('/api/training?blockId=' + failure.id)).data;
+  assert.deepEqual(blockedData.plan.generation.output.assessment.suggestions, clarification.assessment.suggestions);
   assert.equal(blockedData.workouts.length, 0); assert.equal(blockedData.restDays.length, 0);
   assert.equal(result.data.block.generation.usage.outputTokens, 2000);
   const adjustmentPage = await dispatch('http://localhost/blocks/' + failure.id + '/setup?edit=target_time', { headers: auth });

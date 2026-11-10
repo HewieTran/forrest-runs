@@ -22,7 +22,7 @@ import { acceptedPlan, simulatedBlock, requiresAssessment, changesPrescription, 
 import { PlanProviderError, type requestOpenAIPlan } from './openai-plan';
 import { summarizeRecentBaseline } from './recent-baseline';
 import { applyCompletion } from './workout-completion';
-import { APPROVED_PLAN_MODEL, PRICING_VERSION, MONTHLY_BUDGET_MICRODOLLARS, REQUEST_RESERVE_MICRODOLLARS, DAILY_ATTEMPT_LIMIT, estimatedCost, usageWithinReservation } from './planner-policy';
+import { APPROVED_PLAN_MODEL, PRICING_VERSION, MONTHLY_BUDGET_MICRODOLLARS, REQUEST_RESERVE_MICRODOLLARS, DAILY_ATTEMPT_LIMIT, GENERATION_COOLDOWN_MS, estimatedCost, usageWithinReservation } from './planner-policy';
 
 async function ensureUserInitialized(user: AppUser) {
   const database = getDb();
@@ -401,7 +401,7 @@ export async function startPlanGeneration(user: AppUser, blockId: string, versio
   const generation: Generation = { schemaVersion: 1, provider, id: crypto.randomUUID(), status: 'generating', startedAt: timestamp, finishedAt: null, acceptedAt: null, alteredAt: null,
     model, promptVersion: PROMPT_VERSION, validatorVersion: PLANNER_VERSION, input, setupSnapshot: block.setup, output: null, error: null, responseId: null, usage: null };
   const leaseCutoff = new Date(Date.now() - 180000).toISOString();
-  const cooldown = new Date(Date.now() - 60000).toISOString();
+  const cooldown = new Date(Date.now() - GENERATION_COOLDOWN_MS).toISOString();
   const database = getDb(), period = timestamp.slice(0, 7), dayStart = timestamp.slice(0, 10) + 'T00:00:00.000Z';
   // Pending/uncertain charges count even across month boundaries. A request
   // settling across a boundary counts in both potentially billed periods.

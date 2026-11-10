@@ -15,22 +15,28 @@ export const dynamic='force-dynamic';
 export default async function Preview({searchParams}:{searchParams:Promise<Record<string,string|undefined>>}){
  if(process.env.NODE_ENV!=='development')notFound();
  const query=await searchParams;
- if(query.view==='setup-mobile'){const scenario=['goal-adjustment','benchmark-refresh','validation-error','legacy-validation-error'].includes(query.scenario??'')?query.scenario:'';return <iframe title="Mobile race setup preview" src={`/preview?view=setup&scenario=${scenario}`} style={{display:'block',width:390,maxWidth:'100%',height:850,border:0,margin:'20px auto'}}/>;}
+ if(query.view==='setup-mobile'){const scenario=['goal-adjustment','schedule-earlier','schedule-later','benchmark-refresh','validation-error','legacy-validation-error'].includes(query.scenario??'')?query.scenario:'';return <iframe title="Mobile race setup preview" src={`/preview?view=setup&scenario=${scenario}`} style={{display:'block',width:390,maxWidth:'100%',height:850,border:0,margin:'20px auto'}}/>;}
  if(query.view==='workout-mobile')return <iframe title="Mobile workout preview" src={`/preview?view=workout&scenario=${['steps','race-steps','legacy'].includes(query.scenario??'')?query.scenario:''}`} style={{display:'block',width:390,maxWidth:'100%',height:850,border:0,margin:'20px auto'}}/>;
  if(query.view==='progress-mobile')return <iframe title="Mobile progress preview" src="/preview?view=progress" style={{display:'block',width:390,maxWidth:'100%',height:850,border:0,margin:'20px auto'}}/>;
  if(query.view==='progress')return <ProgressOverview data={progressPreview(query.scenario)} preview/>;
  if(query.view==='setup'){
   const today=centralToday();
-  if(['goal-adjustment','benchmark-refresh','validation-error','legacy-validation-error'].includes(query.scenario??'')){
-   const setup=simpleSetup(undefined,'Example 5K',addDays(today,84),today),stamp=new Date().toISOString();
-   setup.step=3;setup.goal.targetDurationSeconds=900;setup.runner={...setup.runner,age:35,height:70,weight:175,experience:'novice'};setup.availability.days=[1,3,6];
+  if(['goal-adjustment','schedule-earlier','schedule-later','benchmark-refresh','validation-error','legacy-validation-error'].includes(query.scenario??'')){
+   const scheduleExample = query.scenario === 'schedule-earlier' || query.scenario === 'schedule-later';
+   const start = query.scenario === 'schedule-earlier' ? addDays(today, 28) : today;
+   const setup=simpleSetup(undefined,'Example 5K',addDays(start,84),start),stamp=new Date(Date.now() - 120_000).toISOString();
+   setup.step=3;setup.goal.targetDurationSeconds=scheduleExample ? 1800 : 900;setup.runner={...setup.runner,age:35,height:70,weight:175,experience:'novice'};setup.availability.days=[1,3,6];
    setup.benchmark={distance:'5k',durationSeconds:2100,date:addDays(today,-7),effortConfirmed:true};
    const refresh=query.scenario==='benchmark-refresh';
    const plan:AppData['plan']={id:'assessment-example',raceName:'Example 5K',raceDate:setup.goal.targetDate,status:'draft',paceGuide:[],sourceName:null,version:1,createdAt:stamp,updatedAt:stamp,setup,
     generation:{schemaVersion:1,id:'example-clarification',provider:'simulation',status:'clarification',startedAt:stamp,finishedAt:stamp,acceptedAt:null,alteredAt:null,model:'simulation',promptVersion:'preview-only',validatorVersion:PLANNER_VERSION,input:preparePlanner(setup,today),setupSnapshot:setup,responseId:null,usage:null,error:null,
      output:{outcome:'needs_clarification',summary:'Example clarification for UI testing only.',goalAssessment:'Synthetic assessment, not a training recommendation.',assumptions:[],sessions:[],
       questions:[refresh?'Do you have a current race or best-effort time-trial result?':'Would you review the target finish time or race date?'],
-      assessment:{decision:refresh?'refresh_benchmark':'adjust_goal',reason:refresh?'Example only: an unrepresentative result needs updating before estimating paces.':'Example only: a 15-minute goal is unsupported by this novice runner’s 35-minute benchmark and 12-week window. A later date alone does not guarantee it.',actions:refresh?['benchmark']:['target_time','race_date']}}}};
+      assessment:{decision:refresh?'refresh_benchmark':'adjust_goal',reason:refresh?'Example only: an unrepresentative result needs updating before estimating paces.':scheduleExample ? 'Example only: a 30-minute goal needs an adjustment with the current training window.' : 'Example only: a 15-minute goal is unsupported by this novice runner’s 35-minute benchmark and 12-week window. A later date alone does not guarantee it.',actions:refresh?['benchmark']:['target_time','race_date'],
+       suggestions: refresh ? null : {
+        finishTime: { durationSeconds: 2040, reason: 'This example target is closer to the confirmed benchmark.' },
+        schedule: scheduleExample ? { additionalDays: 21, trainingDays: null, reason: 'The example adds three weeks for a more gradual build.' } : null,
+       }}}}};
    if(query.scenario==='validation-error'||query.scenario==='legacy-validation-error'){plan.generation={...plan.generation!,status:'failed',output:null,error:query.scenario==='legacy-validation-error'?LEGACY_VALIDATION_MESSAGE:planValidationMessage('workout_arithmetic'),...(query.scenario==='validation-error'?{validationFailure:'workout_arithmetic' as const}:{})};}
    return <SetupWizard initial={plan} displayName="Runner" today={today} preview/>;
   }

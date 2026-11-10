@@ -4,12 +4,13 @@ import { ArrowLeft, ArrowRight, CheckCircle2, Flag, Save } from 'lucide-react';
 import AppHeader from './AppHeader';
 import PlanAdjustment from './PlanAdjustment';
 import { displayGenerationError } from '../lib/plan-validation';
-import { assessmentStep, ASSESSMENT_FIELDS, type AssessmentAction } from '../lib/plan-assessment';
+import { assessmentStep, ASSESSMENT_FIELDS, type AssessmentAction, type GoalSuggestion } from '../lib/plan-assessment';
 import { dateDiff } from '../lib/domain';
 import { DAY_NAMES, SETUP_STEPS, RESULT_DISTANCES, RESULT_LABELS, simpleSetup, setupTargetTime, setupIssues, validateSetup, convertSetupUnits, suggestedBlockName, durationSeconds, type BlockSetup, type IntakeSetup, type ResultDistance, type SetupIssue } from '../lib/setup';
 import { validDate, type Plan } from '../lib/domain';
 import { RACE_DISTANCES, raceDistanceLabel, raceForKilometers } from '../lib/race-distance';
 import { formatDuration } from '../lib/workout-form';
+import { GENERATION_COOLDOWN_MS } from '../lib/planner-policy';
 import { trainingWindowIssue } from '../lib/training-window';
 import type { RecentBaseline } from '../lib/recent-baseline';
 
@@ -30,6 +31,19 @@ export default function SetupWizard({ initial = null, displayName, today, readOn
   const [saving, setSaving] = useState(false), [dirty, setDirty] = useState(false), [message, setMessage] = useState(''), [errors, setErrors] = useState<SetupIssue[]>([]);
   const [generationError, setGenerationError] = useState(initial?.generation?.status === 'failed' ? displayGenerationError(initial.generation.error ?? 'Generation could not finish. Your draft is saved.') : '');
   const [clarification, setClarification] = useState(initial?.generation?.status === 'clarification' ? initial.generation.output : null);
+  const [applied, setApplied] = useState<{
+    fields: typeof fields; days: typeof days; clarification: typeof clarification; dirty: boolean; label: string;
+  } | null>(null);
+  const [retryAfter, setRetryAfter] = useState(initial?.generation?.status === 'clarification'
+    ? Date.parse(initial.generation.startedAt) + GENERATION_COOLDOWN_MS : 0);
+  const [waitingToRetry, setWaitingToRetry] = useState(false);
+  useEffect(() => {
+    const remaining = retryAfter - Date.now();
+    setWaitingToRetry(remaining > 0);
+    if (remaining <= 0) return;
+    const timer = window.setTimeout(() => setWaitingToRetry(false), remaining);
+    return () => window.clearTimeout(timer);
+  }, [retryAfter]);
   const [focusTarget, setFocusTarget] = useState(initialEdit ? ASSESSMENT_FIELDS[initialEdit] : '');
   useEffect(() => { if (focusTarget) { document.getElementById(focusTarget)?.focus(); setFocusTarget(''); } }, [focusTarget, step]);
   function editAssessment(action: AssessmentAction) { setStep(assessmentStep(action)); setFocusTarget(ASSESSMENT_FIELDS[action]); setErrors([]); }
@@ -37,7 +51,38 @@ export default function SetupWizard({ initial = null, displayName, today, readOn
   const windowIssue = readOnly ? null : trainingWindowIssue(fields.startDate, fields.targetDate, today);
   const library = preview ? '/preview?view=blocks' : '/blocks';
   useEffect(() => { if (!dirty) return; const handler = (event: BeforeUnloadEvent) => event.preventDefault(); window.addEventListener('beforeunload', handler); return () => window.removeEventListener('beforeunload', handler); }, [dirty]);
-  function update(name: string, value: string) { setGenerationError(''); setClarification(null); setFields(current => ({ ...current, [name]: value })); setDirty(true); setMessage(''); setErrors(current => current.filter(issue => issue.field !== name)); }
+  function update(name: string, value: string) { setApplied(null); setGenerationError(''); setClarification(null); setFields(current => ({ ...current, [name]: value })); setDirty(true); setMessage(''); setErrors(current => current.filter(issue => issue.field !== name)); }
+  function applySuggestion(suggestion: GoalSuggestion) {
+    if (disabled || !clarification || windowIssue) return;
+    let label = 'Target finish time updated.';
+    if (suggestion.kind === 'finish_time') {
+      setFields(current => ({ ...current, targetTime: formatDuration(suggestion.durationSeconds) }));
+    } else {
+      const date = suggestion.date;
+      if (date) setFields(current => ({ ...current, [date.field]: date.to }));
+      if (suggestion.trainingDays) setDays(suggestion.trainingDays);
+      label = date && suggestion.trainingDays ? 'Training dates and days updated.'
+        : suggestion.trainingDays ? 'Training days updated.'
+        : date?.field === 'startDate' ? 'Training start date updated.' : 'Race date updated.';
+    }
+    setApplied({ fields, days, clarification, dirty, label });
+    setClarification(null);
+    setDirty(true);
+    setErrors([]);
+    setMessage('');
+    setStep(3);
+    setFocusTarget('setup-review-title');
+  }
+  function undoSuggestion() {
+    if (disabled || !applied) return;
+    setFields(applied.fields);
+    setDays(applied.days);
+    setClarification(applied.clarification);
+    setDirty(applied.dirty);
+    setApplied(null);
+    setMessage('Original inputs restored.');
+    setFocusTarget('adjustment-title');
+  }
   function collect(): IntakeSetup {
     const value = simpleSetup(original);
     const number = (key: string) => fields[key].trim() === '' ? null : Number(fields[key]);
@@ -53,6 +98,7 @@ export default function SetupWizard({ initial = null, displayName, today, readOn
   }
   function switchUnits(next: 'mi' | 'km') {
     if (next === units) return;
+    setApplied(null);
     const converted = fieldsFor(convertSetupUnits(collect(), next));
     setFields(current => ({ ...current, height: converted.height, weight: converted.weight }));setUnits(next);setClarification(null);setDirty(true);setErrors([]);
   }
@@ -79,6 +125,7 @@ export default function SetupWizard({ initial = null, displayName, today, readOn
       setFocusTarget(`setup-${windowIssue.field}`);
       return;
     }
+    if (complete && waitingToRetry) return;
     if (complete && clarification) { setMessage('Edit the relevant inputs before generating again.');return; }
     setMessage('');setErrors([]);setGenerationError('');
     let setup: BlockSetup;
@@ -91,14 +138,14 @@ export default function SetupWizard({ initial = null, displayName, today, readOn
     setSaving(true);
     let generating = false;
     try {
-      if (preview) { setDirty(false);setMessage(complete ? 'Preview complete. The live app generates and saves your plan from here.' : 'Draft saved in this preview only.');return; }
+      if (preview) { setApplied(null);setDirty(false);setMessage(complete ? 'Preview complete. The live app generates and saves your plan from here.' : 'Draft saved in this preview only.');return; }
       let saved = block;
       // A retry after an interrupted save reuses the existing validated result.
       if (!saved || dirty || !saved.setup || saved.setup.schemaVersion !== 4) {
         const response = await fetch(saved ? `/api/blocks/${encodeURIComponent(saved.id)}/setup` : '/api/blocks', { method: saved ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ setup, version: saved?.version, complete }) });
         const result = await response.json() as { block?: Plan; error?: string; issues?: SetupIssue[] };
         if (!response.ok || !result.block) { if (result.issues) setErrors(result.issues);throw new Error(result.error || 'Your draft could not be saved.'); }
-        saved = result.block;setBlock(saved);setDirty(false);setFields(current => ({ ...current, name: saved!.raceName }));
+        saved = result.block;setBlock(saved);setApplied(null);setDirty(false);setFields(current => ({ ...current, name: saved!.raceName }));
         window.history.replaceState(window.history.state, '', `/blocks/${encodeURIComponent(saved.id)}/setup`);
       }
       if (!complete) { setMessage('Draft saved. Resume it from your training blocks.');return; }
@@ -107,7 +154,11 @@ export default function SetupWizard({ initial = null, displayName, today, readOn
       const result = await response.json() as { block?: Plan; error?: string };
       if (result.block) setBlock(result.block);
       if (!response.ok || !result.block) throw new Error(result.error || result.block?.generation?.error || 'Generation could not finish. Your draft is saved; retry when ready.');
-      if (result.block.generation?.status === 'clarification' && result.block.generation.output) { setClarification(result.block.generation.output);return; }
+      if (result.block.generation?.status === 'clarification' && result.block.generation.output) {
+        setClarification(result.block.generation.output);
+        setRetryAfter(Date.parse(result.block.generation.startedAt) + GENERATION_COOLDOWN_MS);
+        return;
+      }
       if (result.block.generation?.status !== 'accepted') throw new Error(result.block.generation?.output?.questions.join(' ') || result.block.generation?.error || 'The plan needs more information. Your draft is preserved.');
       window.location.assign(`/blocks/${encodeURIComponent(saved.id)}`);
     } catch (error) {
@@ -129,10 +180,12 @@ export default function SetupWizard({ initial = null, displayName, today, readOn
     {preview && <p className="preview-notice">Example preview. No personal data or paid generation calls.</p>}
     <nav className="setup-stepper" aria-label="Setup steps">{SETUP_STEPS.map((name, index) => <button type="button" key={name} disabled={saving} aria-current={step === index ? 'step' : undefined} onClick={() => { setStep(index);setErrors([]); }}><span>{index + 1}</span>{name}</button>)}</nav>
     <div className="setup-layout"><form className="setup-panel" onSubmit={submit} noValidate>
+      {applied && <div className="setup-suggestion-applied"><p role="status">{applied.label} Review your changes before generating.</p><button className="button" type="button" disabled={disabled} onClick={undoSuggestion}>Undo</button></div>}
       {message && <p className="block-success" role="status"><CheckCircle2 size={17} />{message}</p>}
       {!!errors.length && <div className="setup-errors" role="alert"><strong>Check these details</strong><ul>{errors.map((issue, index) => <li key={index}><button type="button" onClick={() => setStep(issue.step)}>{issue.message}</button></li>)}</ul></div>}
       {generationError && <div className="setup-errors" role="alert"><strong>Plan generation couldn’t finish</strong><p>{generationError}</p></div>}
-      {clarification && <PlanAdjustment output={clarification} onEdit={editAssessment} disabled={saving} />}
+      {clarification && <PlanAdjustment output={clarification} onEdit={editAssessment} disabled={disabled}
+        input={step === 3 ? block?.generation?.input : undefined} today={today} onApply={applySuggestion} />}
       <fieldset disabled={disabled}>
       {step === 0 && <><h2>What are you working toward?</h2><div className="setup-fields"><label htmlFor="setup-goalKind">Race distance<span className="setup-required">Required</span>
         <select id="setup-goalKind" value={fields.goalKind} onChange={event => update('goalKind', event.target.value)} aria-required="true" aria-invalid={!!issueFor('goalKind')} aria-describedby="race-distance-feedback">
@@ -159,10 +212,11 @@ export default function SetupWizard({ initial = null, displayName, today, readOn
           <small id="benchmark-effort-feedback" className={issueFor('benchmarkEffort') ? 'setup-field-error' : undefined}>{issueFor('benchmarkEffort') || 'Required before generation. You can save a draft without completing this section.'}</small>
         </section>
       </>}
-      {step === 2 && <><h2>Choose your training days</h2><p className="setup-description">Select the days you want a running workout. Race day is included even if it falls on another weekday.</p><div id="setup-trainingDays" tabIndex={-1} className="setup-days" role="group" aria-label="Selected training days">{DAY_NAMES.map((name, day) => <button type="button" key={name} aria-pressed={days.includes(day)} onClick={() => { setClarification(null);setDays(current => current.includes(day) ? current.filter(value => value !== day) : [...current, day].sort());setDirty(true);setErrors([]); }}>{name.slice(0,3)}<span>{days.includes(day) ? 'Run' : '—'}</span></button>)}</div></>}
-      {step === 3 && <><h2>Your plan details</h2><SetupReview setup={readOnly && initial?.setup ? initial.setup : snapshot} />{windowIssue && <div className="setup-errors" role="status"><p>{windowIssue.message}</p><button className="button" type="button" onClick={() => { setStep(0); setFocusTarget(`setup-${windowIssue.field}`); }}>Edit training dates</button></div>}<p className="setup-footnote">Your benchmark informs estimated paces; your target finish time remains a goal. The plan saves automatically and starts only when you choose Start training.</p></>}
+      {step === 2 && <><h2>Choose your training days</h2><p className="setup-description">Select the days you want a running workout. Race day is included even if it falls on another weekday.</p><div id="setup-trainingDays" tabIndex={-1} className="setup-days" role="group" aria-label="Selected training days">{DAY_NAMES.map((name, day) => <button type="button" key={name} aria-pressed={days.includes(day)} onClick={() => { setApplied(null);setClarification(null);setDays(current => current.includes(day) ? current.filter(value => value !== day) : [...current, day].sort());setDirty(true);setErrors([]); }}>{name.slice(0,3)}<span>{days.includes(day) ? 'Run' : '—'}</span></button>)}</div></>}
+      {step === 3 && <><h2 id="setup-review-title" tabIndex={-1}>Your plan details</h2><SetupReview setup={readOnly && initial?.setup ? initial.setup : snapshot} />{windowIssue && <div className="setup-errors" role="status"><p>{windowIssue.message}</p><button className="button" type="button" onClick={() => { setStep(0); setFocusTarget(`setup-${windowIssue.field}`); }}>Edit training dates</button></div>}<p className="setup-footnote">Your benchmark informs estimated paces; your target finish time remains a goal. The plan saves automatically and starts only when you choose Start training.</p></>}
       </fieldset>
-      <div className="setup-form-actions"><button className="button" type="button" disabled={saving || step === 0} onClick={() => { setStep(current => current - 1);setErrors([]); }}><ArrowLeft size={15} />Back</button><div>{!readOnly && <button className="button" type="button" disabled={saving} onClick={() => void save(false)}><Save size={15} />Save draft</button>}{step < 3 ? <button className="button primary" type={readOnly ? 'button' : 'submit'} disabled={saving} onClick={readOnly ? () => setStep(current => current + 1) : undefined}>Continue<ArrowRight size={15} /></button> : !readOnly && <button className="button primary" type="submit" disabled={saving || !!clarification || !!windowIssue}>{saving ? 'Generating and saving…' : 'Generate plan'}</button>}</div></div>
+      {step === 3 && waitingToRetry && !clarification && <p className="setup-footnote" role="status">You can generate again one minute after your last request.</p>}
+      <div className="setup-form-actions"><button className="button" type="button" disabled={saving || step === 0} onClick={() => { setStep(current => current - 1);setErrors([]); }}><ArrowLeft size={15} />Back</button><div>{!readOnly && <button className="button" type="button" disabled={saving} onClick={() => void save(false)}><Save size={15} />Save draft</button>}{step < 3 ? <button className="button primary" type={readOnly ? 'button' : 'submit'} disabled={saving} onClick={readOnly ? () => setStep(current => current + 1) : undefined}>Continue<ArrowRight size={15} /></button> : !readOnly && <button className="button primary" type="submit" disabled={saving || waitingToRetry || !!clarification || !!windowIssue}>{saving ? 'Generating and saving…' : 'Generate plan'}</button>}</div></div>
     </form><aside className="setup-aside"><div className="setup-unit-choice"><span>Measurements</span><div role="group" aria-label="Measurement units"><button aria-pressed={units === 'mi'} disabled={disabled} onClick={() => switchUnits('mi')}>mi · lb · in</button><button aria-pressed={units === 'km'} disabled={disabled} onClick={() => switchUnits('km')}>km · kg · cm</button></div></div><Flag size={23} /><h3>{fields.name || suggestedBlockName(snapshot)}</h3><dl><dt>Race date</dt><dd>{fields.targetDate || 'Not set'}</dd><dt>Target finish</dt><dd>{fields.targetTime || 'Not set'}</dd><dt>Experience</dt><dd>{fields.experience || 'Not selected'}</dd><dt>Training days</dt><dd>{days.length ? days.map(day => DAY_NAMES[day].slice(0,3)).join(', ') : 'Not selected'}</dd><dt>Workout paces</dt><dd>Numeric estimates</dd></dl><p>{dirty ? 'Unsaved changes' : block ? 'Draft saved' : 'Save a draft to return later'}</p></aside></div>
   </main></div>;
 }

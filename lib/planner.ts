@@ -9,8 +9,8 @@ import { workoutStructure } from './workout-structure.ts';
 import { trainingWindowIssue } from './training-window.ts';
 
 export const PLANNER_VERSION = 'race-v7-calculated';
-export const PROMPT_VERSION = 'race-coach-v7-calculated';
-export function requiresAssessment(version: string) { return ['5k-coach-v5-assessment', '5k-coach-v6-calculated', PROMPT_VERSION].includes(version); }
+export const PROMPT_VERSION = 'race-coach-v8-suggestions';
+export function requiresAssessment(version: string) { return ['5k-coach-v5-assessment', '5k-coach-v6-calculated', 'race-coach-v7-calculated', PROMPT_VERSION].includes(version); }
 export type PlannerIntake = ReturnType<typeof plannerIntake>;
 const number = z.number().finite().positive();
 const Step = z.object({

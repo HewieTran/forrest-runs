@@ -9,6 +9,7 @@ import { DAY_NAMES } from '../lib/setup';
 import { acceptedPlan, simulatedBlock, scheduleDays, sessionSeconds } from '../lib/planner';
 import { formatDate, weekStart, type Plan } from '../lib/domain';
 import { formatDuration } from '../lib/workout-form';
+import { GENERATION_COOLDOWN_MS } from '../lib/planner-policy';
 
 export default function PlanGeneration({ initial, displayName, configured, mode, today }: { initial: Plan; displayName: string; configured: boolean; mode: 'disabled' | 'simulation' | 'openai'; today: string }) {
   const [block, setBlock] = useState(initial), [busy, setBusy] = useState(false), [error, setError] = useState('');
@@ -18,7 +19,7 @@ export default function PlanGeneration({ initial, displayName, configured, mode,
   const race = raceForKilometers((generation?.setupSnapshot ?? block.setup)?.goal.distanceKm ?? null)?.label ?? 'race';
   const simulation = generation ? simulatedBlock(block) : mode === 'simulation';
   const inFlight = generation?.status === 'generating' && clock - Date.parse(generation.startedAt) < 180000;
-  const cooldown = generation ? Math.max(0, Math.ceil((60000 - clock + Date.parse(generation.startedAt)) / 1000)) : 0;
+  const cooldown = generation ? Math.max(0, Math.ceil((GENERATION_COOLDOWN_MS - clock + Date.parse(generation.startedAt)) / 1000)) : 0;
   const accepted = acceptedPlan(block), editable = block.status === 'draft' && !accepted;
   const base = `/blocks/${encodeURIComponent(block.id)}`;
   const input = generation?.input;
