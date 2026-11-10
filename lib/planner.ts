@@ -6,6 +6,7 @@ import { GoalAssessment, AssessmentContext, assessmentContext, type PlanningCont
 import { addDays, dateDiff, PHASES, validDate, type WorkoutInput } from './domain.ts';
 import { plannerIntake, validateSetup, type BlockSetup } from './setup.ts';
 import { workoutStructure } from './workout-structure.ts';
+import { trainingWindowIssue } from './training-window.ts';
 
 export const PLANNER_VERSION = 'race-v7-calculated';
 export const PROMPT_VERSION = 'race-coach-v7-calculated';
@@ -45,9 +46,8 @@ export type ScheduleDay = { date: string; kind: 'run' | 'race' | 'rest'; limitSe
 export function preparePlanner(setup: BlockSetup, today: string): PlannerIntake {
   if (setup.schemaVersion !== 4) throw new Error('Open your Runner setup and add a confirmed performance benchmark before generating a new plan.');
   const input = plannerIntake(validateSetup(setup, today));
-  const days = dateDiff(input.goal.raceDate, input.goal.startDate);
-  if (input.goal.startDate < today) throw new Error('Choose a start date today or later before generating a new plan.');
-  if (days < 14 || days > 182) throw new Error('This first planner supports training blocks from 2 to 26 weeks. Adjust the dates before generating.');
+  const windowIssue = trainingWindowIssue(input.goal.startDate, input.goal.raceDate, today);
+  if (windowIssue) throw new Error(windowIssue.message);
   if (input.runner.age !== null && input.runner.age < 18) throw new Error('This first planner supports adult runners only.');
   if (input.baseline.longestRunMiles !== null && input.baseline.weeklyDistanceMiles !== null && input.baseline.longestRunMiles > input.baseline.weeklyDistanceMiles * 4 + 0.001) throw new Error('Your longest run exceeds the total distance reported for the last four weeks. Check your baseline.');
   return input;
