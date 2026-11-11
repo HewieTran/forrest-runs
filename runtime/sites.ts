@@ -15,8 +15,13 @@ export function getRuntimeVariables(): Record<string, string | undefined> {
 
 export const getAuthenticatedUser = getChatGPTUser;
 export const signInPath = chatGPTSignInPath;
-export const signInLabel = 'Sign in with ChatGPT';
+export const signInLabel = () => 'Sign in with ChatGPT';
+export const signOutPath = () => null;
 
 export async function handleLocalSignIn(_request: Request): Promise<Response> {
   return new Response('Not found.', { status: 404 });
 }
+
+export const handleBetaSignIn = handleLocalSignIn;
+export const handleBetaCallback = handleLocalSignIn;
+export const handleBetaSignOut = handleLocalSignIn;

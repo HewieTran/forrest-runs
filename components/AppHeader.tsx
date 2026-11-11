@@ -1,4 +1,5 @@
 import { Activity, Download, Layers3, LockKeyhole } from 'lucide-react';
+import { AccountAvatar } from './SessionActions';
 
 export default function AppHeader({ displayName, preview = false }: { displayName: string; preview?: boolean }) {
   const library = preview ? '/preview?view=blocks' : '/blocks';
@@ -9,7 +10,7 @@ export default function AppHeader({ displayName, preview = false }: { displayNam
       {preview && <span className="preview-tag">Design preview</span>}
       <span className="private-label"><LockKeyhole size={13} /> Private training log</span>
       <a className="button quiet export-button" href={preview ? undefined : '/api/export'} aria-disabled={preview}><Download size={16} /><span>Export backup</span></a>
-      <span className="avatar" title={displayName}>{displayName[0]?.toUpperCase() || 'R'}</span>
+      <AccountAvatar displayName={displayName} preview={preview} />
     </div>
   </div></header>;
 }

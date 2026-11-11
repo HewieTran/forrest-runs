@@ -1,4 +1,7 @@
 import type { Metadata } from "next";
+import { signOutPath } from '@forrest/platform';
+import { SessionActions } from '../components/SessionActions';
+import '../components/session-actions.css';
 import "./training.css";
 
 export const metadata: Metadata = {
@@ -17,7 +20,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className="antialiased">{children}</body>
+      <body className="antialiased"><SessionActions signOutPath={signOutPath()}>{children}</SessionActions></body>
     </html>
   );
 }
