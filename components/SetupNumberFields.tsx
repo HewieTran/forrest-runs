@@ -18,7 +18,7 @@ export function FinishTimeField({ id, label, error, parts, onChange }: GroupProp
     onChange(finishTimeParts(formatDuration(seconds)));
   }
   return <fieldset className="setup-number-field setup-span-two" onPaste={pasteTime}>
-    <legend>{label}<span className="setup-required">Required</span></legend>
+    <legend>{label}<span className="setup-required"> Required</span></legend>
     <div className="setup-number-parts setup-time-parts">
       {(['Hours', 'Minutes', 'Seconds'] as const).map((part, index) => (
         <label key={part}>{part}
@@ -44,7 +44,7 @@ export function ImperialHeightField({ id, label, error, parts, onChange }: Group
 }) {
   const feedbackId = `${id}-feedback`;
   return <fieldset className="setup-number-field">
-    <legend>{label}<span className="setup-required">Required</span></legend>
+    <legend>{label}<span className="setup-required"> Required</span></legend>
     <div className="setup-number-parts setup-height-parts">
       <label>
         <span className="sr-only">Feet</span>

@@ -206,7 +206,7 @@ export default function SetupWizard({ initial = null, displayName, today, readOn
   }
   function input(name: TextField, label: string, type = 'text', required = true, hint?: string) {
     const error = issueFor(name, type), id = `setup-${name}`;
-    return <label htmlFor={id}>{label}{required && <span className="setup-required">Required</span>}<input id={id} name={name} type={type} value={fields[name]} onChange={event => update(name, event.target.value)} step={type === 'number' ? name === 'age' ? '1' : 'any' : undefined} min={type === 'number' ? '0' : undefined} max={name === 'benchmarkDate' ? today : undefined} aria-required={required} aria-invalid={!!error} aria-describedby={`${id}-feedback`} placeholder={name === 'name' ? suggestedBlockName(collect()) : undefined} /><small id={`${id}-feedback`} className={error ? 'setup-field-error' : undefined}>{error || hint}</small></label>;
+    return <label htmlFor={id}><span className="setup-field-title">{label}{required && <span className="setup-required"> Required</span>}</span><input id={id} name={name} type={type} value={fields[name]} onChange={event => update(name, event.target.value)} step={type === 'number' ? name === 'age' ? '1' : 'any' : undefined} min={type === 'number' ? '0' : undefined} max={name === 'benchmarkDate' ? today : undefined} aria-required={required} aria-invalid={!!error} aria-describedby={`${id}-feedback`} placeholder={name === 'name' ? suggestedBlockName(collect()) : undefined} /><small id={`${id}-feedback`} className={error ? 'setup-field-error' : undefined}>{error || hint}</small></label>;
   }
   const snapshot = collect();
   function submit(event: FormEvent) { event.preventDefault();if (step < 3) next();else void save(true); }
@@ -223,7 +223,7 @@ export default function SetupWizard({ initial = null, displayName, today, readOn
       {clarification && <PlanAdjustment output={clarification} onEdit={editAssessment} disabled={disabled}
         input={step === 3 ? block?.generation?.input : undefined} today={today} onApply={applySuggestion} />}
       <fieldset disabled={disabled}>
-      {step === 0 && <><h2>What are you working toward?</h2><div className="setup-fields"><label className="setup-span-two" htmlFor="setup-goalKind">Race distance<span className="setup-required">Required</span>
+      {step === 0 && <><h2>What are you working toward?</h2><div className="setup-fields"><label className="setup-span-two" htmlFor="setup-goalKind"><span className="setup-field-title">Race distance<span className="setup-required"> Required</span></span>
         <select id="setup-goalKind" value={fields.goalKind} onChange={event => update('goalKind', event.target.value)} aria-required="true" aria-invalid={!!issueFor('goalKind')} aria-describedby="race-distance-feedback">
           <option value="" disabled>Choose a race distance</option>
           {RACE_DISTANCES.map(race => <option key={race.meters} value={race.meters / 1000}>{race.label}</option>)}
@@ -231,20 +231,20 @@ export default function SetupWizard({ initial = null, displayName, today, readOn
         </select>
         <small id="race-distance-feedback" className={issueFor('goalKind') ? 'setup-field-error' : undefined}>{issueFor('goalKind')}</small>
       </label><FinishTimeField id="setup-targetTime" label="Target finish time" parts={fields.targetTime} error={issueFor('targetTime')} onChange={parts => update('targetTime', parts)} />{input('startDate', 'Training start date', 'date', true, 'Generated plans span 2 to 26 weeks.')}{input('targetDate', 'Race date', 'date')}{input('name', 'Block name', 'text', false, 'Leave blank for a suggested name.')}</div></>}
-      {step === 1 && <><h2>About you</h2><p className="setup-description">Choose your running experience and add your measurements.</p><div className="setup-fields"><label>Running experience<span className="setup-required">Required</span><select aria-label="Running experience" value={fields.experience} onChange={event => update('experience', event.target.value)} aria-invalid={errors.some(issue => issue.field === 'experience')}><option value="">Choose experience</option><option value="novice">Novice</option><option value="intermediate">Intermediate</option><option value="advanced">Advanced</option></select></label>{input('age', 'Age (years)', 'number')}{input('weight', `Weight (${units === 'mi' ? 'lb' : 'kg'})`, 'number')}{units === 'mi'
+      {step === 1 && <><h2>About you</h2><p className="setup-description">Choose your running experience and add your measurements.</p><div className="setup-fields"><label><span className="setup-field-title">Running experience<span className="setup-required"> Required</span></span><select aria-label="Running experience" value={fields.experience} onChange={event => update('experience', event.target.value)} aria-invalid={errors.some(issue => issue.field === 'experience')}><option value="">Choose experience</option><option value="novice">Novice</option><option value="intermediate">Intermediate</option><option value="advanced">Advanced</option></select></label>{input('age', 'Age (years)', 'number')}{input('weight', `Weight (${units === 'mi' ? 'lb' : 'kg'})`, 'number')}{units === 'mi'
         ? <ImperialHeightField id="setup-height" label="Height" parts={fields.imperialHeight} error={issueFor('height')} onChange={parts => update('imperialHeight', parts)} />
         : input('height', 'Height (cm)', 'number')}</div>
         <section className="setup-benchmark" aria-labelledby="benchmark-heading">
           <h3 id="benchmark-heading">Performance benchmark</h3>
           <p className="setup-description">Add one recent race or best-effort time trial. Use an achieved result, not your goal time or an easy training run.</p>
           <div className="setup-fields">
-            <label className="setup-span-two" htmlFor="setup-benchmarkDistance">Result distance<span className="setup-required">Required</span>
+            <label htmlFor="setup-benchmarkDistance"><span className="setup-field-title">Result distance<span className="setup-required"> Required</span></span>
               <select id="setup-benchmarkDistance" value={fields.benchmarkDistance} onChange={event => update('benchmarkDistance', event.target.value)} aria-required="true" aria-invalid={!!issueFor('benchmarkDistance')} aria-describedby="benchmark-distance-feedback">
                 <option value="">Choose a distance</option>{RESULT_DISTANCES.map(key => <option key={key} value={key}>{RESULT_LABELS[key]}</option>)}
               </select><small id="benchmark-distance-feedback" className={issueFor('benchmarkDistance') ? 'setup-field-error' : undefined}>{issueFor('benchmarkDistance')}</small>
             </label>
+            {input('benchmarkDate', 'Date achieved', 'date', true, fields.benchmarkDate && validDate(fields.benchmarkDate) && fields.benchmarkDate <= today ? `${dateDiff(today, fields.benchmarkDate)} days before today. The planner considers how representative this result is.` : undefined)}
             <FinishTimeField id="setup-benchmarkTime" label="Benchmark finish time" parts={fields.benchmarkTime} error={issueFor('benchmarkTime')} onChange={parts => update('benchmarkTime', parts)} />
-            {input('benchmarkDate', 'Date achieved', 'date', true, fields.benchmarkDate && validDate(fields.benchmarkDate) && fields.benchmarkDate <= today ? `${dateDiff(today, fields.benchmarkDate)} days before today. The planner considers how representative this result is.` : 'Choose the date you completed this result.')}
           </div>
           <label className="setup-check" htmlFor="setup-benchmarkEffort"><input id="setup-benchmarkEffort" type="checkbox" checked={fields.benchmarkEffort === 'yes'} onChange={event => update('benchmarkEffort', event.target.checked ? 'yes' : '')} aria-required="true" aria-invalid={!!issueFor('benchmarkEffort')} aria-describedby="benchmark-effort-feedback" />I confirm this was a race or best-effort time trial.</label>
           <small id="benchmark-effort-feedback" className={issueFor('benchmarkEffort') ? 'setup-field-error' : undefined}>{issueFor('benchmarkEffort') || 'Required before generation. You can save a draft without completing this section.'}</small>
