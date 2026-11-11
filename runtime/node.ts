@@ -5,18 +5,19 @@ import type { AppUser } from '../lib/user';
 import type { TrainingDatabase } from './database';
 import { openSQLite, runSQLite, batchSQLite } from './sqlite.mjs';
 import { PROOF_COOKIE, readProofUser, signProofUser, proofReturnPath } from './proof-session.mjs';
+import { BETA_SESSION_COOKIE, betaSignInPath, finishBetaSignIn, finishBetaSignOut, getBetaUser, isAwsBeta, startBetaSignIn } from './cognito';
 
-function requireProofMode() {
-  if (process.env.FORREST_NODE_PROOF !== '1') throw new Error('The Node compatibility proof is disabled.');
+function requireNodeMode() {
+  if (!isAwsBeta() && process.env.FORREST_NODE_PROOF !== '1') throw new Error('The standalone Node runtime is disabled.');
 }
 
 let database: TrainingDatabase | undefined;
 
 export function getDatabase(): TrainingDatabase {
-  requireProofMode();
+  requireNodeMode();
   if (!database) {
     const filename = process.env.FORREST_SQLITE_PATH;
-    if (!filename) throw new Error('Choose a separate SQLite file for the compatibility proof.');
+    if (!filename) throw new Error('Choose a separate SQLite file for this Node deployment.');
     const connection = openSQLite(filename);
     database = drizzle(
       async (sql, params, method) => runSQLite(connection, { sql, params, method }),
@@ -28,23 +29,44 @@ export function getDatabase(): TrainingDatabase {
 }
 
 export function getRuntimeVariables(): Record<string, string | undefined> {
-  requireProofMode();
+  requireNodeMode();
   return { TRAINING_PLANNER_MODE: 'simulation' };
 }
 
 export async function getAuthenticatedUser(): Promise<AppUser | null> {
-  requireProofMode();
-  return readProofUser((await cookies()).get(PROOF_COOKIE)?.value, process.env.FORREST_PROOF_SESSION_SECRET);
+  requireNodeMode();
+  const requestCookies = await cookies();
+  if (isAwsBeta()) return getBetaUser(requestCookies.get(BETA_SESSION_COOKIE)?.value);
+  return readProofUser(requestCookies.get(PROOF_COOKIE)?.value, process.env.FORREST_PROOF_SESSION_SECRET);
 }
 
 export function signInPath(returnTo: string) {
+  if (isAwsBeta()) return betaSignInPath(returnTo);
   return '/node-proof-login?return_to=' + encodeURIComponent(proofReturnPath(returnTo));
 }
 
-export const signInLabel = 'Open local proof accounts';
+export function signInLabel() {
+  return isAwsBeta() ? 'Sign in with Google' : 'Open local proof accounts';
+}
+
+export function signOutPath() {
+  return isAwsBeta() ? '/auth/sign-out' : null;
+}
+
+export async function handleBetaSignIn(request: Request) {
+  return isAwsBeta() ? startBetaSignIn(request) : new Response('Not found.', { status: 404 });
+}
+
+export async function handleBetaCallback(request: Request) {
+  return isAwsBeta() ? finishBetaSignIn(request) : new Response('Not found.', { status: 404 });
+}
+
+export async function handleBetaSignOut(request: Request) {
+  return isAwsBeta() ? finishBetaSignOut(request) : new Response('Not found.', { status: 404 });
+}
 
 export async function handleLocalSignIn(request: Request): Promise<Response> {
-  requireProofMode();
+  if (isAwsBeta() || process.env.FORREST_NODE_PROOF !== '1') return new Response('Not found.', { status: 404 });
   const url = new URL(request.url);
   const origin = new URL('http://' + request.headers.get('host'));
   if (!['localhost', '127.0.0.1', '[::1]'].includes(origin.hostname)) return new Response('Local proof only.', { status: 403 });

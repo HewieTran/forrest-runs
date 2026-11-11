@@ -76,8 +76,8 @@ the approved AWS ceiling once those costs are included. The $3.50 IPv6-only
 option has 512 MB RAM and requires separate compatibility and access checks.
 See [AWS Lightsail bundles](https://docs.aws.amazon.com/lightsail/latest/userguide/amazon-lightsail-bundles.html).
 
-- Replace synthetic sessions with Cognito and verify real authentication,
-  logout, session expiration and account recovery.
+- Deploy the Cognito-enabled build and verify real Google sign-in, logout,
+  session expiration and account recovery.
 - Confirm production support for the Node.js runtime and SQLite driver.
   This proof uses the built-in SQLite API in Node.js 24.
 - Validate server memory, request concurrency and generation latency.
@@ -86,3 +86,41 @@ See [AWS Lightsail bundles](https://docs.aws.amazon.com/lightsail/latest/usergui
 - Select AWS resources and approve their estimated operating cost.
 
 PRs #14 and #15 are merged. The Node.js compatibility proof is local-only.
+
+## AWS beta sign-in configuration
+
+Build the Node distribution with `pnpm run build:node-proof`. For a source-based
+test, start it with `node --env-file=/path/to/beta.env scripts/node-proof.mjs start`.
+Store the environment file outside the repository with access limited to the
+service account. Use a new SQLite path for this deployment.
+
+| Environment variable | Value |
+| --- | --- |
+| `FORREST_AWS_BETA` | `1` |
+| `FORREST_SQLITE_PATH` | Absolute path for the separate AWS beta database |
+| `FORREST_BETA_ORIGIN` | Public HTTPS origin of the beta distribution |
+| `FORREST_COGNITO_DOMAIN` | HTTPS origin of the Cognito managed login domain |
+| `FORREST_COGNITO_ISSUER` | Exact `issuer` from this pool's OpenID discovery document |
+| `FORREST_COGNITO_CLIENT_ID` | Cognito web app client ID |
+| `FORREST_COGNITO_CLIENT_SECRET` | Cognito web app client secret |
+| `FORREST_BETA_SESSION_SECRET` | Dedicated random value, for example from `openssl rand -hex 32` |
+| `FORREST_BETA_ALLOWED_EMAILS` | Comma-separated verified Google email addresses approved for the beta |
+
+Enable Google and the authorization code grant on the Cognito app client. Set
+the callback to `/auth/callback` on the public origin and the sign-out URL to the
+root of that origin. Map Google's `email` and `email_verified` attributes. Enter
+the Google client secret in Cognito when setting up the provider. The app uses
+the separate Cognito app client secret for its own token exchange.
+
+For the CloudFront behavior that serves the app, use `CachingDisabled` and
+`AllViewerExceptHostHeader` so callback query parameters, session cookies and the
+browser's `Origin` header reach Lightsail. Enable the full HTTP method set for
+workout writes and sign-out. Route the HTTPS origin to the loopback Node process
+once these settings are ready. Keep the static HTTPS page available as a rollback.
+
+Run `node tests/node-beta-integration.mjs` after building to check the flow with
+a simulated Cognito provider. For the hosted check, sign in with two approved
+Google accounts, verify that each starts with an empty library and can access
+only its own records, then sign out and confirm that protected routes require
+sign-in. Try an unapproved account and check that it is denied access. The beta
+uses the Cognito subject for ownership and the email address for approval.

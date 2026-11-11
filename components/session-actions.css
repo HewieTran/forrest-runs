@@ -1,0 +1,23 @@
+.session-menu {
+  position: relative;
+}
+
+.session-menu summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.session-menu summary::-webkit-details-marker {
+  display: none;
+}
+
+.session-menu form {
+  position: absolute;
+  z-index: 2;
+  top: calc(100% + 6px);
+  right: 0;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
