@@ -178,3 +178,16 @@
   .plan-suggestion-buttons, .plan-suggestion > .button { width: 100%; }
   .plan-suggestion-buttons .primary { width: 100%; justify-content: center; }
 }
+
+.setup-field-title,.setup-number-field legend{font-size:12px;line-height:18px;color:var(--ink)}
+.setup-fields>label>small:empty{display:none}
+.setup-benchmark .setup-fields{margin-top:16px;row-gap:18px}
+.setup-number-field legend{padding:0;margin-bottom:8px}
+.setup-number-parts{display:grid;gap:8px}
+.setup-time-parts{grid-template-columns:repeat(3,minmax(0,1fr));max-width:420px}
+.setup-height-parts{grid-template-columns:repeat(2,minmax(0,1fr))}
+.setup-time-parts label{display:grid;gap:4px;font-size:11px}
+.setup-height-parts label{position:relative}
+.setup-height-parts input{padding-right:29px}
+.setup-height-unit{position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--muted);pointer-events:none}
+.setup-number-field small{display:block;margin-top:5px}
