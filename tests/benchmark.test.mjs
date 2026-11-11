@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { simpleSetup, validateSetup, setupIssues, plannerIntake, convertSetupUnits } from '../lib/setup.ts';
+import { goalSuggestions } from '../lib/plan-assessment.ts';
+import { addDays } from '../lib/domain.ts';
 import { preparePlanner, validateGeneration } from '../lib/planner.ts';
 import { currentPlannerFixture, plannerFixture } from './planner-fixture.mjs';
 import { responseFixture } from './planner-fixture.mjs';
@@ -8,7 +10,7 @@ import { requestOpenAIPlan } from '../lib/openai-plan.ts';
 
 const today='2026-10-31';
 test('one confirmed benchmark is normalized for every supported result distance',()=>{
-  for(const [distance,meters] of [['5k',5000],['10k',10000],['half',21097.5]]) {
+  for(const [distance,meters] of [['5k',5000],['10k',10000],['half',21097.5],['full',42195]]) {
     const {setup}=currentPlannerFixture(today);setup.benchmark.distance=distance;
     const saved=validateSetup(setup,today),input=preparePlanner(saved,today);
     assert.deepEqual(setupIssues(saved),[]);assert.equal(input.schemaVersion,2);
@@ -49,4 +51,34 @@ test('the model request carries the confirmed benchmark separately from the targ
   assert.equal(captured.goal.targetDurationSeconds,1800);
   assert.equal(captured.baseline.weeklyDistanceMiles,null);
   assert.equal(captured.runner.vo2,null);
+});
+
+test('a first-time half or full marathon runner can receive a suggested target from a 5K only', async () => {
+  for (const [kilometers, target, estimate] of [[21.0975, 7200, 7800], [42.195, 14400, 16200]]) {
+    const { setup, output } = currentPlannerFixture(today);
+    setup.goal.distanceKm = kilometers;
+    setup.goal.targetDate = addDays(today, 126);
+    setup.goal.targetDurationSeconds = target;
+    const input = preparePlanner(setup, today);
+    const clarification = {
+      ...output, outcome: 'needs_clarification', sessions: [], questions: ['Would you consider a revised target?'],
+      assessment: {
+        decision: 'adjust_goal', reason: 'The 5K informs pace. Endurance at the goal distance is less certain.',
+        actions: ['target_time'], suggestions: { finishTime: { durationSeconds: estimate, reason: 'Synthetic estimate.' }, schedule: null },
+      },
+    };
+    const result = await requestOpenAIPlan(input, { apiKey: 'synthetic', model: 'gpt-6-luna', asOfDate: today }, async (_url, init) => {
+      const request = JSON.parse(init.body);
+      const { intake } = JSON.parse(request.input);
+      assert.equal(intake.goal.distanceMeters, kilometers * 1000);
+      assert.deepEqual(intake.baseline.results.map(benchmark => benchmark.distanceMeters), [5000]);
+      assert.equal(intake.baseline.weeklyDistanceMiles, null);
+      assert.equal(intake.baseline.longestRunMiles, null);
+      assert.match(request.instructions, /Do not require a same-distance result/);
+      return Response.json(responseFixture(clarification));
+    });
+    assert.deepEqual(result.output.sessions, []);
+    assert.equal(goalSuggestions(result.output.assessment, input, today)[0].durationSeconds, estimate);
+    assert.equal(input.goal.targetDurationSeconds, target);
+  }
 });
