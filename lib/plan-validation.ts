@@ -8,12 +8,12 @@ const REASONS: Record<PlanValidationCode, string> = {
   schedule_completeness: 'The planner returned the wrong number of workouts for your selected days.',
   schedule_dates: 'The planner used a duplicate date or a date outside your running schedule.',
   session_limit: 'A generated workout exceeded its session time limit.',
-  race: 'The generated race did not match the required 5K race date or distance.',
+  race: 'The generated race did not match the selected race date or distance.',
   warmup_cooldown: 'A generated quality workout was missing warm-up or cooldown steps.',
   numeric_targets: 'A generated running step had missing or unsupported distance or pace targets.',
   workout_arithmetic: 'The AI generated inconsistent workout numbers.',
   workout_text: 'Some generated workout instructions exceeded the supported length.',
-  phases: 'The planner used a training phase that is unsupported for 5K.',
+  phases: 'The planner used an unsupported training phase.',
 };
 export class PlanValidationError extends Error {
   readonly code: PlanValidationCode;
@@ -27,6 +27,8 @@ export function displayGenerationError(message: string) {
   if (message === LEGACY_VALIDATION_MESSAGE) return planValidationMessage();
   if (message.includes(' This does not tell us whether your goal is too ambitious.')) {
     const code = message.startsWith('A generated workout’s distance, pace and duration did not agree.') ? 'workout_arithmetic'
+      : message.startsWith('The generated race did not match the required 5K race date or distance.') ? 'race'
+      : message.startsWith('The planner used a training phase that is unsupported for 5K.') ? 'phases'
       : PLAN_VALIDATION_CODES.find(code => message.startsWith(REASONS[code]));
     return planValidationMessage(code);
   }

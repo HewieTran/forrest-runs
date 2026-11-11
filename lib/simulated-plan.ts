@@ -1,3 +1,5 @@
+import { METERS_PER_MILE, raceForMeters } from './race-distance.ts';
+import { PlanValidationError } from './plan-validation.ts';
 import { dateDiff } from './domain.ts';
 import { scheduleDays, validatePlanOutput, PLANNER_VERSION, type PlannerIntake, type PlanOutput } from './planner.ts';
 
@@ -5,7 +7,9 @@ export const SIMULATION_MODEL = 'simulated-5k-v1';
 // Deliberately simple examples for exercising review/acceptance. No fitness or
 // performance assessment is performed, and there is no provider/network access.
 export function simulatedPlan(input: PlannerIntake) {
-  if (input.goal.paceGuidance === 'estimated' || input.schemaVersion === 2) return numericSimulation(input);
+  const raceDistance = raceForMeters(input.goal.distanceMeters);
+  if (!raceDistance) throw new PlanValidationError('race');
+  if (input.goal.paceGuidance === 'estimated' || input.schemaVersion === 2) return numericSimulation(input, raceDistance);
   const days = scheduleDays(input);
   const race = days.at(-1)!;
   const output: PlanOutput = {
@@ -19,19 +23,19 @@ export function simulatedPlan(input: PlannerIntake) {
   if (output.outcome === 'plan') output.sessions = days.filter(day => day.kind !== 'rest').map(day => ({
     date: day.date, type: day.kind === 'race' ? 'Race' : 'Easy Run',
     phase: dateDiff(input.goal.raceDate, day.date) < 7 ? 'Race Week' : 'Base Build',
-    title: day.kind === 'race' ? 'SIMULATION · Example 5K race' : 'SIMULATION · Example easy session',
+    title: day.kind === 'race' ? `SIMULATION · Example ${raceDistance.label} race` : 'SIMULATION · Example easy session',
     notes: 'Demonstration data only. This session has not been evaluated for your training needs.',
-    steps: [{ kind: day.kind === 'race' ? 'race' : 'run', label: day.kind === 'race' ? 'Example 5K segment' : 'Example conversational running',
-      durationSeconds: Math.min(1800, day.limitSeconds), distanceMiles: day.kind === 'race' ? 5000 / 1609.344 : null,
+    steps: [{ kind: day.kind === 'race' ? 'race' : 'run', label: day.kind === 'race' ? `Example ${raceDistance.label} segment` : 'Example conversational running',
+      durationSeconds: Math.min(1800, day.limitSeconds), distanceMiles: day.kind === 'race' ? raceDistance.meters / METERS_PER_MILE : null,
       paceSecondsPerMile: null, effort: day.kind === 'race' ? 'race' : 'easy' }],
   }));
-  return { output: validatePlanOutput(output, input), model: SIMULATION_MODEL, responseId: null, usage: null,
+  return { output: validatePlanOutput(output, input), model: raceDistance.meters === 5000 ? SIMULATION_MODEL : 'simulated-race-v1', responseId: null, usage: null,
     promptVersion: 'simulation-v1', validatorVersion: PLANNER_VERSION };
 }
 
 // Free fixtures for the simplified intake. Numeric prescriptions exercise the
 // actual UI contract; they are examples, not a calibrated training methodology.
-function numericSimulation(input: PlannerIntake) {
+function numericSimulation(input: PlannerIntake, raceDistance: { label: string; meters: number }) {
   const days = scheduleDays(input);
   const raceSeconds = input.goal.targetDurationSeconds!;
   const easyPace = input.runner.experience === 'novice' ? 840 : input.runner.experience === 'advanced' ? 600 : 720;
@@ -44,13 +48,13 @@ function numericSimulation(input: PlannerIntake) {
     sessions: days.filter(day => day.kind !== 'rest').map(day => {
       const race = day.kind === 'race';
       const durationSeconds = race ? raceSeconds : input.runner.experience === 'novice' ? 1200 : 1800;
-      const distanceMiles = race ? 5000 / 1609.344 : durationSeconds / easyPace;
+      const distanceMiles = race ? raceDistance.meters / METERS_PER_MILE : durationSeconds / easyPace;
       return { date: day.date, type: race ? 'Race' : 'Easy Run', phase: dateDiff(input.goal.raceDate, day.date) < 7 ? 'Race Week' : 'Base Build',
-        title: race ? 'SIMULATION · 5K race' : 'SIMULATION · Easy run', notes: 'Estimated example pace. Edit the prescription if needed; this schedule is for testing.',
-        steps: [{ kind: race ? 'race' : 'run', label: race ? '5K race segment' : 'Easy run', durationSeconds, distanceMiles,
+        title: race ? `SIMULATION · ${raceDistance.label} race` : 'SIMULATION · Easy run', notes: 'Estimated example pace. Edit the prescription if needed; this schedule is for testing.',
+        steps: [{ kind: race ? 'race' : 'run', label: race ? `${raceDistance.label} race segment` : 'Easy run', durationSeconds, distanceMiles,
           paceSecondsPerMile: race ? durationSeconds / distanceMiles : easyPace, effort: race ? 'race' : 'easy' }] };
     }),
   };
-  return { output: validatePlanOutput(output, input), model: SIMULATION_MODEL, responseId: null, usage: null,
+  return { output: validatePlanOutput(output, input), model: raceDistance.meters === 5000 ? SIMULATION_MODEL : 'simulated-race-v1', responseId: null, usage: null,
     promptVersion: 'simulation-numeric-v2', validatorVersion: PLANNER_VERSION };
 }

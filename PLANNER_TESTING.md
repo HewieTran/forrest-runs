@@ -4,7 +4,17 @@ These automated tests require no OpenAI account, API key, paid request, sample
 input from a user, or additional test UI. They are development checks rather than
 a substitute for reviewing real model output or training methodology.
 
-## Calculated measurements — option 1
+## Multiple race distances
+
+Prompt `race-coach-v7-calculated` receives the exact selected race distance.
+The app calculates and verifies race distance and pace for 5K, 10K, half marathon
+and full marathon using the same wire contract. Intake fields, supported
+training window and request budget limits stay the same. Longer-race prompts
+distinguish benchmark speed from endurance readiness. Offline tests verify
+request, storage and calculation behavior; real model quality for the new
+distances still needs review before enabling them on the live planner.
+
+## Calculated measurements — option 1 (historical 5K release)
 
 Prompt `5k-coach-v6-calculated` requests a pair-only wire contract: ordinary
 running steps supply duration/pace; the race supplies duration/null pace, with
@@ -98,7 +108,7 @@ No paid model evaluation was performed in Stage 4; Stage 6 results are recorded 
 ## Stage 3 live-request controls (2026-10-31)
 
 The current product contract is `PHASE_1_REQUIREMENTS.md`: the benchmark v4
-intake generates, validates and automatically saves a 5K block. Starting training
+intake generates, validates and automatically saves a training block. Starting training
 remains explicit. The historical review/accept routes below remain compatible.
 
 - Only exact model `gpt-6-luna` is accepted by the runtime, request adapter and

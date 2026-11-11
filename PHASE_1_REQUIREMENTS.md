@@ -4,12 +4,12 @@ Product owner: Hieu. Agreed UI and behavior baseline, 2026-10-27.
 
 ## Scope and flow
 
-- Keep the existing app and training history. New generated plans support 5K only.
+- Keep the existing app and training history. New generated plans support 5K, 10K, half marathon and full marathon.
 - Goal → Runner → Training days → Intake summary → Generate plan → Open saved block.
 - No Starting Fitness step, pace-guidance selector, manual-create button or second schedule approval.
 - Generate validates and saves the schedule. Failures preserve the intake; retry reuses a validated result when possible.
 - New live running steps use AI-selected duration and pace, with distance
-  calculated by the app. The race stays exactly 5K, with pace calculated from the
+  calculated by the app. The race uses the exact selected distance, with pace calculated from the
   AI-estimated race duration. No independently generated third measurement,
   silent historical recalculation or automatic repair request.
 - Numeric distance, pace and duration for generated running workouts. Paces are estimates; a goal time is not a measured fitness result.
@@ -20,7 +20,7 @@ Product owner: Hieu. Agreed UI and behavior baseline, 2026-10-27.
 | Required | Optional | Deferred |
 | --- | --- | --- |
 | Experience: novice, intermediate or advanced; age; height; weight; units | Block name, suggested if blank | Mileage, longest run, frequency, VO2, interruptions, long-run preference, session limits, other activities |
-| 5K distance; target finish time; start date; race date; selected weekdays | | |
+| Supported race distance; target finish time; start date; race date; selected weekdays | | |
 | One benchmark: 5K, 10K or half-marathon; achieved finish time; date achieved; confirmation it was a race or best-effort time trial | | |
 
 Benchmark addition approved 2026-10-31. Keep the four tabs; place one benchmark
@@ -57,7 +57,7 @@ when an old or unrepresentative result needs refreshing.
   perform goal feasibility assessment. Synthetic provider tests verify control
   flow only. Real-model planning quality requires separate live evaluation.
 
-Existing deferred answers and older snapshots remain readable and exportable. The generator excludes other deferred answers. Current generation limits: adults, 2–26 weeks, start today or later. Generated race distance remains 5K even when the benchmark is 10K or half-marathon.
+Existing deferred answers and older snapshots remain readable and exportable. The generator excludes other deferred answers. Current generation limits: adults, 2–26 weeks, start today or later. The goal selects the race distance independently of the benchmark. A shorter benchmark does not establish endurance readiness for a half or full marathon; the planner can ask for clarification if the evidence cannot support a conservative plan.
 
 ## Tracking and status
 
@@ -78,4 +78,4 @@ Follow Hieu's requirements and UI. Collaborate on changes before expanding scope
 
 ## Future phases
 
-Additional races; richer fitness/performance inputs; adaptive plans; wearable/Strava imports; native mobile app; AWS deployment and separate environments. Each needs a separate scope decision.
+Other race distances; richer fitness/performance inputs; adaptive plans; wearable/Strava imports; native mobile app; AWS deployment and separate environments. Each needs a separate scope decision.

@@ -1,3 +1,4 @@
+import { raceDistanceLabel } from './race-distance';
 import { verifyCalculatedMeasurements } from './planner-math';
 import { and, asc, desc, eq, ne, sql } from 'drizzle-orm';
 import { getDb } from '../db';
@@ -506,14 +507,15 @@ export async function acceptGeneratedPlan(user: AppUser, blockId: string, versio
       actualDurationSeconds: sql<number | null>`null`.as('actualDurationSeconds'), targetMetric: sql<'distance' | 'duration'>`${w.targetMetric}`.as('targetMetric'),
       plannedPaceSecondsPerMile: sql<number | null>`${w.plannedPaceSecondsPerMile ?? null}`.as('plannedPaceSecondsPerMile'), actualPaceSecondsPerMile: sql<number | null>`null`.as('actualPaceSecondsPerMile'),
       actualPace: sql<string>`''`.as('actualPace'), resultOrigins: sql<Record<string, number> | null>`null`.as('resultOrigins'), effort: sql<number | null>`null`.as('effort'), pain: sql<string>`''`.as('pain'), notes: sql<string>`''`.as('notes'),
-      sourceRow: sql<number | null>`null`.as('sourceRow'), originalSource: sql<Record<string, unknown>>`${JSON.stringify({ generator: PLANNER_VERSION, generationId, provider: draft.provider ?? 'openai', session })}`.as('originalSource'),
+      sourceRow: sql<number | null>`null`.as('sourceRow'), originalSource: sql<Record<string, unknown>>`${JSON.stringify({ generator: draft.validatorVersion, generationId, provider: draft.provider ?? 'openai', session })}`.as('originalSource'),
       version: sql<number>`1`.as('version'), updatedAt: sql<string>`${timestamp}`.as('updatedAt'),
     }).from(plans).where(condition));
   });
   const rests = scheduleDays(draft.input).filter(day => day.kind === 'rest').map(day => database.insert(restDays).select(database.select({
     id: sql<string>`${crypto.randomUUID()}`.as('id'), planId: plans.id, date: sql<string>`${day.date}`.as('date'), version: sql<number>`1`.as('version'), updatedAt: sql<string>`${timestamp}`.as('updatedAt'),
   }).from(plans).where(condition)));
-  const finalize = database.update(plans).set({ generation, paceGuide: [{ type: draft.provider === 'simulation' ? 'SIMULATION · Example 5K' : '5K plan', target: draft.input.goal.paceGuidance === 'effort' ? 'Effort based' : 'Performance based', rule: output.goalAssessment }], updatedAt: timestamp }).where(condition).returning({ id: plans.id });
+  const raceLabel = raceDistanceLabel(draft.input.goal.distanceMeters / 1000);
+  const finalize = database.update(plans).set({ generation, paceGuide: [{ type: draft.provider === 'simulation' ? `SIMULATION · Example ${raceLabel}` : `${raceLabel} plan`, target: draft.input.goal.paceGuidance === 'effort' ? 'Effort based' : 'Performance based', rule: output.goalAssessment }], updatedAt: timestamp }).where(condition).returning({ id: plans.id });
   const result = await database.batch([reserve, ...inserts, ...rests, finalize]);
   if (!(result[0] as { id: string }[]).length) throw new TrainingRequestError('This draft changed in another tab. Reload before accepting.', 409);
   const { ownerId: _ownerId, ...saved } = await userPlan(user, blockId);

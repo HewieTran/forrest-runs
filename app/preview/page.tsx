@@ -15,7 +15,7 @@ export const dynamic='force-dynamic';
 export default async function Preview({searchParams}:{searchParams:Promise<Record<string,string|undefined>>}){
  if(process.env.NODE_ENV!=='development')notFound();
  const query=await searchParams;
- if(query.view==='setup-mobile'){const scenario=['goal-adjustment','benchmark-refresh','validation-error','legacy-validation-error'].includes(query.scenario??'')?query.scenario:'';return <iframe title="Mobile 5K setup preview" src={`/preview?view=setup&scenario=${scenario}`} style={{display:'block',width:390,maxWidth:'100%',height:850,border:0,margin:'20px auto'}}/>;}
+ if(query.view==='setup-mobile'){const scenario=['goal-adjustment','benchmark-refresh','validation-error','legacy-validation-error'].includes(query.scenario??'')?query.scenario:'';return <iframe title="Mobile race setup preview" src={`/preview?view=setup&scenario=${scenario}`} style={{display:'block',width:390,maxWidth:'100%',height:850,border:0,margin:'20px auto'}}/>;}
  if(query.view==='workout-mobile')return <iframe title="Mobile workout preview" src={`/preview?view=workout&scenario=${['steps','race-steps','legacy'].includes(query.scenario??'')?query.scenario:''}`} style={{display:'block',width:390,maxWidth:'100%',height:850,border:0,margin:'20px auto'}}/>;
  if(query.view==='progress-mobile')return <iframe title="Mobile progress preview" src="/preview?view=progress" style={{display:'block',width:390,maxWidth:'100%',height:850,border:0,margin:'20px auto'}}/>;
  if(query.view==='progress')return <ProgressOverview data={progressPreview(query.scenario)} preview/>;
