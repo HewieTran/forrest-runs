@@ -236,7 +236,7 @@ export default function SetupWizard({ initial = null, displayName, today, readOn
         : input('height', 'Height (cm)', 'number')}</div>
         <section className="setup-benchmark" aria-labelledby="benchmark-heading">
           <h3 id="benchmark-heading">Performance benchmark</h3>
-          <p className="setup-description">Add one recent race or best-effort time trial. Use an achieved result, not your goal time or an easy training run.</p>
+          <p className="setup-description text-balance">Enter a recent race or best-effort time trial result.</p>
           <div className="setup-fields">
             <label htmlFor="setup-benchmarkDistance"><span className="setup-field-title">Result distance<span className="setup-required"> Required</span></span>
               <select id="setup-benchmarkDistance" value={fields.benchmarkDistance} onChange={event => update('benchmarkDistance', event.target.value)} aria-required="true" aria-invalid={!!issueFor('benchmarkDistance')} aria-describedby="benchmark-distance-feedback">
