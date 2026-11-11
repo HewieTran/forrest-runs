@@ -1,4 +1,5 @@
 import { raceForMeters } from './race-distance.ts';
+import { MAX_TRAINING_DAYS } from './training-window.ts';
 import { calculatePlanMeasurements, verifyCalculatedMeasurements, PLAN_CALCULATION_VERSION } from './planner-math.ts';
 import { PlanValidationError, planValidationMessage, type PlanValidationCode } from './plan-validation.ts';
 import { assessmentContext, ASSESSMENT_ACTIONS, type PlanningContext } from './plan-assessment.ts';
@@ -9,9 +10,22 @@ const text = { type: 'string' };
 const nullableNumber = { type: ['number', 'null'] };
 const object = (properties: Record<string, unknown>) => ({ type: 'object', properties, required: Object.keys(properties), additionalProperties: false });
 const array = (items: unknown) => ({ type: 'array', items });
+const nullable = (schema: unknown) => ({ anyOf: [schema, { type: 'null' }] });
 export const PLAN_JSON_SCHEMA = object({
   outcome: { type: 'string', enum: ['plan', 'needs_clarification'] }, summary: text, goalAssessment: text,
-  assessment: object({ decision: { type: 'string', enum: ['proceed', 'adjust_goal', 'refresh_benchmark', 'clarify'] }, reason: text, actions: array({ type: 'string', enum: ASSESSMENT_ACTIONS }) }),
+  assessment: object({
+    decision: { type: 'string', enum: ['proceed', 'adjust_goal', 'refresh_benchmark', 'clarify'] },
+    reason: text,
+    actions: array({ type: 'string', enum: ASSESSMENT_ACTIONS }),
+    suggestions: nullable(object({
+      finishTime: nullable(object({ durationSeconds: { type: 'integer', minimum: 1, maximum: 86400 }, reason: text })),
+      schedule: nullable(object({
+        additionalDays: { type: 'integer', minimum: 0, maximum: MAX_TRAINING_DAYS },
+        trainingDays: nullable({ ...array({ type: 'integer', minimum: 0, maximum: 6 }), minItems: 1, maxItems: 7 }),
+        reason: text,
+      })),
+    })),
+  }),
   assumptions: array(text), questions: array(text), sessions: array(object({
     date: text, type: { type: 'string', enum: ['Easy Run', 'Quality Run', 'Long Run', 'Race'] },
     phase: { type: 'string', enum: ['Base Build', 'Peak', 'Taper', 'Race Week'] },
@@ -42,7 +56,9 @@ For intake schemaVersion 2, use the single confirmed dated benchmark to inform n
 Effort guidance requires ALL numeric paces null; prefer duration targets and conversational effort rather than speculative distances. Performance guidance must come from the supplied dated performance, not solely the goal, with no distance field in the provider response. One optional numeric pace per step, not a range. Never imply an estimated duration guarantees a finish time.
 The final date is the only Race session. Include exactly one race step with an estimated durationSeconds appropriate to the benchmark and paceSecondsPerMile null. The app fixes race distance at ${distance} and calculates race pace from that duration. Never output a race pace or any distanceMiles field. Warm-up and cooldown may be additional steps; all count toward the session limit. Race comparison measurements describe only the race step.
 Return a structured assessment as well as goalAssessment. decision proceed means the supplied evidence supports proposing a conservative plan, not that the goal is guaranteed. It requires outcome plan, actions [] and questions []. Any other decision requires outcome needs_clarification, NO sessions and specific questions. Use adjust_goal when the target is unsupported by the benchmark, experience and training window; actions must include target_time or race_date. A novice with a 35-minute 5K benchmark whose selected race is a 5K seeking a 15-minute finish in three months must receive adjust_goal, not a schedule that chases that time. This is an unsupported request, not a declaration of permanent physical impossibility. Never suggest changing reported running experience to qualify.
-Use refresh_benchmark with action benchmark when the achieved result is too old or unrepresentative for useful pace estimates. planningContext contains calendar ages as of generation and at training start; consider both, with uncertainty. There is no universal fixed expiry. Use clarify for other contradictions that can be resolved through the existing target_time, race_date, benchmark or training_days fields. Do not ask for deferred fields merely because they are absent. Assessment reason <=600 characters. Actions are unique existing-field names, at least one for a blocked request. Explain the concrete evidence and uncertainty in plain language. Suggest reviewing a later race date or a less demanding target when useful, without inventing an exact achievable time or date, guaranteeing more time will suffice, or silently changing any input. Do not produce a knowingly unsuitable plan merely to satisfy the requested time.
+Use refresh_benchmark with action benchmark when the achieved result is too old or unrepresentative for useful pace estimates. planningContext contains calendar ages as of generation and at training start; consider both, with uncertainty. There is no universal fixed expiry. Use clarify for other contradictions that can be resolved through the existing target_time, race_date, benchmark or training_days fields. Do not ask for deferred fields merely because they are absent. Assessment reason <=600 characters. Actions are unique existing-field names, at least one for a blocked request. Explain the concrete evidence and uncertainty in plain language. When the decision is adjust_goal or clarify, fill assessment.suggestions with up to two independent options if supported by the benchmark and the available evidence. Set suggestions to null for proceed or refresh_benchmark, or if neither option has enough evidence. Keep the original intake as submitted.
+The finishTime option keeps the dates and weekdays fixed. Provide one rounded, less demanding target durationSeconds greater than the current target, with a short reason grounded in the benchmark and training window. Describe it as a planning estimate, never a prediction or guarantee. If the existing schedule is itself insufficient, set finishTime to null.
+The schedule option keeps the target finish time fixed. Provide additionalDays as the minimum useful whole calendar days to add to the current window, and/or trainingDays as the complete proposed weekday list (0 Sunday through 6 Saturday). Use zero additionalDays for a weekday-only change, and null trainingDays if the selected weekdays work. Do not repeat a weekday or assume proposed days are available. The app prefers starting earlier if the dates allow it, otherwise it offers a later race date. Do not propose a window longer than ${MAX_TRAINING_DAYS} days. If extra time or adjusted days would still leave the goal unsupported, set schedule to null. Each option's reason is at most 300 characters. Do not invent benchmark results or imply that more training time alone makes a goal achievable. Do not produce a knowingly unsuitable plan merely to satisfy the requested time.
 For ordinary running steps, duration and pace are the authoritative pair; for the race, estimated duration and the selected race distance are authoritative. Do not embed numeric distance, duration or pace targets in free-text labels, titles or notes; keep those fields to effort/coaching cues. The app renders the structured measurements.
 Keep summary and goalAssessment each <=1200 characters, up to 12 assumptions of <=400 characters. Session title <=120, notes <=350, step label <=160. Be concise enough that title + step instructions + notes fit within 1000 characters per workout. No URLs or markdown links in workout text. Provide useful effort cues in labels and notes.`;
 }
@@ -87,7 +103,7 @@ export async function requestOpenAIPlan(input: PlannerIntake, config: PlanProvid
   const requestBody = JSON.stringify({ model: APPROVED_PLAN_MODEL, store: false, instructions: planInstructions(race),
     input: JSON.stringify({ intake: input, planningContext: context, schedule: scheduleDays(input) }),
     reasoning: { effort: 'low' }, max_output_tokens: MAX_OUTPUT_TOKENS,
-    text: { format: { type: 'json_schema', name: 'running_race_plan_v7_calculated', strict: true, schema: PLAN_JSON_SCHEMA } },
+    text: { format: { type: 'json_schema', name: 'running_race_plan_v8_suggestions', strict: true, schema: PLAN_JSON_SCHEMA } },
   });
   // UTF-8 bytes conservatively bound ordinary text tokens. Leave additional
   // allowance for message/schema overhead; this is a guard, not a billing quote.

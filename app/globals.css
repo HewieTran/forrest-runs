@@ -137,3 +137,11 @@ body {
 }
 
 .plan-adjustment h2{font-size:1.15rem;margin:0 0 .75rem}.plan-adjustment ul{padding-left:1.25rem}.plan-adjustment-actions{display:flex;flex-wrap:wrap;gap:.65rem}.plan-adjustment-actions .button{white-space:normal;text-align:left}
+
+.plan-suggestions{display:grid;gap:.75rem;margin:1rem 0}
+.plan-suggestion{background:var(--background);border:1px solid var(--border);border-radius:.65rem;padding:1rem}
+.plan-suggestion h3{margin:0 0 .5rem;font-size:1rem}
+.plan-suggestion p{margin:.5rem 0}
+.plan-suggestion .button{margin-top:.4rem;white-space:normal;text-align:left}
+.setup-suggestion-applied{display:flex;flex-wrap:wrap;align-items:center;gap:.65rem;margin-bottom:1rem}
+.setup-suggestion-applied p{margin:0}

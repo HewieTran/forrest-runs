@@ -7,6 +7,7 @@ export const OUTPUT_MICRODOLLARS_PER_MILLION = 500000;
 export const MONTHLY_BUDGET_MICRODOLLARS = 4000000; // $1 below Hieu's $5 Platform cap.
 export const REQUEST_RESERVE_MICRODOLLARS = 25000;
 export const DAILY_ATTEMPT_LIMIT = 10;
+export const GENERATION_COOLDOWN_MS = 60_000;
 export const MAX_INPUT_TOKEN_BOUND = 60000;
 export const MAX_OUTPUT_TOKENS = 30000;
 export type TokenUsage = { inputTokens: number; outputTokens: number };

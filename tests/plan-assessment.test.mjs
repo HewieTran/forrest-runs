@@ -1,10 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { assessmentContext } from '../lib/plan-assessment.ts';
+import { assessmentContext, goalSuggestions } from '../lib/plan-assessment.ts';
 import { validatePlanOutput, validateGeneration, PROMPT_VERSION, PLANNER_VERSION } from '../lib/planner.ts';
 import { requestOpenAIPlan } from '../lib/openai-plan.ts';
 import { currentPlannerFixture, responseFixture } from './planner-fixture.mjs';
 import { addDays } from '../lib/domain.ts';
+import { trainingWindowIssue } from '../lib/training-window.ts';
 const today = '2026-10-31';
 const config = { apiKey: 'synthetic-key', model: 'gpt-6-luna', asOfDate: today };
 const fixture = currentPlannerFixture(today);
@@ -73,4 +74,47 @@ test('saved generation validates assessment context and retains it in offline ba
   assert.deepEqual(validateGeneration(generation), generation);
   assert.throws(() => validateGeneration({ ...generation, assessmentContext: { ...generation.assessmentContext, benchmarkAgeDays: 999 } }));
   assert.throws(() => validateGeneration({ ...generation, output: { ...blocked(), assessment: undefined } }));
+});
+
+test('training dates allow both exact boundaries and explain how to fix an unsupported window', () => {
+  assert.equal(trainingWindowIssue(today, addDays(today, 14), today), null);
+  assert.equal(trainingWindowIssue(today, addDays(today, 182), today), null);
+  assert.match(trainingWindowIssue(today, addDays(today, 13), today).message, /at least 2 weeks.*later race date/);
+  assert.match(trainingWindowIssue(today, '2027-12-12', today).message, /up to 26 weeks.*June 13, 2027/);
+});
+
+test('a supported extension keeps race day if the start can move, otherwise it keeps the start', () => {
+  const input = structuredClone(fixture.input);
+  input.goal.startDate = addDays(today, 21);
+  input.goal.raceDate = addDays(input.goal.startDate, 70);
+  const assessment = { ...blocked().assessment, suggestions: {
+    finishTime: { durationSeconds: 2100, reason: 'A closer match to the synthetic benchmark.' },
+    schedule: { additionalDays: 21, trainingDays: [5, 1, 3], reason: 'Example extension.' },
+  } };
+  const [finish, earlier] = goalSuggestions(assessment, input, today);
+  assert.equal(finish.durationSeconds, 2100);
+  assert.deepEqual(earlier.date, { field: 'startDate', from: input.goal.startDate, to: today });
+  assert.deepEqual(earlier.trainingDays, [1, 3, 5]);
+  const [, later] = goalSuggestions(assessment, input, addDays(today, 1));
+  assert.deepEqual(later.date, { field: 'targetDate', from: input.goal.raceDate, to: addDays(input.goal.raceDate, 21) });
+  assert.equal(input.goal.startDate, addDays(today, 21));
+  assert.deepEqual(goalSuggestions(assessment, input, addDays(input.goal.startDate, 1)), []);
+  assessment.suggestions.schedule.additionalDays = 113;
+  assert.deepEqual(goalSuggestions(assessment, input, today), [finish]);
+  assessment.suggestions.finishTime.durationSeconds = input.goal.targetDurationSeconds;
+  assert.deepEqual(goalSuggestions(assessment, input, today), []);
+});
+
+test('weekday-only suggestions must change the selected days and unavailable benchmarks get no estimates', () => {
+  const input = fixture.input;
+  const assessment = { ...blocked().assessment, suggestions: {
+    finishTime: null,
+    schedule: { additionalDays: 0, trainingDays: [...input.availability.trainingDays].reverse(), reason: 'Example.' },
+  } };
+  assert.deepEqual(goalSuggestions(assessment, input, today), []);
+  assessment.suggestions.schedule.trainingDays = [0, 2, 4];
+  const [schedule] = goalSuggestions(assessment, input, today);
+  assert.equal(schedule.date, null);
+  assert.deepEqual(schedule.trainingDays, [0, 2, 4]);
+  assert.deepEqual(goalSuggestions({ ...assessment, decision: 'refresh_benchmark' }, input, today), []);
 });
