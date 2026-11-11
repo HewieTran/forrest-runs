@@ -142,3 +142,39 @@
 @media(max-width:600px) { .quick-workout-check { width:36px; } .block-settings-page .panel { padding:18px; } .block-status-control { flex-wrap:wrap; } }
 
 .setup-benchmark{border-top:1px solid var(--line);margin-top:28px;padding-top:24px}.setup-benchmark h3{font-size:17px;font-weight:600;margin:0 0 9px}.setup-benchmark .setup-check{margin-top:20px;align-items:flex-start;line-height:1.6}.setup-benchmark .setup-check input{flex-shrink:0;margin-top:3px;min-height:16px}.setup-benchmark>small{display:block;font-size:11px;color:var(--muted);line-height:1.6;margin-top:8px}.setup-benchmark>small.setup-field-error{color:#a13732}
+
+/* Goal adjustment on Review. */
+.plan-adjustment {
+  display: grid; gap: 14px; margin: 0 0 24px; padding: clamp(14px, 2.2vw, 24px);
+  border: 1px solid var(--line); border-radius: var(--radius); background: var(--paper);
+  color: var(--ink); line-height: 1.5;
+}
+.plan-adjustment-heading { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 8px 14px; }
+.plan-adjustment-heading h2 { display: flex; align-items: baseline; gap: 9px; margin: 0; font-size: clamp(18px, 2.2vw, 24px); line-height: 1.25; }
+.plan-adjustment-heading h2 svg { flex: none; align-self: flex-start; color: var(--amber); margin-top: 2px; }
+.plan-adjustment-summary, .plan-adjustment-next { margin: 0; }
+.plan-adjustment-times { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 0; }
+.plan-adjustment-times div { border: 1px solid var(--line); border-radius: 10px; padding: 12px; min-width: 0; }
+.plan-adjustment-times dt, .plan-suggestion h3 { color: var(--green); font-size: 13px; font-weight: 700; }
+.plan-adjustment-times dd, .plan-suggestion-time {
+  margin: 2px 0 0; font-size: clamp(21px, 3vw, 32px); font-weight: 750;
+  letter-spacing: -.035em; font-variant-numeric: tabular-nums;
+}
+.plan-suggestion { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 18px; padding: 14px; background: var(--sage); border-radius: 10px; }
+.plan-suggestion > div:first-child { flex: 1 1 15rem; min-width: 0; }
+.plan-suggestion h3, .plan-suggestion p { margin: 0; }
+.plan-suggestion-time { display: block; }
+.plan-suggestion-buttons { display: grid; gap: 7px; justify-items: center; }
+.plan-suggestion .button { white-space: normal; text-align: left; }
+.plan-adjustment-details { border: 1px solid var(--line); border-radius: 8px; padding: 9px 12px; }
+.plan-adjustment-details summary { cursor: pointer; color: var(--green); font-weight: 650; }
+.plan-adjustment-details p, .plan-adjustment-details ul { margin: 8px 0 0; }
+.plan-adjustment-details ul { list-style: disc; padding-left: 20px; }
+.plan-adjustment-actions { display: flex; flex-wrap: wrap; gap: 5px 16px; }
+.plan-adjustment-actions:empty { display: none; }
+.plan-adjustment-link { color: var(--green); text-decoration: underline; text-underline-offset: 3px; background: transparent; border: 0; padding: 4px 0; cursor: pointer; font-size: 13px; text-align: left; }
+.plan-adjustment-link:disabled { opacity: .55; cursor: default; }
+@media (max-width: 540px) {
+  .plan-suggestion-buttons, .plan-suggestion > .button { width: 100%; }
+  .plan-suggestion-buttons .primary { width: 100%; justify-content: center; }
+}

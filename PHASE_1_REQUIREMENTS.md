@@ -21,7 +21,7 @@ Product owner: Hieu. Agreed UI and behavior baseline, 2026-10-27.
 | --- | --- | --- |
 | Experience: novice, intermediate or advanced; age; height; weight; units | Block name, suggested if blank | Mileage, longest run, frequency, VO2, interruptions, long-run preference, session limits, other activities |
 | Supported race distance; target finish time; start date; race date; selected weekdays | | |
-| One benchmark: 5K, 10K or half-marathon; achieved finish time; date achieved; confirmation it was a race or best-effort time trial | | |
+| One benchmark: 5K, 10K, half marathon or full marathon; achieved finish time; date achieved; confirmation it was a race or best-effort time trial | | |
 
 Benchmark addition approved 2026-10-31. Keep the four tabs; place one benchmark
 section in Runner and show it in Review. Incomplete benchmark drafts can be saved;
@@ -43,6 +43,9 @@ when an old or unrepresentative result needs refreshing.
   that a later date makes a goal achievable. The draft remains saved.
 - Show the supported training window on Goal. When dates fall outside it, allow
   saving the draft and direct the runner to the dates before generation.
+- A shorter race or time trial can support a tentative planning target when the
+  available schedule and experience support a gradual build. Review labels both
+  distances and only compares elapsed times directly at the same distance.
 - On Review, an unsupported goal can show a more conservative estimated finish
   time for the existing schedule and/or a specific schedule for the existing
   target. For extra calendar days, prefer an earlier start that is still today

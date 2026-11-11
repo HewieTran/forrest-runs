@@ -2,11 +2,13 @@ import { raceDistanceLabel, raceForKilometers } from './race-distance.ts';
 import { validDate } from './domain.ts';
 import { parseInput, KM_PER_MILE, formatDuration } from './workout-form.ts';
 
-export const RESULT_DISTANCES = ['5k', '10k', 'half'] as const;
-export const RESULT_LABELS = { '5k': '5K', '10k': '10K', half: 'Half marathon' };
+const LEGACY_RESULT_DISTANCES = ['5k', '10k', 'half'] as const;
+export const RESULT_DISTANCES = [...LEGACY_RESULT_DISTANCES, 'full'] as const;
+export const RESULT_LABELS = { '5k': '5K', '10k': '10K', half: 'Half marathon', full: 'Full marathon' };
 export const SETUP_STEPS = ['Goal', 'Runner', 'Training days', 'Review'] as const;
 export const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 export type ResultDistance = typeof RESULT_DISTANCES[number];
+type LegacyResultDistance = typeof LEGACY_RESULT_DISTANCES[number];
 export type PerformanceResult = { time: string; date: string; source: 'race' | 'time-trial' };
 export type Benchmark = {
   distance: ResultDistance | null;
@@ -22,7 +24,7 @@ export type LegacyBlockSetup = {
   step: number;
   units: 'mi' | 'km';
   runner: { age: number | null; weight: number | null; height: number | null; vo2: { value: number | null; source: string; date: string } | null };
-  baseline: { weeklyDistance: number | null; longestRun: number | null; runsPerWeek: number | null; results: Record<ResultDistance, PerformanceResult> };
+  baseline: { weeklyDistance: number | null; longestRun: number | null; runsPerWeek: number | null; results: Record<LegacyResultDistance, PerformanceResult> };
   goal: { name: string; distanceKm: number | null; targetTime: string; startDate: string; targetDate: string };
   availability: { days: number[]; longRunDay: number | null };
 };
@@ -123,7 +125,7 @@ export function validateSetup(value: unknown, today?: string): BlockSetup {
   const normalized: LegacyBlockSetup = {
     schemaVersion: 1, step: input.step as number, units: input.units as 'mi' | 'km',
     runner: { age: numeric(runner.age, 'age', false, true), weight: numeric(runner.weight, 'weight'), height: numeric(runner.height, 'height'), vo2: null },
-    baseline: { weeklyDistance: numeric(baseline.weeklyDistance, 'weekly distance', true), longestRun: numeric(baseline.longestRun, 'longest recent run', true), runsPerWeek: numeric(baseline.runsPerWeek, 'current runs per week', true, true), results: {} as Record<ResultDistance, PerformanceResult> },
+    baseline: { weeklyDistance: numeric(baseline.weeklyDistance, 'weekly distance', true), longestRun: numeric(baseline.longestRun, 'longest recent run', true), runsPerWeek: numeric(baseline.runsPerWeek, 'current runs per week', true, true), results: {} as Record<LegacyResultDistance, PerformanceResult> },
     goal: { name: text(goal.name, 'block name'), distanceKm: numeric(goal.distanceKm, 'goal distance'), targetTime: time(goal.targetTime, 'target finish time'), startDate: date(goal.startDate, 'start date'), targetDate: date(goal.targetDate, 'target date') },
     availability: { days: [], longRunDay: null },
   };
@@ -132,7 +134,7 @@ export function validateSetup(value: unknown, today?: string): BlockSetup {
     normalized.runner.vo2 = { value: numeric(vo2.value, 'VO₂ max'), source: text(vo2.source, 'VO₂ source'), date: date(vo2.date, 'VO₂ measurement date', today) };
   }
   if (normalized.baseline.runsPerWeek !== null && normalized.baseline.runsPerWeek > 7) throw new Error('Current running days must be between 0 and 7.');
-  for (const key of RESULT_DISTANCES) {
+  for (const key of LEGACY_RESULT_DISTANCES) {
     const result = record(results[key]);
     if (result.source !== 'race' && result.source !== 'time-trial') throw new Error('Choose race or time trial for each performance result.');
     normalized.baseline.results[key] = { time: time(result.time, `${RESULT_LABELS[key]} result`), date: date(result.date, `${RESULT_LABELS[key]} result date`, today), source: result.source };
@@ -176,7 +178,7 @@ export function validateSetup(value: unknown, today?: string): BlockSetup {
   }
   if (input.schemaVersion === 4) {
     const benchmark = record(input.benchmark);
-    if (benchmark.distance !== null && !RESULT_DISTANCES.includes(benchmark.distance as ResultDistance)) throw new Error('Choose 5K, 10K or half-marathon for the benchmark distance.');
+    if (benchmark.distance !== null && !RESULT_DISTANCES.includes(benchmark.distance as ResultDistance)) throw new Error('Choose 5K, 10K, half marathon or full marathon for the benchmark distance.');
     if (typeof benchmark.effortConfirmed !== 'boolean') throw new Error('Confirm whether this was a race or best-effort time trial.');
     const duration = numeric(benchmark.durationSeconds, 'benchmark finish time', false, true);
     if (duration !== null && duration > 86400) throw new Error('Benchmark finish time cannot exceed 24 hours.');
@@ -227,8 +229,8 @@ export function setupIssues(setup: BlockSetup): SetupIssue[] {
   need(value.baseline.runsPerWeek === null, 2, 'runsPerWeek', 'Add your current running days per week.');
   need(value.baseline.trainingChanges === null, 2, 'trainingChanges', 'Tell us whether anything has interrupted or limited your training.');
   need(value.baseline.trainingChanges === 'changed' && !value.baseline.trainingChangesNotes, 2, 'trainingChangesNotes', 'Briefly describe the training change or limitation.');
-  need(value.goal.paceGuidance === 'performance' && !RESULT_DISTANCES.some(key => value.baseline.results[key].time && value.baseline.results[key].date), 2, 'results', 'Add a dated race or time trial for performance-based paces, or choose effort guidance.');
-  for (const key of RESULT_DISTANCES) {
+  need(value.goal.paceGuidance === 'performance' && !LEGACY_RESULT_DISTANCES.some(key => value.baseline.results[key].time && value.baseline.results[key].date), 2, 'results', 'Add a dated race or time trial for performance-based paces, or choose effort guidance.');
+  for (const key of LEGACY_RESULT_DISTANCES) {
     const result = value.baseline.results[key];
     need(!!result.time !== !!result.date, 2, key, `Add both the ${RESULT_LABELS[key]} result and its date, or remove the result.`);
   }
@@ -256,14 +258,14 @@ export function plannerIntake(setup: BlockSetup) {
   const miles = (distance: number | null) => distance === null ? null : distance / (value.units === 'km' ? KM_PER_MILE : 1);
   const simplified = value.schemaVersion >= 3;
   const benchmark = value.schemaVersion === 4 ? value.benchmark : null;
-  const distanceMeters = { '5k': 5000, '10k': 10000, half: 21097.5 };
+  const distanceMeters = { '5k': 5000, '10k': 10000, half: 21097.5, full: 42195 };
   return {
     schemaVersion: value.schemaVersion === 4 ? 2 : 1,
     goal: { distanceMeters: race.meters, startDate: value.goal.startDate, raceDate: value.goal.targetDate, mode: value.goal.mode, targetDurationSeconds: simplified ? value.goal.targetDurationSeconds ?? null : value.goal.mode === 'time' ? durationSeconds(value.goal.targetTime) : null, paceGuidance: value.goal.paceGuidance },
     runner: { age: value.runner.age, heightCm: value.runner.height === null ? null : value.runner.height * (value.units === 'mi' ? 2.54 : 1), weightKg: value.runner.weight === null ? null : value.runner.weight * (value.units === 'mi' ? 0.45359237 : 1), experience: value.runner.experience, vo2: simplified ? null : value.runner.vo2 },
     baseline: { weeklyDistanceMiles: simplified ? null : miles(value.baseline.weeklyDistance), longestRunMiles: simplified ? null : miles(value.baseline.longestRun), runsPerWeek: simplified ? null : value.baseline.runsPerWeek, trainingChanges: simplified ? null : value.baseline.trainingChanges, trainingChangesNotes: simplified ? '' : value.baseline.trainingChangesNotes,
       results: benchmark ? [{ distanceMeters: distanceMeters[benchmark.distance!], durationSeconds: benchmark.durationSeconds, date: benchmark.date, source: 'confirmed-race-or-best-effort-time-trial' }]
-        : RESULT_DISTANCES.filter(key => !simplified && value.baseline.results[key].time && value.baseline.results[key].date).map(key => ({ distanceMeters: distanceMeters[key], durationSeconds: durationSeconds(value.baseline.results[key].time), date: value.baseline.results[key].date, source: value.baseline.results[key].source })) },
+        : LEGACY_RESULT_DISTANCES.filter(key => !simplified && value.baseline.results[key].time && value.baseline.results[key].date).map(key => ({ distanceMeters: distanceMeters[key], durationSeconds: durationSeconds(value.baseline.results[key].time), date: value.baseline.results[key].date, source: value.baseline.results[key].source })) },
     availability: { trainingDays: value.availability.days, maxSessionDurationSeconds: simplified ? null : value.availability.maxSessionDurationSeconds, dayDurationLimits: simplified ? {} : value.availability.dayDurationLimits, longRunDay: simplified ? null : value.availability.longRunDay, otherCommitments: simplified ? '' : value.availability.otherCommitments },
   };
 }
