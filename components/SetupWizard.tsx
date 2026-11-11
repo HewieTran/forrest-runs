@@ -10,6 +10,7 @@ import { DAY_NAMES, SETUP_STEPS, RESULT_DISTANCES, RESULT_LABELS, simpleSetup, s
 import { validDate, type Plan } from '../lib/domain';
 import { RACE_DISTANCES, raceDistanceLabel, raceForKilometers } from '../lib/race-distance';
 import { formatDuration } from '../lib/workout-form';
+import { trainingWindowIssue } from '../lib/training-window';
 import type { RecentBaseline } from '../lib/recent-baseline';
 
 function fieldsFor(value: IntakeSetup): Record<string, string> {
@@ -33,6 +34,7 @@ export default function SetupWizard({ initial = null, displayName, today, readOn
   useEffect(() => { if (focusTarget) { document.getElementById(focusTarget)?.focus(); setFocusTarget(''); } }, [focusTarget, step]);
   function editAssessment(action: AssessmentAction) { setStep(assessmentStep(action)); setFocusTarget(ASSESSMENT_FIELDS[action]); setErrors([]); }
   const disabled = saving || readOnly;
+  const windowIssue = readOnly ? null : trainingWindowIssue(fields.startDate, fields.targetDate, today);
   const library = preview ? '/preview?view=blocks' : '/blocks';
   useEffect(() => { if (!dirty) return; const handler = (event: BeforeUnloadEvent) => event.preventDefault(); window.addEventListener('beforeunload', handler); return () => window.removeEventListener('beforeunload', handler); }, [dirty]);
   function update(name: string, value: string) { setGenerationError(''); setClarification(null); setFields(current => ({ ...current, [name]: value })); setDirty(true); setMessage(''); setErrors(current => current.filter(issue => issue.field !== name)); }
@@ -61,6 +63,7 @@ export default function SetupWizard({ initial = null, displayName, today, readOn
     if (v && type === 'date' && !validDate(v)) return 'Choose a valid date.';
     if (name === 'benchmarkDate' && v > today) return 'Choose today or an earlier date.';
     if (['startDate', 'targetDate'].includes(name) && fields.startDate && fields.targetDate && fields.targetDate <= fields.startDate) return 'Race date must be after the training start date.';
+    if (windowIssue?.field === name) return windowIssue.message;
     return errors.find(issue => issue.field === name)?.message;
   }
   function next() {
@@ -71,6 +74,11 @@ export default function SetupWizard({ initial = null, displayName, today, readOn
     } catch (error) { setErrors([{ step, field: '', message: error instanceof Error ? error.message : 'Check your entries.' }]); }
   }
   async function save(complete: boolean) {
+    if (complete && windowIssue) {
+      setStep(0);
+      setFocusTarget(`setup-${windowIssue.field}`);
+      return;
+    }
     if (complete && clarification) { setMessage('Edit the relevant inputs before generating again.');return; }
     setMessage('');setErrors([]);setGenerationError('');
     let setup: BlockSetup;
@@ -133,7 +141,7 @@ export default function SetupWizard({ initial = null, displayName, today, readOn
           {fields.goalKind && !raceForKilometers(snapshot.goal.distanceKm) && <option value={fields.goalKind}>{raceDistanceLabel(snapshot.goal.distanceKm)} · saved goal</option>}
         </select>
         <small id="race-distance-feedback" className={issueFor('goalKind') ? 'setup-field-error' : undefined}>{issueFor('goalKind')}</small>
-      </label>{input('targetTime', 'Target finish time', 'text', true, 'Enter m:ss or h:mm:ss. This is your goal, not a measured result.')}{input('startDate', 'Training start date', 'date')}{input('targetDate', 'Race date', 'date')}{input('name', 'Block name', 'text', false, 'Leave blank for a suggested name.')}</div></>}
+      </label>{input('targetTime', 'Target finish time', 'text', true, 'Enter m:ss or h:mm:ss. This is your goal, not a measured result.')}{input('startDate', 'Training start date', 'date', true, 'Generated plans span 2 to 26 weeks.')}{input('targetDate', 'Race date', 'date')}{input('name', 'Block name', 'text', false, 'Leave blank for a suggested name.')}</div></>}
       {step === 1 && <><h2>About you</h2><p className="setup-description">Choose your running experience and add your measurements.</p><div className="setup-fields"><label>Running experience<span className="setup-required">Required</span><select aria-label="Running experience" value={fields.experience} onChange={event => update('experience', event.target.value)} aria-invalid={errors.some(issue => issue.field === 'experience')}><option value="">Choose experience</option><option value="novice">Novice</option><option value="intermediate">Intermediate</option><option value="advanced">Advanced</option></select></label>{input('age', 'Age (years)', 'number')}{input('weight', `Weight (${units === 'mi' ? 'lb' : 'kg'})`, 'number')}{input('height', `Height (${units === 'mi' ? 'inches' : 'cm'})`, 'number', true, units === 'mi' ? 'Total inches, for example 70 for 5 ft 10 in.' : undefined)}</div>
         <section className="setup-benchmark" aria-labelledby="benchmark-heading">
           <h3 id="benchmark-heading">Performance benchmark</h3>
@@ -152,9 +160,9 @@ export default function SetupWizard({ initial = null, displayName, today, readOn
         </section>
       </>}
       {step === 2 && <><h2>Choose your training days</h2><p className="setup-description">Select the days you want a running workout. Race day is included even if it falls on another weekday.</p><div id="setup-trainingDays" tabIndex={-1} className="setup-days" role="group" aria-label="Selected training days">{DAY_NAMES.map((name, day) => <button type="button" key={name} aria-pressed={days.includes(day)} onClick={() => { setClarification(null);setDays(current => current.includes(day) ? current.filter(value => value !== day) : [...current, day].sort());setDirty(true);setErrors([]); }}>{name.slice(0,3)}<span>{days.includes(day) ? 'Run' : '—'}</span></button>)}</div></>}
-      {step === 3 && <><h2>Your plan details</h2><SetupReview setup={readOnly && initial?.setup ? initial.setup : snapshot} /><p className="setup-footnote">Your benchmark informs estimated paces; your target finish time remains a goal. The plan saves automatically and starts only when you choose Start training.</p></>}
+      {step === 3 && <><h2>Your plan details</h2><SetupReview setup={readOnly && initial?.setup ? initial.setup : snapshot} />{windowIssue && <div className="setup-errors" role="status"><p>{windowIssue.message}</p><button className="button" type="button" onClick={() => { setStep(0); setFocusTarget(`setup-${windowIssue.field}`); }}>Edit training dates</button></div>}<p className="setup-footnote">Your benchmark informs estimated paces; your target finish time remains a goal. The plan saves automatically and starts only when you choose Start training.</p></>}
       </fieldset>
-      <div className="setup-form-actions"><button className="button" type="button" disabled={saving || step === 0} onClick={() => { setStep(current => current - 1);setErrors([]); }}><ArrowLeft size={15} />Back</button><div>{!readOnly && <button className="button" type="button" disabled={saving} onClick={() => void save(false)}><Save size={15} />Save draft</button>}{step < 3 ? <button className="button primary" type={readOnly ? 'button' : 'submit'} disabled={saving} onClick={readOnly ? () => setStep(current => current + 1) : undefined}>Continue<ArrowRight size={15} /></button> : !readOnly && <button className="button primary" type="submit" disabled={saving || !!clarification}>{saving ? 'Generating and saving…' : 'Generate plan'}</button>}</div></div>
+      <div className="setup-form-actions"><button className="button" type="button" disabled={saving || step === 0} onClick={() => { setStep(current => current - 1);setErrors([]); }}><ArrowLeft size={15} />Back</button><div>{!readOnly && <button className="button" type="button" disabled={saving} onClick={() => void save(false)}><Save size={15} />Save draft</button>}{step < 3 ? <button className="button primary" type={readOnly ? 'button' : 'submit'} disabled={saving} onClick={readOnly ? () => setStep(current => current + 1) : undefined}>Continue<ArrowRight size={15} /></button> : !readOnly && <button className="button primary" type="submit" disabled={saving || !!clarification || !!windowIssue}>{saving ? 'Generating and saving…' : 'Generate plan'}</button>}</div></div>
     </form><aside className="setup-aside"><div className="setup-unit-choice"><span>Measurements</span><div role="group" aria-label="Measurement units"><button aria-pressed={units === 'mi'} disabled={disabled} onClick={() => switchUnits('mi')}>mi · lb · in</button><button aria-pressed={units === 'km'} disabled={disabled} onClick={() => switchUnits('km')}>km · kg · cm</button></div></div><Flag size={23} /><h3>{fields.name || suggestedBlockName(snapshot)}</h3><dl><dt>Race date</dt><dd>{fields.targetDate || 'Not set'}</dd><dt>Target finish</dt><dd>{fields.targetTime || 'Not set'}</dd><dt>Experience</dt><dd>{fields.experience || 'Not selected'}</dd><dt>Training days</dt><dd>{days.length ? days.map(day => DAY_NAMES[day].slice(0,3)).join(', ') : 'Not selected'}</dd><dt>Workout paces</dt><dd>Numeric estimates</dd></dl><p>{dirty ? 'Unsaved changes' : block ? 'Draft saved' : 'Save a draft to return later'}</p></aside></div>
   </main></div>;
 }
