@@ -62,14 +62,27 @@ existing representations.
 
 ## Remaining before an external AWS beta
 
+The approved beta scope is Google sign-in through Cognito, using Hieu's existing
+AWS account. AWS operating costs must stay under $5 per month, separate from
+the $5 monthly OpenAI budget. The beta name is **ForrestRun-Beta**, with
+`forrestrun-beta` as the proposed URL label. The full hostname is pending.
+
+The AWS beta starts with an empty database and new accounts. Existing ChatGPT
+accounts and training records are outside the migration scope.
+
+Hosting selection is pending the cost estimate. The smallest Lightsail bundle
+with public IPv4 is $5 per month before backups and other services, so it exceeds
+the approved AWS ceiling once those costs are included. The $3.50 IPv6-only
+option has 512 MB RAM and requires separate compatibility and access checks.
+See [AWS Lightsail bundles](https://docs.aws.amazon.com/lightsail/latest/userguide/amazon-lightsail-bundles.html).
+
 - Replace synthetic sessions with Cognito and verify real authentication,
   logout, session expiration and account recovery.
 - Confirm production support for the Node.js runtime and SQLite driver.
   This proof uses the built-in SQLite API in Node.js 24.
 - Validate server memory, request concurrency and generation latency.
 - Configure HTTPS, secrets, backups, restore checks and deployment automation.
-- Rehearse transferring existing records and securely linking account ownership.
+- Initialize a separate empty beta database and verify new-account ownership.
 - Select AWS resources and approve their estimated operating cost.
 
-PR #14 is the dependency for the empty-account behavior included in this branch.
-This proof is submitted separately for review and is local-only.
+PRs #14 and #15 are merged. The Node.js compatibility proof is local-only.
