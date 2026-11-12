@@ -53,12 +53,13 @@ never add a description-parsing backfill to a schema migration or live read.
   deployed revision, agreed behavior, and a runner's goal without navigation
   instructions. Test the changed flow and
   the closest existing flow at desktop and phone widths.
-- Before a user-facing release, walk through creating and starting a training block, finding
-  today's workout, logging and editing actual results, reloading to confirm
-  persistence, and finding weekly progress. Use a disposable account with
-  synthetic data and simulated generation. If staging lacks isolated test
-  access, use a disposable preview of the release source and record which
-  staging checks are still blocked.
+- Before a user-facing release, walk through creating and starting a manual
+  training block, finding today's workout, logging and editing actual results,
+  reloading to confirm persistence, and finding weekly progress. Use a
+  disposable account with synthetic data. Test generation with simulation and
+  verify its saved draft separately. If staging lacks isolated test access, use
+  a disposable preview of the release source and record the blocked staging
+  checks.
 - In the feature PR, record the tested environment and revision, viewport,
   pass/fail/blocked results, and steps to reproduce any usability issues. Include
   a screenshot when it shows the problem without exposing personal data.
