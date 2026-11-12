@@ -383,20 +383,8 @@ export default function Tracker({
         <a className="block-breadcrumb" href={preview ? '/preview?view=blocks' : '/blocks'}><ChevronLeft size={15} /> All training blocks</a>
         <section className="page-heading block-detail-heading">
           <div>
-            <h1>{data.plan.raceName}</h1>
-            <div className="race-subtitle">
-              <span>Target date</span>
-              <span className="dot">·</span>
-              <span>
-                {formatDate(data.plan.raceDate, {
-                  month: 'long',
-                  day: 'numeric',
-                  year: 'numeric',
-                })}
-              </span>
-            </div>
-            <div className="block-header-details">
-              <span className="block-source">{simulatedBlock(data.plan) ? 'SIMULATION · Example schedule' : acceptedPlan(data.plan) ? data.plan.generation?.alteredAt ? 'OpenAI plan · Altered' : 'OpenAI training plan' : data.plan.sourceName ? 'Imported training log' : data.plan.setup ? 'Guided setup' : 'Manual training block'} · {data.workouts.length} workouts</span>
+            <div className="block-title-row">
+              <h1>{data.plan.raceName}</h1>
               <div className="block-header-controls" role="group" aria-label="Block management">
                 <BlockActions plan={data.plan} activeBlock={currentActive} preview={preview} disabled={saving || hasUnsavedChanges} ready={blockReady({ ...data.plan, workoutCount: data.workouts.length })} onChanged={block => {
                   setData(current => ({ ...current, plan: block }));
@@ -406,7 +394,11 @@ export default function Tracker({
                 }} />
                 <a className="icon-button block-settings-link" aria-label="Training block settings" onClick={event => { if (!confirmDiscardChanges()) event.preventDefault(); }} href={preview ? '/preview?view=settings' : `/blocks/${encodeURIComponent(data.plan.id)}/settings`}><Settings2 size={19} /></a>
               </div>
-              {hasUnsavedChanges && <p className="small-muted block-management-hint">Save or cancel your workout edits before changing block status.</p>}
+            </div>
+            <div className="block-header-details">
+              <span>Target date: {formatDate(data.plan.raceDate, { month: 'long', day: 'numeric', year: 'numeric' })}</span>
+              <span><span className="dot" aria-hidden="true">·</span> {simulatedBlock(data.plan) ? 'SIMULATION · Example schedule' : acceptedPlan(data.plan) ? data.plan.generation?.alteredAt ? 'OpenAI plan · Altered' : 'OpenAI training plan' : data.plan.sourceName ? 'Imported training log' : data.plan.setup ? 'Guided setup' : 'Manual training block'}</span>
+              <span><span className="dot" aria-hidden="true">·</span> {data.workouts.length} {data.workouts.length === 1 ? 'workout' : 'workouts'}</span>
             </div>
           </div>
           <div className="countdown">

@@ -57,7 +57,8 @@ and duration allow a known zero, whereas targets and pace must be positive.
 The form preserves an existing `targetMetric`. For a new target, a distance derived
 from pace/duration uses duration as the comparison metric; otherwise it uses distance.
 If the saved primary value is cleared, the remaining distance/duration supplies the
-criterion. Strength/mobility exposes duration only and does not calculate run miles.
+criterion. Strength and mobility accept optional manual distance, pace, and duration.
+Their measurements are excluded from running mileage and linked calculations.
 Unit changes are presentation-only and preserve canonical values. Unchanged numeric
 fields are not rewritten by unrelated notes/completion edits. Instructions are
 optional in the UI; a blank description gets a short type/target label for existing

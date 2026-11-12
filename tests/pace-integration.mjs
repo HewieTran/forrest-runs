@@ -30,4 +30,27 @@ export async function testPaces(db,dispatch){
   for(const value of [0,-1,86401,'not a number'])await assert.rejects(()=>db.prepare('UPDATE workouts SET planned_pace_seconds_per_mile=? WHERE id=?').bind(value,saved.id).run());
   assert.deepEqual(await db.prepare('SELECT * FROM workouts WHERE id=?').bind(saved.id).first(),before);
   console.log('PASS: numeric paces persist/reload, old clients preserve them, ownership/concurrency checks hold, v5 backups restore, and database constraints reject invalid pace values.');
+  for (const type of ['Mobility', 'Strength']) {
+    const createdSupport = await call('/api/workouts'+scope, 'POST', {
+      ...input, type, plannedWorkout: type, done: false,
+      plannedDistance: null, plannedPaceSecondsPerMile: null, targetMetric: 'duration',
+      actualDistance: null, actualPace: '', actualPaceSecondsPerMile: null, actualDurationSeconds: null,
+    });
+    assert.equal(createdSupport.status, 201, JSON.stringify(createdSupport.data));
+    const support = (await call('/api/training'+scope)).data.workouts.find(w => w.id === createdSupport.data.workout.id);
+    assert.deepEqual([support.plannedDistance, support.plannedPaceSecondsPerMile, support.actualDistance, support.actualPaceSecondsPerMile], [null, null, null, null]);
+    const edited = await call('/api/workouts/'+encodeURIComponent(support.id)+scope, 'PATCH', {
+      ...support, done: true, plannedDistance: 2, plannedPaceSecondsPerMile: 900,
+      actualDistance: 1.5, actualPaceSecondsPerMile: 960,
+      manualResultFields: ['actualDistance', 'actualPaceSecondsPerMile'],
+    });
+    assert.equal(edited.status, 200, JSON.stringify(edited.data));
+    const loaded = (await call('/api/training'+scope)).data.workouts.find(w => w.id === support.id);
+    assert.deepEqual([loaded.plannedDistance, loaded.plannedPaceSecondsPerMile, loaded.actualDistance, loaded.actualPaceSecondsPerMile], [2, 900, 1.5, 960]);
+    assert.deepEqual(loaded.resultOrigins, { actualDurationSeconds: input.plannedDurationSeconds });
+  }
+  const summary = (await call('/api/blocks')).data.blocks.find(b => b.id === block.id);
+  assert.equal(summary.recordedMiles, 5);
+  console.log('PASS: manual distance and pace save and reload on Mobility and Strength without counting toward running mileage.');
+
 }

@@ -7,7 +7,6 @@
 .structured-workout-editor .measurement-unit-select { display: flex; flex-direction: row; align-items: center; gap: 8px; font-size: 11px; margin: 0; }
 .structured-workout-editor .measurement-unit-select select { width: 70px; padding: 6px 8px; font-size: 12px; }
 .structured-workout-editor .measurement-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 15px; }
-.structured-workout-editor .support-measurement-grid { grid-template-columns: minmax(0, 240px); }
 .structured-workout-editor .measurement-field { min-width: 0; }
 .structured-workout-editor .measurement-time-field { display: grid; align-content: start; gap: 7px; color: #7a8974; font-size: 11px; line-height: 1.4; }
 .structured-workout-editor .measurement-time-input { display: flex; gap: 6px; }

@@ -75,7 +75,7 @@ Existing deferred answers and older snapshots remain readable and exportable. Th
 - Draft for incomplete setup; Not started after generation; explicit Start training → In progress. One block in progress per account. Complete explicitly; Archive in settings.
 - Each workout has a quick completion checkbox. Checking copies missing actuals from known numeric targets; preserves recorded values, including zero.
 - Unchecking clears untouched copied results. Manually entered or edited results, including edits that equal the plan, survive. Results remain editable.
-- Phase may be Not applicable. Effort, pain and notes are optional. Strength/mobility use duration; no invented running distance or pace.
+- Phase may be Not applicable. Effort, pain and notes are optional. Strength and mobility accept optional manual distance, pace, and duration. Completion can copy duration from the plan.
 - Gear links open block settings. Archive/Delete live there. Race date is read-only in the tracker; View progress is prominent.
 - Keep workout add/edit/reschedule, explicit rest days, progress, mileage, calendar, milestones and backup export.
 
