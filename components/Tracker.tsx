@@ -37,7 +37,7 @@ import {
 import AppHeader from './AppHeader';
 import WorkoutEditor from './WorkoutEditor';
 import { formatPace, formatDuration } from '../lib/workout-form';
-import BlockActions, { BlockStatusBadge } from './BlockActions';
+import BlockActions from './BlockActions';
 import type { Plan } from '../lib/domain';
 import { applyCompletion } from '../lib/workout-completion';
 import { raceDistanceLabel } from '../lib/race-distance';
@@ -344,6 +344,9 @@ export default function Tracker({
                   {recordedParts.join(' · ')}
                 </span>
               )}
+            {workout.resultOrigins && Object.keys(workout.resultOrigins).length > 0 && (
+              <span className="copied-result-label">Includes results filled from plan</span>
+            )}
           </div>
           <span className="target-preview">{workoutStructure(workout) ? 'Step paces' : workout.plannedPaceSecondsPerMile !== null ? `${formatPace(workout.plannedPaceSecondsPerMile, 'mi')} /mi` : workout.targetPace}</span>
           <span
@@ -353,7 +356,6 @@ export default function Tracker({
           </span>
           <Pencil className="edit-icon" size={17} />
         </button><label className="quick-workout-check"><span className="sr-only">Complete {formatWorkoutTitle(workout.type)} on {formatDate(workout.date)}</span><input type="checkbox" checked={workout.done} disabled={saving} onChange={event => { if (confirmDiscardChanges()) void saveWorkout(workout.id, { ...workout, done: event.target.checked }); }} /></label></div>
-        {workout.resultOrigins && Object.keys(workout.resultOrigins).length > 0 && <span className="copied-result-label">Includes results filled from plan</span>}
         {isExpanded && (
           <WorkoutEditor
             key={`${workout.id}:${workout.version}`}
@@ -381,7 +383,6 @@ export default function Tracker({
         <a className="block-breadcrumb" href={preview ? '/preview?view=blocks' : '/blocks'}><ChevronLeft size={15} /> All training blocks</a>
         <section className="page-heading block-detail-heading">
           <div>
-
             <h1>{data.plan.raceName}</h1>
             <div className="race-subtitle">
               <span>Target date</span>
@@ -393,6 +394,19 @@ export default function Tracker({
                   year: 'numeric',
                 })}
               </span>
+            </div>
+            <div className="block-header-details">
+              <span className="block-source">{simulatedBlock(data.plan) ? 'SIMULATION · Example schedule' : acceptedPlan(data.plan) ? data.plan.generation?.alteredAt ? 'OpenAI plan · Altered' : 'OpenAI training plan' : data.plan.sourceName ? 'Imported training log' : data.plan.setup ? 'Guided setup' : 'Manual training block'} · {data.workouts.length} workouts</span>
+              <div className="block-header-controls" role="group" aria-label="Block management">
+                <BlockActions plan={data.plan} activeBlock={currentActive} preview={preview} disabled={saving || hasUnsavedChanges} ready={blockReady({ ...data.plan, workoutCount: data.workouts.length })} onChanged={block => {
+                  setData(current => ({ ...current, plan: block }));
+                  if (block.status === 'active') setCurrentActive({ id: block.id, raceName: block.raceName });
+                  else if (currentActive?.id === block.id) setCurrentActive(null);
+                  setToast('Block status updated. Your workout results are unchanged.');
+                }} />
+                <a className="icon-button block-settings-link" aria-label="Training block settings" onClick={event => { if (!confirmDiscardChanges()) event.preventDefault(); }} href={preview ? '/preview?view=settings' : `/blocks/${encodeURIComponent(data.plan.id)}/settings`}><Settings2 size={19} /></a>
+              </div>
+              {hasUnsavedChanges && <p className="small-muted block-management-hint">Save or cancel your workout edits before changing block status.</p>}
             </div>
           </div>
           <div className="countdown">
@@ -421,17 +435,6 @@ export default function Tracker({
             here are not saved.
           </div>
         )}
-        <section className="block-detail-toolbar" aria-label="Block management">
-          <div><BlockStatusBadge status={data.plan.status} ready={blockReady({ ...data.plan, workoutCount: data.workouts.length })} /><span className="block-source">{simulatedBlock(data.plan) ? 'SIMULATION · Example schedule' : acceptedPlan(data.plan) ? data.plan.generation?.alteredAt ? 'OpenAI plan · Altered' : 'OpenAI training plan' : data.plan.sourceName ? 'Imported training log' : data.plan.setup ? 'Guided setup' : 'Manual training block'} · {data.workouts.length} workouts</span></div>
-          <BlockActions plan={data.plan} activeBlock={currentActive} preview={preview} disabled={saving || hasUnsavedChanges} ready={blockReady({ ...data.plan, workoutCount: data.workouts.length })} onChanged={block => {
-            setData(current => ({ ...current, plan: block }));
-            if (block.status === 'active') setCurrentActive({ id: block.id, raceName: block.raceName });
-            else if (currentActive?.id === block.id) setCurrentActive(null);
-            setToast('Block status updated. Your workout results are unchanged.');
-          }} />
-          <a className="icon-button block-settings-link" aria-label="Training block settings" onClick={event => { if (!confirmDiscardChanges()) event.preventDefault(); }} href={preview ? '/preview?view=settings' : `/blocks/${encodeURIComponent(data.plan.id)}/settings`}><Settings2 size={19} /></a>
-          {hasUnsavedChanges && <p className="small-muted block-management-hint">Save or cancel your workout edits before changing block status.</p>}
-        </section>
         {simulatedBlock(data.plan) && <p className="block-callout" role="status"><strong>Simulation mode.</strong> This example schedule demonstrates the app flow. It is not a personalized running plan and cannot be activated.</p>}
         {data.plan.setup && <section className="block-callout setup-snapshot-notice"><Flag size={21} /><div><strong>Your starting setup is saved with this block.</strong><p>{raceDistanceLabel(data.plan.setup.goal.distanceKm)} · Target {setupTargetTime(data.plan.setup) || 'time not set'} · {data.plan.setup.availability.days.length} available running days</p>{acceptedPlan(data.plan) ? <p>{data.plan.generation?.alteredAt ? 'Altered since acceptance. Your original generated plan is preserved.' : 'Your generated plan is saved. Workout logging does not change the original prescription.'} <a href={`/blocks/${encodeURIComponent(data.plan.id)}/plan`}>View original plan →</a></p> : <p>Generate a schedule before starting this block.</p>}<a className="button" href={preview ? '/preview?view=setup' : `/blocks/${encodeURIComponent(data.plan.id)}/setup`}>{data.plan.status === 'draft' && !acceptedPlan(data.plan) ? 'Continue guided setup' : 'View starting setup'}</a></div></section>}
         {data.workouts.length === 0 && !data.plan.setup && <div className="block-callout block-empty-guide"><Flag size={20} /><div><strong>Your training starts with one workout.</strong><p>Add your own schedule below.{data.plan.status === 'draft' ? ' This block is a draft until you activate it.' : ''}</p>{data.plan.status === 'draft' && <a className="text-link" href={preview ? '/preview?view=setup' : `/blocks/${encodeURIComponent(data.plan.id)}/setup`}>Or start guided setup for this empty draft →</a>}</div></div>}
@@ -623,11 +626,7 @@ export default function Tracker({
           <aside className="dashboard" aria-label="Overall training progress">
             <div className="dashboard-title">
               <h2>Your progress</h2>
-              <a className="button primary progress-expanded-link" href={preview ? '/preview?view=progress' : `/blocks/${encodeURIComponent(data.plan.id)}/progress`}>View progress ↗</a>
-              <span
-                className="live-dot"
-                title="Calculated from saved workouts"
-              />
+              <a className="button primary progress-expanded-link" href={preview ? '/preview?view=progress' : `/blocks/${encodeURIComponent(data.plan.id)}/progress`}>View progress <ArrowUpRight size={13} aria-hidden="true" /></a>
             </div>
             <section className="panel progress-panel">
               <div className="panel-title">

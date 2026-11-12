@@ -6,7 +6,7 @@ import { isRun, WORKOUT_PHASES, TYPES, validDate, validateWorkout, type Workout,
 import { applyCompletion, type ResultField as CopiedField } from '../lib/workout-completion';
 import {
   changePlanUnit, editLinkedPlan, formatDistance, formatDuration, formatPace,
-  initialLinkedPlan, inputFeedback, parseInput, PLAN_FIELDS,
+  initialLinkedPlan, inputFeedback, parseInput, pastedWorkoutTime, workoutTimeText, PLAN_FIELDS,
   type DistanceUnit, type InputKind, type PlanField,
 } from '../lib/workout-form';
 import '../app/workout-editor.css';
@@ -15,6 +15,43 @@ import { workoutStructure, structureMeasurements, sessionDuration, readableDurat
 
 type ResultField = 'actualDistance' | 'actualDuration' | 'actualPace' | 'effort';
 type ErrorField = InputKind | 'date';
+
+type TimeField = 'pace' | 'duration' | 'actualPace' | 'actualDuration';
+const isTimeField = (key: InputKind): key is TimeField =>
+  key === 'pace' || key === 'duration' || key === 'actualPace' || key === 'actualDuration';
+
+function WorkoutTimeInput({ id, name, value, unit, invalid, onChange, onBlur }: {
+  id: string; name: TimeField; value: string; unit: DistanceUnit; invalid: boolean;
+  onChange: (value: string) => void; onBlur: () => void;
+}) {
+  const [entry, setEntry] = useState<{ text: string; parts: string[] } | null>(null);
+  const pace = name === 'pace' || name === 'actualPace';
+  const labels = pace ? ['Minutes', 'Seconds'] : ['Hours', 'Minutes', 'Seconds'];
+  // Reformat when another measurement calculates this field or its units change.
+  const parts = entry?.text === value ? entry.parts : value.split(':');
+  return <div className="measurement-time-input" role="group" aria-labelledby={`${id}-label`}
+    onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) onBlur(); }}
+    onPaste={event => {
+      const text = pastedWorkoutTime(event.clipboardData.getData('text'), name, unit);
+      if (text === null) return;
+      event.preventDefault();
+      setEntry(null);
+      onChange(text);
+    }}>
+    {labels.map((label, index) => <label key={label}>
+      <span id={`${id}-${index}-part`}>{label}</span>
+      <input id={index === 0 ? id : `${id}-${index}`} name={index === 0 ? name : undefined} type="text" inputMode="numeric"
+        value={parts[index] ?? ''} maxLength={20}
+        aria-labelledby={`${id}-label ${id}-${index}-part`} aria-invalid={invalid} aria-describedby={`${id}-feedback`}
+        onChange={event => {
+          const next = labels.map((_, part) => part === index ? event.target.value.trim() : parts[part] ?? '');
+          const text = workoutTimeText(next);
+          setEntry({ text, parts: next });
+          onChange(text);
+        }} />
+    </label>)}
+  </div>;
+}
 
 export default function WorkoutEditor({ workout, saving, error, onSave, onCancel, onDirty }: {
   workout: Workout; saving: boolean; error: string;
@@ -74,7 +111,12 @@ export default function WorkoutEditor({ workout, saving, error, onSave, onCancel
   function feedback(key: ErrorField, strict = submitted || touched.has(key)) {
     if (key === 'date') return !validDate(draft.date) && strict ? { state: 'error' as const, message: 'Choose a valid date from 1900 to 2200.' } : null;
     const value = PLAN_FIELDS.includes(key as PlanField) ? plan.text[key as PlanField] : results[key as ResultField];
-    return inputFeedback(value, key, unit, strict);
+    const issue = inputFeedback(value, key, unit, strict);
+    if (!issue || !isTimeField(key)) return issue;
+    const pace = key === 'pace' || key === 'actualPace';
+    if (value.split(':').slice(1).some(part => Number(part) >= 60)) return issue;
+    return { ...issue, message: pace ? 'Enter a pace greater than zero, using whole minutes and seconds.'
+      : `Enter a duration ${key === 'duration' ? 'greater than zero and ' : ''}up to 168 hours, using whole numbers.` };
   }
   function changeUnit(next: DistanceUnit) {
     const nextResults = { ...results };
@@ -87,18 +129,32 @@ export default function WorkoutEditor({ workout, saving, error, onSave, onCancel
   function measurementField(key: InputKind, label: string, suffix: string, calculated = false) {
     const issue = feedback(key), planned = PLAN_FIELDS.includes(key as PlanField);
     const value = planned ? plan.text[key as PlanField] : results[key as ResultField];
-    const time = key.toLowerCase().includes('pace') || key.toLowerCase().includes('duration');
-    const duration = key.toLowerCase().includes('duration');
-    return <label className={`measurement-field ${calculated ? 'calculated-field' : ''}`} key={key}>
-      <span className="measurement-label">{label}{calculated && <small className="calculated-label">{planPaused ? 'Paused' : 'Calculated'}</small>}</span>
+    const fieldId = `${id}-${key}`;
+    const markTouched = () => setTouched(previous => new Set(previous).add(key));
+    const updateValue = (value: string) => planned ? editPlan(key as PlanField, value) : editResult(key as ResultField, value);
+    const heading = <span id={`${fieldId}-label`} className="measurement-label">
+      <span>{label}{isTimeField(key) && suffix && <small className="measurement-unit"> {suffix}</small>}</span>
+      {calculated && <small className="calculated-label">{planPaused ? 'Paused' : 'Calculated'}</small>}
+    </span>;
+    const notice = <span id={`${fieldId}-feedback`} className={`measurement-feedback ${issue?.state === 'error' ? 'is-error' : ''}`} aria-live="polite" hidden={!issue}>
+      {issue?.state === 'error' && <span aria-hidden="true">ⓘ </span>}{issue?.message}
+    </span>;
+    const className = `measurement-field ${calculated ? 'calculated-field' : ''}`;
+    if (isTimeField(key)) return <div className={`${className} measurement-time-field`} key={key}>
+      {heading}
+      <WorkoutTimeInput id={fieldId} name={key} value={value} unit={unit}
+        invalid={issue?.state === 'error'} onChange={updateValue} onBlur={markTouched} />
+      {notice}
+    </div>;
+    return <label className={className} key={key}>
+      {heading}
       <span className="measurement-input"><input
-        id={`${id}-${key}`} name={key} type="text" inputMode={time || key === 'effort' ? 'numeric' : 'decimal'}
-        value={value} placeholder={time ? duration ? 'h:mm:ss' : 'mm:ss' : 'Optional'} maxLength={20}
-        aria-invalid={issue?.state === 'error'} aria-describedby={`${id}-${key}-feedback`}
-        onInput={event => planned ? editPlan(key as PlanField, event.currentTarget.value) : editResult(key as ResultField, event.currentTarget.value)}
-        onBlur={() => setTouched(previous => new Set(previous).add(key))}
+        id={fieldId} name={key} type="text" inputMode={key === 'effort' ? 'numeric' : 'decimal'}
+        value={value} placeholder="Optional" maxLength={20}
+        aria-invalid={issue?.state === 'error'} aria-describedby={`${fieldId}-feedback`}
+        onChange={event => updateValue(event.target.value)} onBlur={markTouched}
       />{suffix && <span className="measurement-unit">{suffix}</span>}</span>
-      <span id={`${id}-${key}-feedback`} className={`measurement-feedback ${issue?.state === 'error' ? 'is-error' : ''}`} aria-live="polite" hidden={!issue}>{issue?.state === 'error' && <span aria-hidden="true">ⓘ </span>}{issue?.message}</span>
+      {notice}
     </label>;
   }
   const planPaused = PLAN_FIELDS.some(key => plan.text[key] !== '' && inputFeedback(plan.text[key], key, unit, true));
@@ -155,7 +211,7 @@ export default function WorkoutEditor({ workout, saving, error, onSave, onCancel
       <div className={`form-grid measurement-grid ${!running ? 'support-measurement-grid' : ''}`}>
         {running && measurementField('distance', 'Planned distance', unit, plan.calculated === 'distance')}
         {running && measurementField('pace', 'Target pace', '/'+unit, plan.calculated === 'pace')}
-        {measurementField('duration', 'Target duration', 'h:mm:ss', running && plan.calculated === 'duration')}
+        {measurementField('duration', 'Target duration', '', running && plan.calculated === 'duration')}
       </div>
       <p className="linked-measurement-hint">{running && <Link2 size={14} />}{!running ? 'Duration target is optional for strength and mobility.' : planPaused ? 'Calculations paused until the entries are valid.' : 'Enter any two. When you edit a value, the least recently edited box recalculates.'}</p>
       {draft.targetPace && draft.plannedPaceSecondsPerMile == null && <p className="legacy-workout-value">Original pace / effort: {draft.targetPace}<small>Preserved. Enter a single numeric pace above to add a structured target.</small></p>}
@@ -165,7 +221,7 @@ export default function WorkoutEditor({ workout, saving, error, onSave, onCancel
     <fieldset disabled={saving}><legend className="sr-only">Actual</legend><div className="measurement-heading"><h4>Actual</h4><span>What you recorded</span></div>
       <div className={`form-grid measurement-grid ${!running ? 'support-measurement-grid' : ''}`}>
         {running && measurementField('actualDistance', 'Recorded distance', unit)}
-        {measurementField('actualDuration', 'Recorded duration', 'h:mm:ss')}
+        {measurementField('actualDuration', 'Recorded duration', '')}
         {running && measurementField('actualPace', 'Recorded pace · optional', '/'+unit)}
       </div>
       {running && <p className="actual-pace-calculation">Calculated pace <strong>{formatPace(calculatedPace, unit) || '—'}{calculatedPace !== null && ` /${unit}`}</strong><button type="button" disabled={calculatedPace === null} onClick={() => { if (calculatedPace !== null) editResult('actualPace', formatPace(calculatedPace, unit)); }}>Use pace</button></p>}
