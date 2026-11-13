@@ -47,6 +47,26 @@ never add a description-parsing backfill to a schema migration or live read.
 - Run the relevant domain/backup/migration tests, TypeScript, a production build,
   and the disposable Worker integration suite for shared storage/API changes.
 
+## Runner testing on staging
+
+- For a user-facing change, give a separate testing agent the staging URL,
+  deployed revision, agreed behavior, and a runner's goal without navigation
+  instructions. Test the changed flow and
+  the closest existing flow at desktop and phone widths.
+- Before a user-facing release, walk through creating and starting a manual
+  training block, finding today's workout, logging and editing actual results,
+  reloading to confirm persistence, and finding weekly progress. Use a
+  disposable account with synthetic data. Test generation with simulation and
+  verify its saved draft separately. If staging lacks isolated test access, use
+  a disposable preview of the release source and record the blocked staging
+  checks.
+- In the feature PR, record the tested environment and revision, viewport,
+  pass/fail/blocked results, and steps to reproduce any usability issues. Include
+  a screenshot when it shows the problem without exposing personal data.
+  Fix and retest broken core flows or lost results before release.
+- After deployment, confirm the deployed revision and repeat the most important
+  affected flow in the target environment with safe test data.
+
 ## Phase 1 integration on 2026-10-27
 
 Hieu authorized the simplified intake, UI and completion behavior as one integrated
