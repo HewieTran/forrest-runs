@@ -20,6 +20,22 @@ export function formatPace(secondsPerMile: number | null, unit: DistanceUnit) {
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
 }
 
+// The editor keeps the existing colon-delimited format at the calculation boundary.
+export function workoutTimeText(parts: readonly string[]): string {
+  if (parts.every(part => part === '')) return '';
+  return parts.map((part, index) => index === 0 ? part || '0' : part.padStart(2, '0')).join(':');
+}
+
+export function pastedWorkoutTime(text: string, kind: 'pace' | 'actualPace' | 'duration' | 'actualDuration', unit: DistanceUnit): string | null {
+  const value = text.trim();
+  const duration = kind === 'duration' || kind === 'actualDuration';
+  const parts = value.split(':');
+  if (!/^\d{1,3}(:\d{1,2}){1,2}$/.test(value) || (!duration && parts.length !== 2)) return null;
+  if (duration && parts.length === 2) parts.unshift('0');
+  const normalized = workoutTimeText(parts);
+  return parseInput(normalized, kind, unit) === null ? null : normalized;
+}
+
 // Parsing is strict and never strips words or units into an accidental number.
 export function parseInput(text: string, kind: InputKind, unit: DistanceUnit): number | null {
   if (!text) return null;

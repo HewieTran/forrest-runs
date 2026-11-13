@@ -45,7 +45,7 @@ export default function BlockActions({ plan, activeBlock, onChanged, disabled, p
   }
   return <>
     <div className="block-action-buttons" aria-label="Block status actions">
-      {!management && <label className="block-status-control"><span>Status</span><select aria-label="Training block status" value={plan.status} disabled={disabled || saving} onChange={event => { setError(''); setTarget(event.target.value as BlockStatus); }}><option value={plan.status}>{ready ? 'Not started' : STATUS_LABELS[plan.status]}</option>{BLOCK_TRANSITIONS[plan.status].filter(status => ['active', 'completed'].includes(status) && (status !== 'active' || (!simulatedBlock(plan) && (!plan.setup || acceptedPlan(plan))))).map(status => <option key={status} value={status}>{STATUS_LABELS[status]}</option>)}</select></label>}
+      {!management && <label className="block-status-control"><select aria-label="Training block status" value={plan.status} disabled={disabled || saving} onChange={event => { setError(''); setTarget(event.target.value as BlockStatus); }}><option value={plan.status}>{ready ? 'Not started' : STATUS_LABELS[plan.status]}</option>{BLOCK_TRANSITIONS[plan.status].filter(status => ['active', 'completed'].includes(status) && (status !== 'active' || (!simulatedBlock(plan) && (!plan.setup || acceptedPlan(plan))))).map(status => <option key={status} value={status}>{STATUS_LABELS[status]}</option>)}</select></label>}
       {management && BLOCK_TRANSITIONS[plan.status].filter(status => status === 'archived' || status === 'draft').map(status => {
         const { Icon, label } = actions[status];
         return <button className="button" key={status} disabled={disabled} onClick={() => { setError(''); setTarget(status); }}><Icon size={15} />{label}</button>;

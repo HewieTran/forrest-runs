@@ -7,8 +7,15 @@
 .structured-workout-editor .measurement-unit-select { display: flex; flex-direction: row; align-items: center; gap: 8px; font-size: 11px; margin: 0; }
 .structured-workout-editor .measurement-unit-select select { width: 70px; padding: 6px 8px; font-size: 12px; }
 .structured-workout-editor .measurement-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 15px; }
-.structured-workout-editor .support-measurement-grid { grid-template-columns: minmax(0, 240px); }
 .structured-workout-editor .measurement-field { min-width: 0; }
+.structured-workout-editor .measurement-time-field { display: grid; align-content: start; gap: 7px; color: #7a8974; font-size: 11px; line-height: 1.4; }
+.structured-workout-editor .measurement-time-input { display: flex; gap: 6px; }
+.structured-workout-editor .measurement-time-input label { flex: 1 1 0; min-width: 0; gap: 3px; }
+.structured-workout-editor .measurement-time-input label > span { font-size: 10px; }
+.structured-workout-editor .measurement-time-input input { padding-inline: 7px; font-variant-numeric: tabular-nums; }
+@media (min-width: 1001px) {
+  .structured-workout-editor .measurement-grid > label > .measurement-input { margin-top: 17px; }
+}
 .structured-workout-editor .measurement-label { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-height: 20px; }
 .structured-workout-editor .measurement-input { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .structured-workout-editor .measurement-input input { flex: 1; width: 0; min-width: 0; font-variant-numeric: tabular-nums; }

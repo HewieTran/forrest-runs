@@ -3,10 +3,10 @@
 import { useId, useRef, useState, type FormEvent } from 'react';
 import { Check, Link2, LoaderCircle } from 'lucide-react';
 import { isRun, WORKOUT_PHASES, TYPES, validDate, validateWorkout, type Workout, type WorkoutInput } from '../lib/domain';
-import { applyCompletion, type ResultField as CopiedField } from '../lib/workout-completion';
+import { applyCompletion, paceFromRecordedResults, type ResultField as CopiedField } from '../lib/workout-completion';
 import {
   changePlanUnit, editLinkedPlan, formatDistance, formatDuration, formatPace,
-  initialLinkedPlan, inputFeedback, parseInput, PLAN_FIELDS,
+  initialLinkedPlan, inputFeedback, parseInput, pastedWorkoutTime, workoutTimeText, PLAN_FIELDS,
   type DistanceUnit, type InputKind, type PlanField,
 } from '../lib/workout-form';
 import '../app/workout-editor.css';
@@ -15,6 +15,43 @@ import { workoutStructure, structureMeasurements, sessionDuration, readableDurat
 
 type ResultField = 'actualDistance' | 'actualDuration' | 'actualPace' | 'effort';
 type ErrorField = InputKind | 'date';
+
+type TimeField = 'pace' | 'duration' | 'actualPace' | 'actualDuration';
+const isTimeField = (key: InputKind): key is TimeField =>
+  key === 'pace' || key === 'duration' || key === 'actualPace' || key === 'actualDuration';
+
+function WorkoutTimeInput({ id, name, value, unit, invalid, onChange, onBlur }: {
+  id: string; name: TimeField; value: string; unit: DistanceUnit; invalid: boolean;
+  onChange: (value: string) => void; onBlur: () => void;
+}) {
+  const [entry, setEntry] = useState<{ text: string; parts: string[] } | null>(null);
+  const pace = name === 'pace' || name === 'actualPace';
+  const labels = pace ? ['Minutes', 'Seconds'] : ['Hours', 'Minutes', 'Seconds'];
+  // Reformat when another measurement calculates this field or its units change.
+  const parts = entry?.text === value ? entry.parts : value.split(':');
+  return <div className="measurement-time-input" role="group" aria-labelledby={`${id}-label`}
+    onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) onBlur(); }}
+    onPaste={event => {
+      const text = pastedWorkoutTime(event.clipboardData.getData('text'), name, unit);
+      if (text === null) return;
+      event.preventDefault();
+      setEntry(null);
+      onChange(text);
+    }}>
+    {labels.map((label, index) => <label key={label}>
+      <span id={`${id}-${index}-part`}>{label}</span>
+      <input id={index === 0 ? id : `${id}-${index}`} name={index === 0 ? name : undefined} type="text" inputMode="numeric"
+        value={parts[index] ?? ''} maxLength={20}
+        aria-labelledby={`${id}-label ${id}-${index}-part`} aria-invalid={invalid} aria-describedby={`${id}-feedback`}
+        onChange={event => {
+          const next = labels.map((_, part) => part === index ? event.target.value.trim() : parts[part] ?? '');
+          const text = workoutTimeText(next);
+          setEntry({ text, parts: next });
+          onChange(text);
+        }} />
+    </label>)}
+  </div>;
+}
 
 export default function WorkoutEditor({ workout, saving, error, onSave, onCancel, onDirty }: {
   workout: Workout; saving: boolean; error: string;
@@ -40,7 +77,7 @@ export default function WorkoutEditor({ workout, saving, error, onSave, onCancel
   const [submitted, setSubmitted] = useState(false);
   const [localError, setLocalError] = useState('');
   const running = isRun(draft);
-  const activeFields: ErrorField[] = structure ? ['date', 'actualDistance', 'actualDuration', 'actualPace', 'effort'] : running ? ['date', ...PLAN_FIELDS, 'actualDistance', 'actualDuration', 'actualPace', 'effort'] : ['date', 'duration', 'actualDuration', 'effort'];
+  const activeFields: ErrorField[] = ['date', ...(structure ? [] : PLAN_FIELDS), 'actualDistance', 'actualDuration', 'actualPace', 'effort'];
   function editStructure(next: WorkoutStructure) {
     setStructure(next); setStructureChanged(true); setPlanChanged(true);
     setPlan(changePlanUnit(initialLinkedPlan({ ...draft, ...structureMeasurements(next) }), unit));
@@ -74,7 +111,12 @@ export default function WorkoutEditor({ workout, saving, error, onSave, onCancel
   function feedback(key: ErrorField, strict = submitted || touched.has(key)) {
     if (key === 'date') return !validDate(draft.date) && strict ? { state: 'error' as const, message: 'Choose a valid date from 1900 to 2200.' } : null;
     const value = PLAN_FIELDS.includes(key as PlanField) ? plan.text[key as PlanField] : results[key as ResultField];
-    return inputFeedback(value, key, unit, strict);
+    const issue = inputFeedback(value, key, unit, strict);
+    if (!issue || !isTimeField(key)) return issue;
+    const pace = key === 'pace' || key === 'actualPace';
+    if (value.split(':').slice(1).some(part => Number(part) >= 60)) return issue;
+    return { ...issue, message: pace ? 'Enter a pace greater than zero, using whole minutes and seconds.'
+      : `Enter a duration ${key === 'duration' ? 'greater than zero and ' : ''}up to 168 hours, using whole numbers.` };
   }
   function changeUnit(next: DistanceUnit) {
     const nextResults = { ...results };
@@ -87,24 +129,38 @@ export default function WorkoutEditor({ workout, saving, error, onSave, onCancel
   function measurementField(key: InputKind, label: string, suffix: string, calculated = false) {
     const issue = feedback(key), planned = PLAN_FIELDS.includes(key as PlanField);
     const value = planned ? plan.text[key as PlanField] : results[key as ResultField];
-    const time = key.toLowerCase().includes('pace') || key.toLowerCase().includes('duration');
-    const duration = key.toLowerCase().includes('duration');
-    return <label className={`measurement-field ${calculated ? 'calculated-field' : ''}`} key={key}>
-      <span className="measurement-label">{label}{calculated && <small className="calculated-label">{planPaused ? 'Paused' : 'Calculated'}</small>}</span>
+    const fieldId = `${id}-${key}`;
+    const markTouched = () => setTouched(previous => new Set(previous).add(key));
+    const updateValue = (value: string) => planned ? editPlan(key as PlanField, value) : editResult(key as ResultField, value);
+    const heading = <span id={`${fieldId}-label`} className="measurement-label">
+      <span>{label}{isTimeField(key) && suffix && <small className="measurement-unit"> {suffix}</small>}</span>
+      {calculated && <small className="calculated-label">{planPaused ? 'Paused' : 'Calculated'}</small>}
+    </span>;
+    const notice = <span id={`${fieldId}-feedback`} className={`measurement-feedback ${issue?.state === 'error' ? 'is-error' : ''}`} aria-live="polite" hidden={!issue}>
+      {issue?.state === 'error' && <span aria-hidden="true">ⓘ </span>}{issue?.message}
+    </span>;
+    const className = `measurement-field ${calculated ? 'calculated-field' : ''}`;
+    if (isTimeField(key)) return <div className={`${className} measurement-time-field`} key={key}>
+      {heading}
+      <WorkoutTimeInput id={fieldId} name={key} value={value} unit={unit}
+        invalid={issue?.state === 'error'} onChange={updateValue} onBlur={markTouched} />
+      {notice}
+    </div>;
+    return <label className={className} key={key}>
+      {heading}
       <span className="measurement-input"><input
-        id={`${id}-${key}`} name={key} type="text" inputMode={time || key === 'effort' ? 'numeric' : 'decimal'}
-        value={value} placeholder={time ? duration ? 'h:mm:ss' : 'mm:ss' : 'Optional'} maxLength={20}
-        aria-invalid={issue?.state === 'error'} aria-describedby={`${id}-${key}-feedback`}
-        onInput={event => planned ? editPlan(key as PlanField, event.currentTarget.value) : editResult(key as ResultField, event.currentTarget.value)}
-        onBlur={() => setTouched(previous => new Set(previous).add(key))}
+        id={fieldId} name={key} type="text" inputMode={key === 'effort' ? 'numeric' : 'decimal'}
+        value={value} placeholder="Optional" maxLength={20}
+        aria-invalid={issue?.state === 'error'} aria-describedby={`${fieldId}-feedback`}
+        onChange={event => updateValue(event.target.value)} onBlur={markTouched}
       />{suffix && <span className="measurement-unit">{suffix}</span>}</span>
-      <span id={`${id}-${key}-feedback`} className={`measurement-feedback ${issue?.state === 'error' ? 'is-error' : ''}`} aria-live="polite" hidden={!issue}>{issue?.state === 'error' && <span aria-hidden="true">ⓘ </span>}{issue?.message}</span>
+      {notice}
     </label>;
   }
   const planPaused = PLAN_FIELDS.some(key => plan.text[key] !== '' && inputFeedback(plan.text[key], key, unit, true));
   const actualDistance = exactResults.actualDistance;
   const actualDuration = exactResults.actualDuration;
-  const calculatedPace = actualDistance !== null && actualDistance > 0 && actualDuration !== null && actualDuration > 0 ? actualDuration / actualDistance : null;
+  const calculatedPace = paceFromRecordedResults({ actualDistance, actualDurationSeconds: actualDuration });
   const painOptions = ['', 'None', 'Mild', 'Moderate', 'Severe'];
   if (!painOptions.includes(draft.pain)) painOptions.push(draft.pain);
 
@@ -144,7 +200,7 @@ export default function WorkoutEditor({ workout, saving, error, onSave, onCancel
       <label>Training phase<select value={draft.phase} onChange={event => update('phase', event.target.value)}>{WORKOUT_PHASES.map(phase => <option key={phase}>{phase}</option>)}</select></label>
     </div></fieldset>
     <fieldset disabled={saving}><legend className="sr-only">Plan</legend>
-      <div className="measurement-heading"><h4>Plan</h4>{running && <label className="measurement-unit-select">Distance units<select aria-label="Distance units" value={unit} disabled={!stepsValid} onChange={event => changeUnit(event.target.value as DistanceUnit)}><option value="mi">mi</option><option value="km">km</option></select></label>}</div>
+      <div className="measurement-heading"><h4>Plan</h4><label className="measurement-unit-select">Distance units<select aria-label="Distance units" value={unit} disabled={!stepsValid} onChange={event => changeUnit(event.target.value as DistanceUnit)}><option value="mi">mi</option><option value="km">km</option></select></label></div>
       {structure ? <>
         <dl className="plan-step-totals"><div><dt>{draft.type === 'Race' ? 'Race distance' : 'Planned distance'}</dt><dd>{plan.exact.distance === null ? 'Follow effort' : readableDistance(plan.exact.distance, unit)}</dd></div>
           <div><dt>{draft.type === 'Race' ? 'Estimated race pace' : 'Average planned pace'}</dt><dd>{plan.exact.pace === null ? 'Follow effort' : `${formatPace(plan.exact.pace, unit)} /${unit}`}</dd></div>
@@ -152,25 +208,25 @@ export default function WorkoutEditor({ workout, saving, error, onSave, onCancel
         <p className="linked-measurement-hint">{!stepsValid ? 'Fix the highlighted step entries before saving. Totals show the last valid values.' : draft.type === 'Race' ? `Full session: ${readableDuration(sessionDuration(structure))}, including warm-up and cool-down. Race targets are used for progress tracking.` : 'Totals are calculated from the steps. Follow each step’s pace during the run.'}</p>
         <WorkoutSteps key={unit} structure={structure} unit={unit} onChange={editStructure} onValidity={valid => { setStepsValid(valid); onDirty(true); setLocalError(''); }} />
       </> : <>
-      <div className={`form-grid measurement-grid ${!running ? 'support-measurement-grid' : ''}`}>
-        {running && measurementField('distance', 'Planned distance', unit, plan.calculated === 'distance')}
-        {running && measurementField('pace', 'Target pace', '/'+unit, plan.calculated === 'pace')}
-        {measurementField('duration', 'Target duration', 'h:mm:ss', running && plan.calculated === 'duration')}
+      <div className="form-grid measurement-grid">
+        {measurementField('duration', 'Target duration', '', running && plan.calculated === 'duration')}
+        {measurementField('pace', 'Target pace', '/'+unit, plan.calculated === 'pace')}
+        {measurementField('distance', 'Planned distance', unit, plan.calculated === 'distance')}
       </div>
-      <p className="linked-measurement-hint">{running && <Link2 size={14} />}{!running ? 'Duration target is optional for strength and mobility.' : planPaused ? 'Calculations paused until the entries are valid.' : 'Enter any two. When you edit a value, the least recently edited box recalculates.'}</p>
+      <p className="linked-measurement-hint">{running && <Link2 size={14} />}{!running ? 'For strength and mobility, enter any targets you want to track.' : planPaused ? 'Calculations paused until the entries are valid.' : 'Enter any two. When you edit a value, the least recently edited box recalculates.'}</p>
       {draft.targetPace && draft.plannedPaceSecondsPerMile == null && <p className="legacy-workout-value">Original pace / effort: {draft.targetPace}<small>Preserved. Enter a single numeric pace above to add a structured target.</small></p>}
       <label className="visible-workout-instructions">Workout instructions<textarea rows={4} maxLength={1000} value={draft.plannedWorkout} onChange={event => update('plannedWorkout', event.target.value)} placeholder="Warmup, intervals, or effort guidance" /></label>
       </>}
     </fieldset>
     <fieldset disabled={saving}><legend className="sr-only">Actual</legend><div className="measurement-heading"><h4>Actual</h4><span>What you recorded</span></div>
-      <div className={`form-grid measurement-grid ${!running ? 'support-measurement-grid' : ''}`}>
-        {running && measurementField('actualDistance', 'Recorded distance', unit)}
-        {measurementField('actualDuration', 'Recorded duration', 'h:mm:ss')}
-        {running && measurementField('actualPace', 'Recorded pace · optional', '/'+unit)}
+      <div className="form-grid measurement-grid">
+        {measurementField('actualDuration', 'Recorded duration', '')}
+        {measurementField('actualPace', 'Recorded pace · optional', '/'+unit)}
+        {measurementField('actualDistance', 'Recorded distance', unit)}
       </div>
       {running && <p className="actual-pace-calculation">Calculated pace <strong>{formatPace(calculatedPace, unit) || '—'}{calculatedPace !== null && ` /${unit}`}</strong><button type="button" disabled={calculatedPace === null} onClick={() => { if (calculatedPace !== null) editResult('actualPace', formatPace(calculatedPace, unit)); }}>Use pace</button></p>}
       {draft.actualPace && <p className="legacy-workout-value">Original pace / activity: {draft.actualPace}<small>Preserved alongside your structured results.</small></p>}
-      <p className="field-hint">Checking completed fills missing results from the plan. Unchecking clears copied results and preserves manual entries.</p>
+      <p className="field-hint">{running ? 'The summary can calculate pace from recorded distance and time. Checking completed fills other missing results from the plan.' : 'Checking completed fills missing duration from the plan.'} Unchecking clears copied results and preserves manual entries.</p>
       {draft.resultOrigins && Object.keys(draft.resultOrigins).length > 0 && <p className="copied-result-label">Filled from plan. Edit a value to record your own result.</p>}
       <details className="workout-optional-details"><summary>Effort, pain &amp; notes <span>Optional</span></summary><div className="form-grid result-extra-grid">
         {measurementField('effort', 'Effort (1–10)', '')}

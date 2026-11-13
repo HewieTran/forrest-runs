@@ -33,7 +33,9 @@ export default function SetupWizard({ initial = null, displayName, today, readOn
   const original = simpleSetup(initial?.setup ?? undefined, initial?.raceName, initial?.raceDate, today);
   const [block, setBlock] = useState(initial), [fields, setFields] = useState(() => fieldsFor(original));
   const [step, setStep] = useState(initialEdit ? assessmentStep(initialEdit) : original.step), [units, setUnits] = useState(original.units), [days, setDays] = useState(original.availability.days);
-  const [saving, setSaving] = useState(false), [dirty, setDirty] = useState(false), [message, setMessage] = useState(''), [errors, setErrors] = useState<SetupIssue[]>([]);
+  const [saveAction, setSaveAction] = useState<'draft' | 'generation' | null>(null);
+  const [dirty, setDirty] = useState(false), [message, setMessage] = useState(''), [errors, setErrors] = useState<SetupIssue[]>([]);
+  const saving = saveAction !== null;
   const [generationError, setGenerationError] = useState(initial?.generation?.status === 'failed' ? displayGenerationError(initial.generation.error ?? 'Generation could not finish. Your draft is saved.') : '');
   const [clarification, setClarification] = useState(initial?.generation?.status === 'clarification' ? initial.generation.output : null);
   const [applied, setApplied] = useState<{
@@ -154,6 +156,7 @@ export default function SetupWizard({ initial = null, displayName, today, readOn
     } catch (error) { setErrors([{ step, field: '', message: error instanceof Error ? error.message : 'Check your entries.' }]); }
   }
   async function save(complete: boolean) {
+    if (saving) return;
     if (complete && windowIssue) {
       setStep(0);
       setFocusTarget(`setup-${windowIssue.field}`);
@@ -171,7 +174,7 @@ export default function SetupWizard({ initial = null, displayName, today, readOn
       const issues = complete ? setupIssues(setup) : [];
       if (issues.length) { setErrors(issues);setStep(issues[0].step);return; }
     } catch (error) { setErrors([{ step, field: '', message: error instanceof Error ? error.message : 'Check your entries.' }]);return; }
-    setSaving(true);
+    setSaveAction(complete ? 'generation' : 'draft');
     let generating = false;
     try {
       if (preview) { setApplied(null);setDirty(false);setMessage(complete ? 'Preview complete. The live app generates and saves your plan from here.' : 'Draft saved in this preview only.');return; }
@@ -202,7 +205,7 @@ export default function SetupWizard({ initial = null, displayName, today, readOn
       if (generating) setGenerationError(displayGenerationError(text));
       else setErrors([{ step, field: '', message: text }]);
     }
-    finally { setSaving(false); }
+    finally { setSaveAction(null); }
   }
   function input(name: TextField, label: string, type = 'text', required = true, hint?: string) {
     const error = issueFor(name, type), id = `setup-${name}`;
@@ -254,7 +257,18 @@ export default function SetupWizard({ initial = null, displayName, today, readOn
       {step === 3 && <><h2 id="setup-review-title" tabIndex={-1}>Your plan details</h2><SetupReview setup={readOnly && initial?.setup ? initial.setup : snapshot} />{windowIssue && <div className="setup-errors" role="status"><p>{windowIssue.message}</p><button className="button" type="button" onClick={() => { setStep(0); setFocusTarget(`setup-${windowIssue.field}`); }}>Edit training dates</button></div>}<p className="setup-footnote">Your benchmark informs estimated paces; your target finish time remains a goal. The plan saves automatically and starts only when you choose Start training.</p></>}
       </fieldset>
       {step === 3 && waitingToRetry && !clarification && <p className="setup-footnote" role="status">You can generate again one minute after your last request.</p>}
-      <div className="setup-form-actions"><button className="button" type="button" disabled={saving || step === 0} onClick={() => { setStep(current => current - 1);setErrors([]); }}><ArrowLeft size={15} />Back</button><div>{!readOnly && <button className="button" type="button" disabled={saving} onClick={() => void save(false)}><Save size={15} />Save draft</button>}{step < 3 ? <button className="button primary" type={readOnly ? 'button' : 'submit'} disabled={saving} onClick={readOnly ? () => setStep(current => current + 1) : undefined}>Continue<ArrowRight size={15} /></button> : !readOnly && <button className="button primary" type="submit" disabled={saving || waitingToRetry || !!clarification || !!windowIssue}>{saving ? 'Generating and saving…' : 'Generate plan'}</button>}</div></div>
+      <div className="setup-form-actions">
+        <button className="button" type="button" disabled={saving || step === 0} onClick={() => { setStep(current => current - 1);setErrors([]); }}><ArrowLeft size={15} />Back</button>
+        <div>
+          {!readOnly && <button className="button" type="button" disabled={saving} onClick={() => void save(false)}>
+            <Save size={15} />{saveAction === 'draft' ? 'Saving draft…' : 'Save draft'}
+          </button>}
+          {step < 3 ? <button className="button primary" type={readOnly ? 'button' : 'submit'} disabled={saving} onClick={readOnly ? () => setStep(current => current + 1) : undefined}>Continue<ArrowRight size={15} /></button>
+            : !readOnly && <button className="button primary" type="submit" disabled={saving || waitingToRetry || !!clarification || !!windowIssue}>
+              {saveAction === 'generation' ? 'Generating and saving…' : 'Generate plan'}
+            </button>}
+        </div>
+      </div>
     </form><aside className="setup-aside"><div className="setup-unit-choice"><span>Measurements</span><div role="group" aria-label="Measurement units"><button aria-pressed={units === 'mi'} disabled={disabled} onClick={() => switchUnits('mi')}>mi · lb · ft/in</button><button aria-pressed={units === 'km'} disabled={disabled} onClick={() => switchUnits('km')}>km · kg · cm</button></div></div><Flag size={23} /><h3>{fields.name || suggestedBlockName(snapshot)}</h3><dl><dt>Race date</dt><dd>{fields.targetDate || 'Not set'}</dd><dt>Target finish</dt><dd>{setupTargetTime(snapshot) || 'Not set'}</dd><dt>Experience</dt><dd>{fields.experience || 'Not selected'}</dd><dt>Training days</dt><dd>{days.length ? days.map(day => DAY_NAMES[day].slice(0,3)).join(', ') : 'Not selected'}</dd><dt>Workout paces</dt><dd>Numeric estimates</dd></dl><p>{dirty ? 'Unsaved changes' : block ? 'Draft saved' : 'Save a draft to return later'}</p></aside></div>
   </main></div>;
 }

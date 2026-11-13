@@ -73,9 +73,9 @@ Existing deferred answers and older snapshots remain readable and exportable. Th
 ## Tracking and status
 
 - Draft for incomplete setup; Not started after generation; explicit Start training → In progress. One block in progress per account. Complete explicitly; Archive in settings.
-- Each workout has a quick completion checkbox. Checking copies missing actuals from known numeric targets; preserves recorded values, including zero.
+- Each workout has a quick completion checkbox. Checking copies missing actuals from known numeric targets and preserves recorded values, including zero. For a run with recorded distance and duration, the summary calculates a blank or plan-copied pace from those results.
 - Unchecking clears untouched copied results. Manually entered or edited results, including edits that equal the plan, survive. Results remain editable.
-- Phase may be Not applicable. Effort, pain and notes are optional. Strength/mobility use duration; no invented running distance or pace.
+- Phase may be Not applicable. Effort, pain and notes are optional. Strength and mobility accept optional manual distance, pace, and duration. Completion can copy duration from the plan.
 - Gear links open block settings. Archive/Delete live there. Race date is read-only in the tracker; View progress is prominent.
 - Keep workout add/edit/reschedule, explicit rest days, progress, mileage, calendar, milestones and backup export.
 

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { EMPTY_WORKOUT_MEASUREMENTS, validateWorkout } from '../lib/domain.ts';
-import { parseInput, inputFeedback, initialLinkedPlan, editLinkedPlan, changePlanUnit, KM_PER_MILE } from '../lib/workout-form.ts';
+import { parseInput, inputFeedback, initialLinkedPlan, editLinkedPlan, changePlanUnit, pastedWorkoutTime, workoutTimeText, KM_PER_MILE } from '../lib/workout-form.ts';
 const blank={...EMPTY_WORKOUT_MEASUREMENTS};
 test('form parsing rejects descriptions, malformed times, invalid seconds and non-integer effort; null and zero differ',()=>{
   assert.equal(parseInput('5.5','distance','mi'),5.5);
@@ -14,6 +14,20 @@ test('form parsing rejects descriptions, malformed times, invalid seconds and no
   assert.equal(inputFeedback('12:','pace','mi',false).state,'hint');
   assert.equal(inputFeedback('12:','pace','mi',true).state,'error');
   assert.equal(inputFeedback('12:75','pace','mi',false).state,'error');
+});
+test('split workout times feed the existing parser and linked calculations', () => {
+  assert.equal(workoutTimeText(['', '', '']), '');
+  assert.equal(parseInput(workoutTimeText(['', '50', '']), 'duration', 'mi'), 3000);
+  assert.equal(parseInput(workoutTimeText(['', '', '0']), 'actualDuration', 'mi'), 0);
+  assert.equal(parseInput(workoutTimeText(['12', '70']), 'pace', 'mi'), null);
+  assert.equal(pastedWorkoutTime('9:05', 'actualPace', 'km'), '9:05');
+  assert.equal(pastedWorkoutTime('45:30', 'actualDuration', 'mi'), '0:45:30');
+  assert.equal(pastedWorkoutTime('1:05:30', 'duration', 'mi'), '1:05:30');
+  assert.equal(pastedWorkoutTime('1:05:30', 'pace', 'mi'), null);
+  assert.equal(pastedWorkoutTime('1:60:00', 'duration', 'mi'), null);
+  const withDistance = editLinkedPlan(initialLinkedPlan(blank), 'distance', '5', 'mi', true);
+  const withPace = editLinkedPlan(withDistance, 'pace', workoutTimeText(['10', '']), 'mi', true);
+  assert.equal(withPace.text.duration, '0:50:00');
 });
 test('two most recent explicit inputs calculate the third, retain exact values and keep completion criterion stable',()=>{
   let plan=initialLinkedPlan(blank);

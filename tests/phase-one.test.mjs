@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { simpleSetup, validateSetup, setupIssues, plannerIntake, setupTargetTime } from '../lib/setup.ts';
 import { preparePlanner, validatePlanOutput, workoutForSession } from '../lib/planner.ts';
 import { simulatedPlan } from '../lib/simulated-plan.ts';
-import { applyCompletion } from '../lib/workout-completion.ts';
+import { applyCompletion, paceFromRecordedResults } from '../lib/workout-completion.ts';
 import { exampleSetup } from './setup-fixture.mjs';
 export function phaseOneSetup(today = '2026-10-27') {
  const setup = simpleSetup(undefined, '', '2026-11-24', today);
@@ -44,4 +44,25 @@ test('checking copies known targets and unchecking clears only untouched copies'
  const unknown=applyCompletion({...workout,plannedDistance:null,plannedDurationSeconds:null,plannedPaceSecondsPerMile:null},{done:true});assert.equal(unknown.actualDistance,null);assert.equal(unknown.resultOrigins,null);
  const strength=applyCompletion({...workout,type:'Strength'},{done:true});assert.equal(strength.actualDistance,null);assert.equal(strength.actualPaceSecondsPerMile,null);assert.equal(strength.actualDurationSeconds,3600);
  const derived=applyCompletion({...workout,plannedPaceSecondsPerMile:null},{done:true});assert.equal(derived.actualPaceSecondsPerMile,720);
+});
+
+test('completion leaves pace available to calculate from recorded run results', () => {
+  const completed = applyCompletion(workout, {
+    done: true,
+    actualDistance: 2.45,
+    actualDurationSeconds: 1785,
+  });
+  assert.equal(completed.actualPaceSecondsPerMile, null);
+  assert.equal(completed.resultOrigins, null);
+  assert.equal(Math.round(paceFromRecordedResults(completed)), 729);
+  const edited = applyCompletion(completed, { actualDurationSeconds: 1725 });
+  assert.equal(Math.round(paceFromRecordedResults(edited)), 704);
+  const withPace = applyCompletion(workout, { ...completed, actualPaceSecondsPerMile: 740 });
+  assert.equal(withPace.actualPaceSecondsPerMile, 740);
+  const durationCopied = applyCompletion(workout, { done: true, actualDistance: 2.45 });
+  assert.equal(durationCopied.actualPaceSecondsPerMile, 720);
+  assert.equal(paceFromRecordedResults(durationCopied), null);
+  const undone = applyCompletion(completed, { done: false });
+  assert.equal(undone.actualDistance, 2.45);
+  assert.equal(undone.actualDurationSeconds, 1785);
 });
