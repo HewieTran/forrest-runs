@@ -39,7 +39,7 @@ import WorkoutEditor from './WorkoutEditor';
 import { formatPace, formatDuration } from '../lib/workout-form';
 import BlockActions from './BlockActions';
 import type { Plan } from '../lib/domain';
-import { applyCompletion } from '../lib/workout-completion';
+import { applyCompletion, paceFromRecordedResults } from '../lib/workout-completion';
 import { raceDistanceLabel } from '../lib/race-distance';
 import { setupTargetTime } from '../lib/setup';
 import { blockReady } from '../lib/blocks';
@@ -298,9 +298,17 @@ export default function Tracker({
     .sort()
     .at(-1);
   function renderWorkoutCard(workout: Workout) {
+    const savedPace = workout.actualPaceSecondsPerMile;
+    const copiedPace = workout.resultOrigins?.actualPaceSecondsPerMile;
+    const calculatedPace = isRun(workout) && !workout.actualPace.trim() &&
+      (savedPace === null || savedPace === copiedPace) ? paceFromRecordedResults(workout) : null;
+    const summaryPace = calculatedPace ?? savedPace;
+    const showsCopiedResults = Object.keys(workout.resultOrigins ?? {}).some(
+      key => key !== 'actualPaceSecondsPerMile' || calculatedPace === null,
+    );
     const recordedParts = [
       workout.actualDistance === null ? '' : `${formatNumber(workout.actualDistance)} mi recorded`,
-      workout.actualPaceSecondsPerMile === null ? workout.actualPace : `${formatPace(workout.actualPaceSecondsPerMile, 'mi')} /mi`,
+      summaryPace === null ? workout.actualPace : `${formatPace(summaryPace, 'mi')} /mi`,
       workout.actualDurationSeconds === null ? '' : formatDuration(workout.actualDurationSeconds),
     ].filter(Boolean);
     const isExpanded = expandedWorkoutId === workout.id;
@@ -344,7 +352,7 @@ export default function Tracker({
                   {recordedParts.join(' · ')}
                 </span>
               )}
-            {workout.resultOrigins && Object.keys(workout.resultOrigins).length > 0 && (
+            {showsCopiedResults && (
               <span className="copied-result-label">Includes results filled from plan</span>
             )}
           </div>
@@ -496,6 +504,7 @@ export default function Tracker({
                 </button>
                 <button
                   className="button add-button"
+                  aria-label="Add workout"
                   onClick={() => {
                     if (confirmDiscardChanges()) {
                       setExpandedWorkoutId('new');
@@ -506,7 +515,7 @@ export default function Tracker({
                   }}
                   disabled={saving || (!!data.plan.setup && !acceptedPlan(data.plan))}
                 >
-                  <Plus size={16} />
+                  <Plus size={16} aria-hidden="true" />
                   <span>Add workout</span>
                 </button>
               </div>

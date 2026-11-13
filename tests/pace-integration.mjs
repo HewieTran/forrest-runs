@@ -53,4 +53,19 @@ export async function testPaces(db,dispatch){
   assert.equal(summary.recordedMiles, 5);
   console.log('PASS: manual distance and pace save and reload on Mobility and Strength without counting toward running mileage.');
 
+  const newRun = await call('/api/workouts'+scope, 'POST', {
+    ...input, done: false, actualDistance: null, actualDurationSeconds: null,
+    actualPace: '', actualPaceSecondsPerMile: null,
+  });
+  assert.equal(newRun.status, 201, JSON.stringify(newRun.data));
+  const logged = await call('/api/workouts/'+encodeURIComponent(newRun.data.workout.id)+scope, 'PATCH', {
+    ...newRun.data.workout, done: true, actualDistance: 2.45, actualDurationSeconds: 1785,
+  });
+  assert.equal(logged.status, 200, JSON.stringify(logged.data));
+  const recorded = (await call('/api/training'+scope)).data.workouts.find(w => w.id === logged.data.workout.id);
+  assert.equal(recorded.actualDistance, 2.45);
+  assert.equal(recorded.actualDurationSeconds, 1785);
+  assert.equal(recorded.actualPaceSecondsPerMile, null);
+  assert.equal(recorded.resultOrigins, null);
+  console.log('PASS: completing a run with recorded distance and time preserves the optional pace field for the calculated summary.');
 }

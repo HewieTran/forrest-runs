@@ -124,7 +124,10 @@ Additive migration 0007 adds nullable workouts.result_origins JSON. Server-manag
 resultOrigins maps actualDistance, actualDurationSeconds and/or
 actualPaceSecondsPerMile to values copied from known targets. Completion copies
 only missing actuals, optionally deriving a third numeric target from two known
-ones. Existing zero/manual results survive. Unchecking clears only values still
+ones. When both run distance and duration are recorded, the summary derives a
+blank or plan-copied pace from them. Completion leaves a blank pace available
+for this calculation instead of copying the planned pace. Existing zero/manual
+results survive. Unchecking clears only values still
 matching their copied marker. Manual edits remove markers; manualResultFields
 communicates explicit same-value edits and is never persisted as workout data.
 Client-supplied provenance is ignored. Strength/mobility never copy running pace

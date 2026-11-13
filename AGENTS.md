@@ -47,6 +47,40 @@ never add a description-parsing backfill to a schema migration or live read.
 - Run the relevant domain/backup/migration tests, TypeScript, a production build,
   and the disposable Worker integration suite for shared storage/API changes.
 
+## Dev and QA review for user-facing pull requests
+
+1. **Dev hands the build to QA.** Once the feature is ready to test, Dev
+   starts a separate QA agent and shares the PR link, current head SHA, test
+   URL, build source revision, acceptance criteria, and runner goals. Give QA
+   the goals without click-by-click instructions. Use a disposable account
+   with synthetic data. If staging lacks isolated test access or its build
+   does not match the PR, use a disposable preview of the PR source and
+   record which hosted checks remain unverified.
+2. **QA tests as a runner.** Start from Home at desktop and phone widths.
+   Test the new feature and walk through the core app flows. Create and
+   start a manual training block, find today's workout, log and edit actual
+   results, reload to verify persistence, and find weekly progress. Test plan
+   generation with simulation and verify its saved draft separately. Report
+   what failed and what was hard to find, understand, or use.
+3. **QA reports to Dev in the PR.** Record pass, fail, or blocked for the
+   tested head SHA and build. Include the environment, viewport, scenario,
+   expected and actual behavior, and steps to reproduce any findings. Include
+   a screenshot when it helps and contains only synthetic data.
+4. **Dev fixes, then QA retests.** A failed or blocked required check goes
+   back to Dev. Dev owns the fix or unblocking work and hands the patched
+   build and its new head SHA back to QA on the same PR. QA repeats the
+   failed scenarios and checks the related flows. If any required check
+   still fails or is blocked, return it to Dev and repeat.
+5. **QA signs off before merge.** Record QA's explicit approval and the
+   full tested head SHA in the PR once the feature and core app flows pass.
+   If the PR head changes, QA reviews the new build and retests the affected
+   flows before signing off again. The merge owner checks that the approval
+   matches the current head SHA and follows the merge authorization rule
+   above.
+6. **Dev verifies the deployment.** Confirm the deployed revision and repeat
+   the most important affected flow in the target environment with safe
+   test data.
+
 ## Phase 1 integration on 2026-10-27
 
 Hieu authorized the simplified intake, UI and completion behavior as one integrated

@@ -3,7 +3,7 @@
 import { useId, useRef, useState, type FormEvent } from 'react';
 import { Check, Link2, LoaderCircle } from 'lucide-react';
 import { isRun, WORKOUT_PHASES, TYPES, validDate, validateWorkout, type Workout, type WorkoutInput } from '../lib/domain';
-import { applyCompletion, type ResultField as CopiedField } from '../lib/workout-completion';
+import { applyCompletion, paceFromRecordedResults, type ResultField as CopiedField } from '../lib/workout-completion';
 import {
   changePlanUnit, editLinkedPlan, formatDistance, formatDuration, formatPace,
   initialLinkedPlan, inputFeedback, parseInput, pastedWorkoutTime, workoutTimeText, PLAN_FIELDS,
@@ -160,7 +160,7 @@ export default function WorkoutEditor({ workout, saving, error, onSave, onCancel
   const planPaused = PLAN_FIELDS.some(key => plan.text[key] !== '' && inputFeedback(plan.text[key], key, unit, true));
   const actualDistance = exactResults.actualDistance;
   const actualDuration = exactResults.actualDuration;
-  const calculatedPace = actualDistance !== null && actualDistance > 0 && actualDuration !== null && actualDuration > 0 ? actualDuration / actualDistance : null;
+  const calculatedPace = paceFromRecordedResults({ actualDistance, actualDurationSeconds: actualDuration });
   const painOptions = ['', 'None', 'Mild', 'Moderate', 'Severe'];
   if (!painOptions.includes(draft.pain)) painOptions.push(draft.pain);
 
@@ -226,7 +226,7 @@ export default function WorkoutEditor({ workout, saving, error, onSave, onCancel
       </div>
       {running && <p className="actual-pace-calculation">Calculated pace <strong>{formatPace(calculatedPace, unit) || '—'}{calculatedPace !== null && ` /${unit}`}</strong><button type="button" disabled={calculatedPace === null} onClick={() => { if (calculatedPace !== null) editResult('actualPace', formatPace(calculatedPace, unit)); }}>Use pace</button></p>}
       {draft.actualPace && <p className="legacy-workout-value">Original pace / activity: {draft.actualPace}<small>Preserved alongside your structured results.</small></p>}
-      <p className="field-hint">{running ? 'Checking completed fills missing results from the plan.' : 'Checking completed fills missing duration from the plan.'} Unchecking clears copied results and preserves manual entries.</p>
+      <p className="field-hint">{running ? 'The summary can calculate pace from recorded distance and time. Checking completed fills other missing results from the plan.' : 'Checking completed fills missing duration from the plan.'} Unchecking clears copied results and preserves manual entries.</p>
       {draft.resultOrigins && Object.keys(draft.resultOrigins).length > 0 && <p className="copied-result-label">Filled from plan. Edit a value to record your own result.</p>}
       <details className="workout-optional-details"><summary>Effort, pain &amp; notes <span>Optional</span></summary><div className="form-grid result-extra-grid">
         {measurementField('effort', 'Effort (1–10)', '')}

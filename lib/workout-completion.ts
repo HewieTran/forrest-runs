@@ -20,6 +20,17 @@ export function validateResultOrigins(value: unknown): ResultOrigins | null {
   return Object.keys(result).length ? result : null;
 }
 
+export function paceFromRecordedResults({
+  actualDistance, actualDurationSeconds, resultOrigins,
+}: Pick<Measurements, 'actualDistance' | 'actualDurationSeconds' | 'resultOrigins'>) {
+  if (actualDistance === null || actualDistance <= 0 ||
+      actualDurationSeconds == null || actualDurationSeconds <= 0 ||
+      resultOrigins?.actualDistance === actualDistance ||
+      resultOrigins?.actualDurationSeconds === actualDurationSeconds) return null;
+  const pace = actualDurationSeconds / actualDistance;
+  return Number.isFinite(pace) ? pace : null;
+}
+
 export function applyCompletion<T extends Measurements>(before: T, input: Partial<T>, manualFields: readonly ResultField[] = []) {
   const next = { ...before, ...input };
   const origins = { ...(before.resultOrigins ?? {}) };
@@ -35,8 +46,10 @@ export function applyCompletion<T extends Measurements>(before: T, input: Partia
         if (duration === null && distance !== null && pace !== null) duration = Math.round(distance * pace);
         if (pace === null && distance !== null && distance > 0 && duration !== null) pace = duration / distance;
       }
+      // Leave pace optional when two recorded measurements can supply it.
+      const measuredPace = paceFromRecordedResults({ ...next, resultOrigins: origins });
       const planned = { actualDistance: running ? distance : null, actualDurationSeconds: duration,
-        actualPaceSecondsPerMile: running && !next.actualPace.trim() ? pace : null };
+        actualPaceSecondsPerMile: running && !next.actualPace.trim() && measuredPace === null ? pace : null };
       for (const key of RESULT_FIELDS) {
         const value = planned[key];
         if (next[key] == null && value !== null && Number.isFinite(value) && value > 0) {
