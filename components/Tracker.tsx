@@ -36,6 +36,7 @@ import {
 } from '../lib/domain';
 import AppHeader from './AppHeader';
 import WorkoutEditor from './WorkoutEditor';
+import TodayWorkout, { formatWorkoutTitle } from './TodayWorkout';
 import { formatPace, formatDuration } from '../lib/workout-form';
 import BlockActions from './BlockActions';
 import type { Plan } from '../lib/domain';
@@ -47,8 +48,6 @@ import { workoutSummary, workoutStructure } from '../lib/workout-structure';
 
 const formatNumber = (value: number) =>
   value.toLocaleString('en-US', { maximumFractionDigits: 2 });
-const formatWorkoutTitle = (workoutType: string) =>
-  workoutType === 'Race' ? 'Race day' : workoutType.replace(' Run', ' run');
 type Filter = 'all' | 'runs' | 'support' | 'missing';
 function WorkoutIcon({ type }: { type: string }) {
   const Icon =
@@ -85,6 +84,10 @@ export default function Tracker({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [toast, setToast] = useState('');
+  const [savedRunId, setSavedRunId] = useState<string | null>(null);
+  const [actualFocus, setActualFocus] = useState<{ id: string } | null>(null);
+  const showToday = data.plan.status === 'active';
+  const progressHref = preview ? '/preview?view=progress' : `/blocks/${encodeURIComponent(data.plan.id)}/progress`;
   // Derive the dashboard from the same saved records shown in the workout list.
   const progress = summarize(data.workouts, data.today);
   const weekEnd = addDays(selectedWeek, 6);
@@ -177,6 +180,13 @@ export default function Tracker({
     window.addEventListener('beforeunload', handler);
     return () => window.removeEventListener('beforeunload', handler);
   }, [hasUnsavedChanges]);
+  useEffect(() => {
+    if (!actualFocus || actualFocus.id !== expandedWorkoutId) return;
+    const section = document.getElementById(`workout-actual-${actualFocus.id}`);
+    if (!section) return;
+    section.focus({ preventScroll: true });
+    section.scrollIntoView({ block: 'start' });
+  }, [actualFocus, expandedWorkoutId]);
   // Navigation and editor changes share the same unsaved-change guard.
   function confirmDiscardChanges() {
     return (
@@ -186,19 +196,35 @@ export default function Tracker({
   }
   function navigateToWeek(next: string) {
     if (saving || !confirmDiscardChanges()) return;
+    setActualFocus(null);
     setSelectedWeek(weekStart(next));
     setExpandedWorkoutId(null);
     setHasUnsavedChanges(false);
     setError('');
   }
+  function openTodayWorkout(id: string) {
+    const todayWeek = weekStart(data.today);
+    const alreadyOpen = expandedWorkoutId === id && selectedWeek === todayWeek && filter === 'all';
+    if (saving || (!alreadyOpen && !confirmDiscardChanges())) return;
+    if (!alreadyOpen) {
+      setSelectedWeek(todayWeek);
+      setFilter('all');
+      setExpandedWorkoutId(id);
+      setHasUnsavedChanges(false);
+      setError('');
+    }
+    setActualFocus({ id });
+  }
   function toggleWorkoutEditor(id: string) {
     if (saving || !confirmDiscardChanges()) return;
+    setActualFocus(null);
     setExpandedWorkoutId(expandedWorkoutId === id ? null : id);
     setHasUnsavedChanges(false);
     setError('');
   }
   function selectFilter(next: Filter) {
     if (saving || !confirmDiscardChanges()) return;
+    setActualFocus(null);
     setFilter(next);
     setExpandedWorkoutId(null);
     setHasUnsavedChanges(false);
@@ -206,6 +232,7 @@ export default function Tracker({
   }
   function showFirstMissingDistance() {
     if (saving || !confirmDiscardChanges()) return;
+    setActualFocus(null);
     const firstWorkoutNeedingDistance = data.workouts
       .filter(
         (workout) =>
@@ -277,12 +304,28 @@ export default function Tracker({
       setFilter('all');
       setExpandedWorkoutId(null);
       setHasUnsavedChanges(false);
-      setToast(
-        preview
-          ? 'Preview updated. Changes are not saved.'
+      setActualFocus(null);
+      const completedRun = savedWorkout.done && !existing?.done && isRun(savedWorkout);
+      const celebrateInHero = completedRun && showToday && savedWorkout.date === data.today;
+      if (celebrateInHero) {
+        setSavedRunId(savedWorkout.id);
+        if (actualFocus?.id === id) {
+          const title = document.getElementById('today-workout-title');
+          title?.focus({ preventScroll: true });
+          title?.scrollIntoView({ block: 'center' });
+        }
+      }
+      else if (savedRunId === savedWorkout.id && (!savedWorkout.done || !isRun(savedWorkout) || savedWorkout.date !== data.today)) {
+        setSavedRunId(null);
+      }
+      setToast(preview
+        ? 'Preview updated. Changes are not saved.'
+        : completedRun
+          ? 'Good miles today. Workout saved.'
           : 'Workout saved. Your progress is up to date.',
       );
     } catch (caughtError) {
+      setToast('');
       setError(
         caughtError instanceof Error
           ? caughtError.message
@@ -374,6 +417,7 @@ export default function Tracker({
             onCancel={() => {
               if (confirmDiscardChanges()) {
                 setExpandedWorkoutId(null);
+                setActualFocus(null);
                 setHasUnsavedChanges(false);
                 setError('');
               }
@@ -388,11 +432,13 @@ export default function Tracker({
     <div className="app-shell">
       <AppHeader displayName={data.displayName} preview={preview} />
       <main className="main-content">
+        {showToday && <TodayWorkout data={data} savedRunId={savedRunId} saving={saving} progressHref={progressHref}
+          onOpenWorkout={openTodayWorkout} onProgress={event => { if (!confirmDiscardChanges()) event.preventDefault(); }} />}
         <a className="block-breadcrumb" href={preview ? '/preview?view=blocks' : '/blocks'}><ChevronLeft size={15} /> All training blocks</a>
         <section className="page-heading block-detail-heading">
           <div>
             <div className="block-title-row">
-              <h1>{data.plan.raceName}</h1>
+              {showToday ? <h2 className="block-race-title">{data.plan.raceName}</h2> : <h1>{data.plan.raceName}</h1>}
               <div className="block-header-controls" role="group" aria-label="Block management">
                 <BlockActions plan={data.plan} activeBlock={currentActive} preview={preview} disabled={saving || hasUnsavedChanges} ready={blockReady({ ...data.plan, workoutCount: data.workouts.length })} onChanged={block => {
                   setData(current => ({ ...current, plan: block }));
@@ -627,7 +673,7 @@ export default function Tracker({
           <aside className="dashboard" aria-label="Overall training progress">
             <div className="dashboard-title">
               <h2>Your progress</h2>
-              <a className="button primary progress-expanded-link" href={preview ? '/preview?view=progress' : `/blocks/${encodeURIComponent(data.plan.id)}/progress`}>View progress <ArrowUpRight size={13} aria-hidden="true" /></a>
+              <a className="button primary progress-expanded-link" href={progressHref}>View progress <ArrowUpRight size={13} aria-hidden="true" /></a>
             </div>
             <section className="panel progress-panel">
               <div className="panel-title">
@@ -836,6 +882,7 @@ export default function Tracker({
             )}
           </aside>
         </div>
+        {error && !expandedWorkoutId && <p className="form-error" role="alert">{error}</p>}
         <footer className="app-footer">
           <div>
             <span className="footer-dot" />{' '}

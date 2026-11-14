@@ -1,0 +1,143 @@
+.today-dashboard {
+  --today-forest: #26332a;
+  --today-cream: #fff5e2;
+  --today-muted: #e2d8c5;
+  --today-gold: #ffd18f;
+  --today-serif: Georgia, 'Times New Roman', serif;
+  margin-bottom: 24px;
+}
+
+.today-workout {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+  overflow: hidden;
+  border-radius: 22px;
+  background: var(--today-forest);
+  color: var(--today-cream);
+}
+
+.today-workout-copy { padding: clamp(24px, 4vw, 40px); }
+.today-workout-date {
+  color: var(--today-gold);
+  font-size: 12px;
+  font-weight: 750;
+  letter-spacing: .11em;
+  text-transform: uppercase;
+}
+.today-workout-date span { margin: 0 3px; }
+.today-workout h1 {
+  margin: 12px 0 0;
+  color: var(--today-muted);
+  font: 400 clamp(42px, 6vw, 76px)/1 var(--today-serif);
+  letter-spacing: -.045em;
+}
+.today-workout-instructions { margin: 12px 0 0; color: var(--today-muted); font-size: 15px; overflow-wrap: anywhere; }
+.today-workout-targets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 0;
+  margin: 22px 0 0;
+}
+.today-workout-targets > div {
+  display: flex;
+  flex-direction: column-reverse;
+  padding-inline: clamp(10px, 2vw, 22px);
+}
+.today-workout-targets > div:first-child { padding-inline-start: 0; }
+.today-workout-targets > div + div { border-inline-start: 1px solid #686e60; }
+.today-workout-targets dt { color: var(--today-muted); font-size: 12px; }
+.today-workout-targets dd {
+  margin: 0 0 3px;
+  color: var(--today-cream);
+  font-size: 19px;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+}
+.today-workout-targets small { color: var(--today-muted); font-size: 12px; font-weight: 650; }
+.today-workout-art {
+  position: absolute;
+  inset: 0 0 0 auto;
+  width: calc(100% * 1.05 / 2.05);
+  height: 100%;
+  object-fit: cover;
+  object-position: 62% 56%;
+}
+.today-workout-log, .today-workout-link {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 0;
+  background: none;
+  color: var(--today-gold);
+  font-size: 14px;
+  font-weight: 750;
+}
+.today-workout-log { margin-top: 23px; padding: 8px 15px; border-radius: 9px; background: var(--today-gold); color: #302719; }
+.today-workout-log:hover:not(:disabled) { background: #ffe3b8; }
+.today-workout-link { padding: 0; }
+.today-workout-link:hover:not(:disabled) { text-decoration: underline; }
+.today-workout button:focus-visible { outline: 2px solid var(--today-cream); outline-offset: 3px; }
+.today-workout button:disabled { opacity: .65; }
+.today-workout-completed { margin-top: 20px; max-width: 360px; }
+.today-workout-celebration {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 11px 14px;
+  border-radius: 12px;
+  background: #3b493b;
+}
+.today-workout-celebration svg { flex: none; color: var(--today-gold); }
+.today-workout-celebration strong { color: var(--today-muted); font-size: 14px; }
+.today-workout-celebration p { color: var(--today-muted); font-size: 13px; }
+.today-workout-others { margin: 0; padding: 0; list-style: none; }
+@media (prefers-reduced-motion: no-preference) {
+  .today-workout-spark { animation: today-workout-spark .55s ease-out; }
+}
+@keyframes today-workout-spark {
+  0% { transform: scale(.8) rotate(-15deg); }
+  45% { transform: scale(1.3) rotate(10deg); }
+  100% { transform: scale(1); }
+}
+
+.today-mileage {
+  max-width: 520px;
+  margin-top: 14px;
+  padding: 17px 20px 8px;
+  border: 1px solid #ded7c8;
+  border-radius: 15px;
+  background: #fffdf7;
+  color: #252c23;
+}
+.today-mileage-header { display: flex; justify-content: space-between; align-items: baseline; gap: 6px 12px; flex-wrap: wrap; }
+.today-mileage h2 { font: 400 25px/1.2 var(--today-serif); }
+.today-mileage-header span, .today-mileage-note { color: #625e51; font-size: 12px; }
+.today-mileage-value { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 8px; margin: 7px 0 0; font-size: 14px; }
+.today-mileage-value strong { font-size: 25px; font-variant-numeric: tabular-nums; }
+.today-mileage-value span { color: #625e51; }
+.today-mileage progress { display: block; appearance: none; width: 100%; height: 7px; margin-top: 8px; border: 0; border-radius: 20px; overflow: hidden; background: #e8ecde; color: #455b3b; }
+.today-mileage progress::-webkit-progress-bar { background: #e8ecde; }
+.today-mileage progress::-webkit-progress-value { background: #455b3b; }
+.today-mileage progress::-moz-progress-bar { background: #455b3b; }
+.today-mileage-note { margin-top: 5px; }
+.today-mileage a { display: inline-flex; min-height: 44px; align-items: center; gap: 6px; color: #963b21; font-size: 13px; font-weight: 750; }
+.today-mileage a:hover { text-decoration: underline; }
+.workout-actual-section { scroll-margin-top: 88px; }
+.workout-actual-section:focus-visible { outline: 2px solid #396a4b; outline-offset: 4px; }
+
+@media (max-width: 640px) {
+  .today-workout { grid-template-columns: minmax(0, 1fr); border-radius: 16px; }
+  .today-workout-copy { padding: 23px 19px; }
+  .today-workout-art { position: static; width: 100%; height: 116px; }
+}
+
+.block-detail-heading .block-race-title {
+  font-size: clamp(28px, 4vw, 42px);
+  line-height: 1.1;
+  letter-spacing: -1.5px;
+  font-weight: 650;
+}
