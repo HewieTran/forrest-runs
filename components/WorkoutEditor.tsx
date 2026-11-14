@@ -218,7 +218,7 @@ export default function WorkoutEditor({ workout, saving, error, onSave, onCancel
       <label className="visible-workout-instructions">Workout instructions<textarea rows={4} maxLength={1000} value={draft.plannedWorkout} onChange={event => update('plannedWorkout', event.target.value)} placeholder="Warmup, intervals, or effort guidance" /></label>
       </>}
     </fieldset>
-    <fieldset disabled={saving}><legend className="sr-only">Actual</legend><div className="measurement-heading"><h4>Actual</h4><span>What you recorded</span></div>
+    <fieldset id={`workout-actual-${workout.id}`} className="workout-actual-section" tabIndex={-1} disabled={saving}><legend className="sr-only">Actual</legend><div className="measurement-heading"><h4>Actual</h4><span>What you recorded</span></div>
       <div className="form-grid measurement-grid">
         {measurementField('actualDuration', 'Recorded duration', '')}
         {measurementField('actualPace', 'Recorded pace · optional', '/'+unit)}
