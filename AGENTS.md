@@ -12,6 +12,23 @@
   Record the verification and deployed revision in the pull request. Report
   review, merge, staging, and production status separately.
 
+## Architecture record
+
+- Read `docs/architecture.md` before architecture-affecting work. It is the shared
+  reference across feature and AWS chats.
+- Every PR states `Architecture impact: changed / no change` with a brief reason.
+  If it affects services, hosting, network routes, identity/access boundaries,
+  storage location, backups, secrets placement, delivery automation or external
+  integrations, update the diagram, component inventory and change record in
+  that same PR. The implementing agent owns this update.
+- Keep proposed/merged changes distinct from deployed infrastructure. At
+  deployment, record the exact release SHA, environment and verification
+  evidence; update the architecture status when applicable. Do not claim an
+  AWS resource or pipeline is live solely because its code merged.
+- UI-only changes normally require no diagram redraw. Documentation-only edits
+  do not require provisioning, paid calls or a new application-wide browser QA
+  pass.
+
 ## Shared workout-data contract
 
 Hieu assigned Agent 2 the workout-data foundation on 2026-10-23, before Progress
