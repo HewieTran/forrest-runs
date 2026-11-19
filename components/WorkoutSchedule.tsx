@@ -8,10 +8,10 @@ import { monthDates, scheduleTarget, shiftMonth, shortWorkoutTitle } from '../li
 import { formatWorkoutTitle } from './TodayWorkout';
 import './workout-schedule.css';
 
-export default function WorkoutSchedule({ data, date, month, canEdit, disabled, onDate, onMonth, onOpen, onAdd, onOpenWorkout, onAddDate }: {
+export default function WorkoutSchedule({ data, date, month, canEdit, disabled, onDate, onMonth, onOpen, onAdd, onOpenWorkout, onAddDate, onSelectDate }: {
   data: AppData; date: string; month: string; canEdit: boolean; disabled: boolean;
   onDate: (date: string) => void; onMonth: (month: string) => void; onOpen: (date: string) => void;
-  onAdd: () => void; onOpenWorkout: (id: string) => void; onAddDate: (date: string) => void;
+  onAdd: () => void; onOpenWorkout: (id: string) => void; onAddDate: (date: string) => void; onSelectDate: (date: string) => void;
 }) {
   const index = calendarIndex({ ...data, workouts: orderedWorkouts(data.workouts) });
   const rows = index.workouts.get(date) ?? [], isRest = index.rest.has(date);
@@ -37,18 +37,18 @@ export default function WorkoutSchedule({ data, date, month, canEdit, disabled, 
         const summary = rest ? 'Rest day' : workouts.length ? workouts.map(row => `${formatWorkoutTitle(row.type)}, ${scheduleTarget(row)}, ${row.done ? 'completed' : 'scheduled'}`).join('; ') : 'No workout scheduled';
         const unavailable = disabled || !validDate(day);
         return <div key={day} className={`schedule-day${day.slice(0, 7) !== month.slice(0, 7) ? ' outside-month' : ''}${day === date ? ' selected' : ''}${today ? ' today' : ''}${unavailable ? ' unavailable' : ''}`}
-          onClick={() => { if (!unavailable) onDate(day); }} onDoubleClick={() => {
+          onClick={() => { if (!unavailable) onSelectDate(day); }} onDoubleClick={() => {
             if (unavailable || !window.matchMedia('(pointer: fine)').matches) return;
             if (rest || !canEdit) onOpen(day); else onAddDate(day);
           }}>
           <button id={day === date ? 'schedule-selected-date' : `schedule-date-${day}`} type="button" className="schedule-day-number"
             aria-label={`${formatDate(day, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}. ${summary}${day === date ? '. Selected date' : ''}`}
             aria-current={today ? 'date' : undefined} aria-pressed={day === date} disabled={unavailable}
-            onClick={event => { event.stopPropagation(); onDate(day); }}><span>{Number(day.slice(-2))}</span>{today && <small>Today</small>}</button>
+            onClick={event => { event.stopPropagation(); onSelectDate(day); }}><span>{Number(day.slice(-2))}</span>{today && <small>Today</small>}</button>
           {rest && <span className="schedule-rest">Rest</span>}
           {workouts.slice(0, 2).map(row => <button type="button" className={`schedule-session${row.done ? ' completed' : ''}`} key={row.id} disabled={unavailable}
             aria-label={`Select ${formatWorkoutTitle(row.type)}, ${scheduleTarget(row)}, ${row.done ? 'completed' : 'scheduled'}, ${day}`}
-            onClick={event => { event.stopPropagation(); onDate(day); }}
+            onClick={event => { event.stopPropagation(); onSelectDate(day); }}
             onDoubleClick={event => { event.stopPropagation(); if (canEdit && window.matchMedia('(pointer: fine)').matches) onOpenWorkout(row.id); }}>
             <span className="schedule-session-title">{row.done && <Check size={12} aria-hidden="true" />}<span className="schedule-full-title">{formatWorkoutTitle(row.type)}</span><span className="schedule-short-title">{shortWorkoutTitle(row)}</span></span>
             <span className="schedule-session-target">{scheduleTarget(row)}</span></button>)}

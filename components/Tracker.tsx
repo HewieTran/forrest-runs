@@ -98,6 +98,10 @@ export default function Tracker({ initial, preview = false, activeBlock = null, 
     if (saving || !canEdit || !confirmDiscardChanges() || (schedule && data.restDays.some(day => day.date === selectedDate))) return;
     setExpandedWorkoutId('new'); setHasUnsavedChanges(false); setError(''); setSaveConflict(false); setPreviewPeriod(localPeriod);
   }
+  function selectCalendarDate(date: string) {
+    if (saving || !confirmDiscardChanges()) return;
+    setSelectedDate(date);
+  }
   function chooseDate(date: string, open = false, add = false) {
     if (saving || !confirmDiscardChanges()) return;
     setSelectedDate(date); setVisibleMonth(monthStart(date));
@@ -224,7 +228,7 @@ export default function Tracker({ initial, preview = false, activeBlock = null, 
       {schedule ? <>
         <a className="block-breadcrumb" href={preview ? '/preview?view=overview' : `/blocks/${encodeURIComponent(data.plan.id)}`}><ChevronLeft size={15} /> Training Block Overview</a>
         <WorkoutSchedule data={data} date={selectedDate} month={visibleMonth} canEdit={canEdit} disabled={saving}
-          onDate={date => chooseDate(date)} onMonth={setVisibleMonth} onOpen={date => chooseDate(date, true)} onAdd={addWorkout} onOpenWorkout={openTodayWorkout} onAddDate={date => chooseDate(date, true, true)} />
+          onDate={date => chooseDate(date)} onMonth={setVisibleMonth} onOpen={date => chooseDate(date, true)} onAdd={addWorkout} onOpenWorkout={openTodayWorkout} onAddDate={date => chooseDate(date, true, true)} onSelectDate={selectCalendarDate} />
       </> : <>
       <a className="block-breadcrumb" href={preview ? '/preview?view=blocks' : '/blocks'}><ChevronLeft size={15} /> All training blocks</a>
       <section className="page-heading block-detail-heading"><div>
