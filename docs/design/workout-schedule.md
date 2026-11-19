@@ -1,6 +1,6 @@
 # Workout Schedule: design review and acceptance criteria
 
-Status: design proposal only. No runtime app, database, live Site, or AWS beta changes.
+Status: design approved by Hieu; implementation in PR #27. Rest-day conversion deferred.
 Base: main after PR #26, bebd5202e7f8dc123406949822a635f0c9520a4f.
 Review date: November 18, 2026 (America/Chicago).
 
@@ -43,7 +43,7 @@ server persistence.
   a workout selector, the first scheduled workout's existing editor, and Add
   another. Changing the selected workout or adding another checks dirty state.
 - Blank dates open Add workout with the date prefilled and completion unchecked.
-- **Proposed rest behavior for approval:** explicit rest dates open a read-only
+- **Approved rest behavior:** explicit rest dates open a read-only
   Rest day popup with Add disabled. They are never treated as empty dates, never
   silently removed, and cannot be marked completed. Adding/removing rest-day
   designations is outside this PR; existing records remain intact.

@@ -1,0 +1,82 @@
+.workout-schedule-page { max-width:1180px; padding-top:25px; }
+.workout-schedule-page h1 { font:400 clamp(32px,4vw,44px)/1.15 Georgia,serif; letter-spacing:-.04em; color:#26332a; margin:5px 0 9px; }
+.schedule-block-name { margin-top:25px; color:#3d634c; font-size:14px; font-weight:600; }
+.schedule-range { margin-bottom:28px; color:#5b6258; font-size:14px; }
+.schedule-toolbar { display:flex; align-items:flex-end; flex-wrap:wrap; gap:10px; margin-bottom:18px; }
+.schedule-toolbar h2 { font:400 27px/1.2 Georgia,serif; margin:auto auto auto 0; }
+.schedule-month-actions { display:flex; align-items:center; gap:6px; }
+.schedule-toolbar .icon-button { width:42px; height:42px; }
+.schedule-date-picker { display:grid; gap:4px; font-size:13px; color:#445345; }
+.schedule-date-picker input { min-height:42px; background:#fffdf7; color:#26332a; border:1px solid #cdd5c8; border-radius:7px; padding:8px 10px; font:inherit; }
+.schedule-calendar { overflow:hidden; border:1px solid #d8ddcf; border-radius:13px; background:#fffdf7; }
+.schedule-weekdays,.schedule-days { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); }
+.schedule-weekdays { padding:11px 0; background:#edf0e5; color:#53624f; text-align:center; font-size:14px; font-weight:600; }
+.schedule-day { display:flex; flex-direction:column; align-items:stretch; gap:5px; min-width:0; min-height:116px; text-align:left; padding:8px; background:#fffdf7; color:#26332a; border:0; border-top:1px solid #e0e3d7; border-right:1px solid #e0e3d7; font-family:inherit; cursor:pointer; }
+.schedule-day:nth-child(7n) { border-right:0; }
+.schedule-day.outside-month { background:#f0f0e7; color:#65705e; }
+.schedule-day.selected { background:#edf2e5; box-shadow:inset 0 0 0 2px #326447; }
+.schedule-day:focus-visible { outline:3px solid #995b28; outline-offset:-4px; z-index:1; }
+.schedule-day:disabled { cursor:default; opacity:.5; }
+.schedule-day-number { display:flex; gap:5px; align-items:center; min-height:25px; font-size:14px; }
+.schedule-day-number > span { padding:2px 5px; }
+.schedule-day.today .schedule-day-number > span { background:#f6cf90; color:#26332a; border-radius:20px; }
+.schedule-day-number small { font-size:12px; color:#6b512b; }
+.schedule-session { background:#edf1e5; border-left:2px solid #869a7b; border-radius:4px; padding:4px 5px; font-size:13px; color:#304531; line-height:1.35; }
+.schedule-session.completed { background:#dcebd9; border-left-color:#326447; }
+.schedule-session-title { display:flex; align-items:center; gap:3px; overflow-wrap:anywhere; }
+.schedule-session-title svg { flex:none; }
+.schedule-session-target { display:block; }
+.schedule-short-title { display:none; }
+.schedule-rest { padding:4px 6px; background:#f2eee1; border-radius:4px; color:#5f614f; font-size:13px; }
+.schedule-overflow { font-size:12px; }
+.schedule-legend { display:flex; flex-wrap:wrap; gap:12px 20px; margin:14px 0 24px; color:#53624f; font-size:13px; }
+.schedule-legend > span { display:flex; gap:5px; align-items:center; }
+.schedule-key { width:10px; height:10px; background:#edf1e5; border:1px solid #869a7b; border-radius:2px; }
+.schedule-key.today { background:#f6cf90; border-color:#bfa06d; }
+.schedule-selected-day { border-top:1px solid #d8ddcf; padding-top:20px; display:grid; grid-template-columns:250px 1fr; gap:20px; }
+.schedule-selected-day h2 { font:400 24px Georgia,serif; }
+.schedule-selected-day p { font-size:14px; color:#5b6258; margin-top:5px; }
+.schedule-selected-list { display:grid; gap:8px; }
+.schedule-selected-row { display:flex; align-items:center; justify-content:space-between; gap:14px; padding:14px; background:#fffdf7; border:1px solid #d8ddcf; border-radius:10px; }
+.schedule-selected-row h3 { font-size:16px; font-weight:600; }
+.schedule-selected-row .button { flex:none; }
+.schedule-workout-selector { display:flex; gap:14px; align-items:flex-end; padding:22px 24px 0; }
+.schedule-workout-selector label { display:grid; gap:6px; flex:1; font-size:14px; min-width:0; }
+.schedule-workout-selector select { width:100%; padding:10px; border:1px solid #cdd5c8; border-radius:7px; background:#fffdf7; color:#26332a; font:inherit; }
+.schedule-rest-detail { padding:24px; }
+.schedule-rest-detail p { margin-bottom:16px; color:#445345; }
+.workout-recovery { padding:0 24px 24px; }
+.schedule-load-error { margin-block:24px; }
+@media(max-width:640px) {
+ .workout-schedule-page { padding:18px 12px 24px; }
+ .schedule-block-name { margin-top:18px; }
+ .schedule-range { font-size:13px; margin-bottom:22px; }
+ .schedule-toolbar { gap:9px; }
+ .schedule-toolbar h2 { font-size:25px; flex:1; }
+ .schedule-month-actions { gap:4px; }
+ .schedule-toolbar .icon-button { width:44px; height:44px; }
+ .schedule-date-picker { flex:1; }
+ .schedule-date-picker input { font-size:16px; min-height:44px; width:100%; min-width:0; }
+ .schedule-toolbar .schedule-add { min-height:44px; }
+ .schedule-weekdays { padding:9px 0; font-size:12px; }
+ .schedule-day { padding:5px 2px; gap:4px; min-height:98px; }
+ .schedule-day-number { font-size:13px; min-height:23px; }
+ .schedule-day-number small { display:none; }
+ .schedule-session { padding:3px 2px; font-size:12px; }
+ .schedule-session-title { display:block; }
+ .schedule-session-title svg { display:inline-block; vertical-align:middle; width:10px; height:10px; }
+ .schedule-full-title { display:none; }
+ .schedule-short-title { display:inline; }
+ .schedule-session-target { font-size:11px; }
+ .schedule-rest,.schedule-overflow { font-size:12px; padding-inline:2px; }
+ .schedule-legend { gap:10px 14px; font-size:12px; margin-bottom:20px; }
+ .schedule-selected-day { grid-template-columns:1fr; gap:14px; }
+ .schedule-selected-day h2 { font-size:23px; }
+ .schedule-selected-row { padding:12px; gap:10px; }
+ .schedule-selected-row h3 { font-size:15px; }
+ .schedule-selected-row p { font-size:13px; }
+ .schedule-workout-selector { padding:18px 18px 0; flex-wrap:wrap; }
+ .schedule-workout-selector label { flex-basis:100%; }
+ .schedule-workout-selector select { font-size:16px; min-height:44px; }
+ .schedule-workout-selector .button { margin-left:auto; min-height:44px; }
+}

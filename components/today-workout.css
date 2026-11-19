@@ -145,3 +145,6 @@
  .workout-browse { top: 138px; }
  .today-workout-schedule { font-size: 13px; padding-inline: 9px; }
 }
+
+.today-workout-schedule:focus-visible { outline:2px solid var(--today-cream); outline-offset:3px; }
+.today-workout-schedule[aria-disabled=true] { opacity:.65; }
