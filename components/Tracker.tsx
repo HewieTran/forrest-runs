@@ -29,6 +29,7 @@ export default function Tracker({ initial, preview = false, activeBlock = null, 
   const [readOnlyDate, setReadOnlyDate] = useState<string | null>(null);
   const [saveConflict, setSaveConflict] = useState(false);
   const saveInFlight = useRef(false);
+  const allowNavigation = useRef(false);
   const canEdit = !data.plan.setup || !!acceptedPlan(data.plan);
   const [currentActive, setCurrentActive] = useState(activeBlock);
   const [featuredId, setFeaturedId] = useState<string | null>(null);
@@ -65,9 +66,28 @@ export default function Tracker({ initial, preview = false, activeBlock = null, 
   }, [toast]);
   useEffect(() => {
     if (!hasUnsavedChanges && !saving) return;
-    const handler = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ''; };
+    allowNavigation.current = false;
+    const currentUrl = window.location.href, currentHistory = window.history.state;
+    const handler = (event: BeforeUnloadEvent) => {
+      if (allowNavigation.current) return;
+      event.preventDefault(); event.returnValue = '';
+    };
+    // Client-router Back/Forward transitions do not unload the document. Run
+    // before the router's popstate listener so a cancelled move keeps the form.
+    const guardHistory = (event: PopStateEvent) => {
+      if (!saving && (!hasUnsavedChanges || window.confirm('Discard your unsaved workout changes?'))) {
+        allowNavigation.current = true;
+        return;
+      }
+      event.stopImmediatePropagation();
+      window.history.pushState(currentHistory, '', currentUrl);
+    };
     window.addEventListener('beforeunload', handler);
-    return () => window.removeEventListener('beforeunload', handler);
+    window.addEventListener('popstate', guardHistory, true);
+    return () => {
+      window.removeEventListener('beforeunload', handler);
+      window.removeEventListener('popstate', guardHistory, true);
+    };
   }, [hasUnsavedChanges, saving]);
   function confirmDiscardChanges() {
     return !hasUnsavedChanges || window.confirm('Discard your unsaved workout changes?');
@@ -208,7 +228,10 @@ export default function Tracker({ initial, preview = false, activeBlock = null, 
     .at(-1);
   return <div className="app-shell" onClickCapture={event => {
     const link = event.target instanceof Element ? event.target.closest('a[href]') : null;
-    if (link && (saving || !confirmDiscardChanges())) { event.preventDefault(); event.stopPropagation(); }
+    if (link) {
+      if (saving || !confirmDiscardChanges()) { event.preventDefault(); event.stopPropagation(); }
+      else allowNavigation.current = true;
+    }
   }}>
     <AppHeader displayName={data.displayName} preview={preview} />
     <main className={`main-content ${schedule ? 'workout-schedule-page' : 'training-block-overview'}`}>

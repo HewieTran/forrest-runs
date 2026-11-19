@@ -51,11 +51,11 @@
  .workout-schedule-page { padding:18px 12px 24px; }
  .schedule-block-name { margin-top:18px; }
  .schedule-range { font-size:13px; margin-bottom:22px; }
- .schedule-toolbar { gap:9px; }
- .schedule-toolbar h2 { font-size:25px; flex:1; }
- .schedule-month-actions { gap:4px; }
+ .schedule-toolbar { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:10px; }
+ .schedule-toolbar h2 { grid-column:1/-1; font-size:25px; white-space:nowrap; }
+ .schedule-month-actions { grid-column:1/-1; gap:4px; }
  .schedule-toolbar .icon-button { width:44px; height:44px; }
- .schedule-date-picker { flex:1; }
+ .schedule-date-picker { min-width:0; }
  .schedule-date-picker input { font-size:16px; min-height:44px; width:100%; min-width:0; }
  .schedule-toolbar .schedule-add { min-height:44px; }
  .schedule-weekdays { padding:9px 0; font-size:12px; }
