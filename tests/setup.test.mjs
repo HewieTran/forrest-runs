@@ -56,9 +56,9 @@ test('backup normalization retains saved runner snapshots and strips untrusted s
   const timestamp = '2026-10-23T00:00:00.000Z';
   const block = { id: 'snapshot', status: 'draft', raceName: 'Spring 5K', raceDate: '2027-03-14', paceGuide: [], sourceName: null, version: 2, createdAt: timestamp, updatedAt: timestamp, setup: exampleSetup() };
   const backup = { schemaVersion: 2, exportedAt: timestamp, blocks: [block], workouts: [] };
-  assert.deepEqual(normalizeTrainingBackup(backup), { ...backup, schemaVersion: 6, restDays: [] });
+  assert.deepEqual(normalizeTrainingBackup(backup), { ...backup, schemaVersion: 7, restDays: [] });
   const untrusted = structuredClone(backup); untrusted.blocks[0].setup.ownerId = 'foreign'; untrusted.blocks[0].setup.approved = true;
-  assert.deepEqual(normalizeTrainingBackup(untrusted), { ...backup, schemaVersion: 6, restDays: [] });
+  assert.deepEqual(normalizeTrainingBackup(untrusted), { ...backup, schemaVersion: 7, restDays: [] });
 });
 
 test('finish-oriented setup needs no body measurements, benchmark, or long-run preference', () => {
@@ -126,7 +126,7 @@ test('both setup versions roundtrip through backup validation and generated name
   const stamp = '2026-10-23T00:00:00.000Z';
   for (const setup of [exampleSetup(), legacySetup()]) {
     const backup = { schemaVersion: 5, exportedAt: stamp, blocks: [{ id: 'snapshot', status: 'draft', raceName: 'Spring 5K', raceDate: '2027-03-14', paceGuide: [], sourceName: null, version: 2, createdAt: stamp, updatedAt: stamp, setup }], workouts: [], restDays: [] };
-    assert.deepEqual(normalizeTrainingBackup(backup), { ...backup, schemaVersion: 6 });
+    assert.deepEqual(normalizeTrainingBackup(backup), { ...backup, schemaVersion: 7 });
   }
   const value = exampleSetup(); value.goal.name = '';
   assert.equal(validateSetup(value).goal.name, '5K training · 2027-03-14');

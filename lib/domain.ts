@@ -1,3 +1,4 @@
+import { WORKOUT_PERIODS, type WorkoutPeriod } from './workout-period.ts';
 import type { Generation } from './planner';
 import type { BlockSetup } from './setup';
 import { structureMeasurements, validateWorkoutStructure, type WorkoutStructure } from './workout-structure.ts';
@@ -40,6 +41,7 @@ export type Plan = {
   updatedAt: string;
 };
 export type Workout = WorkoutMeasurements & {
+  timeOfDay?: WorkoutPeriod | null;
   planStructure?: WorkoutStructure | null;
   resultOrigins?: ResultOrigins | null;
   id: string;
@@ -82,7 +84,7 @@ export type WorkoutInput = Pick<
   | 'pain'
   | 'notes'
   | 'version'
-> & Partial<WorkoutMeasurements> & { planStructure?: WorkoutStructure | null; manualResultFields?: ResultField[] };
+> & Partial<WorkoutMeasurements> & { timeOfDay?: WorkoutPeriod | null; planStructure?: WorkoutStructure | null; manualResultFields?: ResultField[] };
 export function isRun(workout: Pick<Workout, 'type'>) {
   return workout.type !== 'Strength' && workout.type !== 'Mobility';
 }
@@ -283,6 +285,8 @@ export function validateWorkout(input: unknown): WorkoutInput {
     );
   if (fields.manualResultFields !== undefined && (!Array.isArray(fields.manualResultFields) || fields.manualResultFields.some(key => !RESULT_FIELDS.includes(key))))
     throw new Error('Invalid manually edited result fields.');
+  if (fields.timeOfDay !== undefined && fields.timeOfDay !== null && !WORKOUT_PERIODS.includes(fields.timeOfDay as WorkoutPeriod))
+    throw new Error('Choose Morning, Afternoon, Evening, or Night.');
   const structure = fields.planStructure == null ? fields.planStructure : validateWorkoutStructure(fields.planStructure);
   const measurements = validateWorkoutMeasurements(fields);
   if (structure) {
@@ -297,6 +301,7 @@ export function validateWorkout(input: unknown): WorkoutInput {
     Object.assign(measurements, validateWorkoutMeasurements({ ...fields, ...calculated }));
   }
   return {
+    ...(fields.timeOfDay === undefined ? {} : { timeOfDay: fields.timeOfDay as WorkoutPeriod | null }),
     ...(structure === undefined ? {} : { planStructure: structure }),
     ...(fields.manualResultFields === undefined ? {} : { manualResultFields: [...new Set(fields.manualResultFields as ResultField[])] }),
     ...measurements,

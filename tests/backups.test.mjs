@@ -11,10 +11,10 @@ const legacy = { schemaVersion: 1, exportedAt: date, plan, workouts: [workout] }
 test('legacy backup gains active status without rewriting historical values', () => {
   const normalized = normalizeTrainingBackup(legacy);
   assert.deepEqual(normalized.blocks, [{ ...plan, status: 'active' }]);
-  assert.deepEqual(normalized.workouts, [{ ...EMPTY_WORKOUT_MEASUREMENTS, ...workout, resultOrigins: null }]);
+  assert.deepEqual(normalized.workouts, [{ ...EMPTY_WORKOUT_MEASUREMENTS, ...workout, resultOrigins: null, timeOfDay: null }]);
   assert.deepEqual(normalized.restDays, []);
   assert.equal(normalized.exportedAt, date);
-  assert.equal(normalized.schemaVersion, 6);
+  assert.equal(normalized.schemaVersion, 7);
   assert.equal('status' in legacy.plan, false);
 });
 
@@ -23,7 +23,7 @@ test('all-block backup preserves statuses, IDs, null/zero distances, source data
     blocks: ['active', 'draft', 'completed', 'archived'].map((status) => ({ ...plan, id: status, status })),
     workouts: [null, 0, 5].map((actualDistance, index) => ({ ...workout, id: `workout-${index}`, planId: 'completed', actualDistance })),
   };
-  assert.deepEqual(normalizeTrainingBackup(backup), { ...backup, schemaVersion: 6, restDays: [], workouts: backup.workouts.map(row => ({ ...EMPTY_WORKOUT_MEASUREMENTS, ...row, resultOrigins: null })) });
+  assert.deepEqual(normalizeTrainingBackup(backup), { ...backup, schemaVersion: 7, restDays: [], workouts: backup.workouts.map(row => ({ ...EMPTY_WORKOUT_MEASUREMENTS, ...row, resultOrigins: null, timeOfDay: null })) });
   const withOwner = structuredClone(backup);
   withOwner.blocks[0].ownerId = 'untrusted-owner';
   assert.equal('ownerId' in normalizeTrainingBackup(withOwner).blocks[0], false);

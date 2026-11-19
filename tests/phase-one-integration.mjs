@@ -102,7 +102,7 @@ export async function testPhaseOne(db,dispatch,provider='simulation'){
  const edited=await call(edit,'PATCH',{...workout,manualResultFields:['actualDistance'],notes:'Manual value even though unchanged'});assert.equal(edited.status,200);workout=edited.data.workout;assert.equal('actualDistance' in workout.resultOrigins,false);
  // Include an untouched copied workout in the backup to prove provenance survives restore.
  const second=loaded.workouts[1];assert.equal((await call('/api/workouts/'+second.id+scope,'PATCH',{...second,done:true})).status,200);
- const backup=(await call('/api/export'+scope)).data;assert.equal(backup.schemaVersion,6);assert.deepEqual(normalizeTrainingBackup(backup),backup);await testRestore(backup);
+ const backup=(await call('/api/export'+scope)).data;assert.equal(backup.schemaVersion,7);assert.deepEqual(normalizeTrainingBackup(backup),backup);await testRestore(backup);
  const unchecked=await call(edit,'PATCH',{...workout,done:false});assert.equal(unchecked.status,200);workout=unchecked.data.workout;assert.equal(workout.actualDistance,workout.plannedDistance);assert.equal(workout.actualDurationSeconds,null);assert.equal(workout.actualPaceSecondsPerMile,null);assert.equal(workout.resultOrigins,null);
  const zero=await call(edit,'PATCH',{...workout,actualDistance:0,actualDurationSeconds:0,done:true});assert.equal(zero.status,200);assert.equal(zero.data.workout.actualDistance,0);assert.equal(zero.data.workout.actualDurationSeconds,0);
  assert.equal((await call(edit,'PATCH',{...zero.data.workout,done:false},other)).status,404);

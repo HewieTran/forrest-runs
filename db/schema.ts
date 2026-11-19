@@ -1,3 +1,4 @@
+import { WORKOUT_PERIODS } from '../lib/workout-period';
 import {
   integer,
   real,
@@ -49,6 +50,7 @@ export const workouts = sqliteTable(
     plannedWorkout: text('planned_workout').notNull(),
     targetPace: text('target_pace').notNull(),
     planStructure: text('plan_structure', { mode: 'json' }).$type<WorkoutStructure>(),
+    timeOfDay: text('time_of_day', { enum: WORKOUT_PERIODS }),
     done: integer('done', { mode: 'boolean' }).notNull().default(false),
     // SQL NULL means unknown, which is distinct from a recorded zero.
     actualDistance: real('actual_distance'),

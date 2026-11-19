@@ -90,10 +90,10 @@ try {
   assert.equal((await call(b, '/api/export' + scope)).status, 404);
 
   const blockPage = () => fetch(base + '/blocks/' + id, { headers: { Cookie: a } }).then(async response => (await response.text()).replaceAll('<!-- -->', ''));
-  assert.match(await blockPage(), /<h1 id="today-workout-title" tabindex="-1">No workout scheduled<\/h1>/);
+  assert.match(await blockPage(), /<h2 id="today-workout-title" tabindex="-1" aria-live="polite">No workout scheduled<\/h2>/);
   const restToday = await call(a, '/api/blocks/' + id + '/rest-days', 'POST', { date: day });
   assert.equal(restToday.status, 201);
-  assert.match(await blockPage(), /<h1 id="today-workout-title" tabindex="-1">Rest day<\/h1>/);
+  assert.match(await blockPage(), /<h2 id="today-workout-title" tabindex="-1" aria-live="polite">Rest day<\/h2>/);
   assert.equal((await call(a, '/api/blocks/' + id + '/rest-days/' + restToday.data.restDay.id, 'DELETE', { version: restToday.data.restDay.version })).status, 200);
 
   const workout = { date: day, phase: 'Base Build', type: 'Easy Run', plannedWorkout: 'Synthetic easy run',
@@ -102,10 +102,10 @@ try {
   const added = await call(a, '/api/workouts' + scope, 'POST', workout);
   assert.equal(added.status, 201, JSON.stringify(added.data));
   const plannedPage = await blockPage();
-  assert.match(plannedPage, /<h1 id="today-workout-title" tabindex="-1">Easy run<\/h1>/);
+  assert.match(plannedPage, /<h2 id="today-workout-title" tabindex="-1" aria-live="polite">Easy run<\/h2>/);
   assert.match(plannedPage, /aria-label="Log Easy run workout"/);
-  assert.match(plannedPage, /No recorded mileage/);
-  assert.match(plannedPage, /of 5 mi planned/);
+  assert.match(plannedPage, /Weekly running mileage/);
+  assert.match(plannedPage, /5 mi planned/);
   const mobility = await call(a, '/api/workouts' + scope, 'POST', {
     ...workout, type: 'Mobility', plannedWorkout: 'Synthetic mobility',
     plannedDistance: null, plannedDurationSeconds: null, plannedPaceSecondsPerMile: null, targetMetric: null,
@@ -121,7 +121,7 @@ try {
   const unchecked = await call(a, route, 'PATCH', { ...done.data.workout, done: false });
   assert.equal(unchecked.status, 200);
   assert.equal(unchecked.data.workout.actualDistance, null);
-  const manual = await call(a, route, 'PATCH', { ...unchecked.data.workout, done: true, actualDistance: 4.5,
+  const manual = await call(a, route, 'PATCH', { ...unchecked.data.workout, done: true, actualDistance: 4.5, timeOfDay: 'night',
     manualResultFields: ['actualDistance'], notes: 'Persisted on native SQLite' });
   assert.equal(manual.status, 200);
   assert.equal((await call(a, route, 'PATCH', { ...added.data.workout, done: true })).status, 409);
@@ -129,14 +129,24 @@ try {
   assert.equal((await call(a, '/api/blocks/' + id + '/rest-days', 'POST', { date: addDays(day, 1) })).status, 201);
   assert.equal((await call(a, '/api/blocks/' + id + '/rest-days', 'POST', { date: day })).status, 409);
   const detail = await blockPage();
-  assert.match(detail, /Weekly workout tracker/);
+  assert.doesNotMatch(detail, /Weekly workout tracker|View progress|Completion breakdown|Workout calendar/);
+  assert.match(detail, /Milestones, phases/);
   assert.match(detail, /aria-label="Edit Easy run workout"/);
-  assert.match(detail, /aria-valuetext="4.5 of 5 miles planned"/);
+  assert.match(detail, /aria-label="Weekly mileage against plan"/);
   assert.doesNotMatch(detail, /Good miles today/);
   const progressPage = await fetch(base + '/blocks/' + id + '/progress', { headers: { Cookie: a } });
-  assert.match(await progressPage.text(), /Weekly mileage/);
-  const saved = (await call(a, '/api/training' + scope)).data;
-  assert.equal(saved.workouts[0].actualDistance, 4.5);
+  const progressHtml = await progressPage.text();
+  assert.ok(progressPage.url.endsWith('/blocks/' + id) || progressHtml.includes('#progress'));
+  let saved = (await call(a, '/api/training' + scope)).data;
+  const savedRun = saved.workouts.find(row => row.id === added.data.workout.id);
+  assert.equal(savedRun.actualDistance, 4.5);
+  assert.equal(savedRun.timeOfDay, 'night');
+  assert.equal((await call(a, route, 'PATCH', { ...savedRun, timeOfDay: 'dawn' })).status, 400);
+  const { timeOfDay, ...legacyClient } = savedRun;
+  const legacySaved = await call(a, route, 'PATCH', legacyClient);
+  assert.equal(legacySaved.status, 200);
+  assert.equal(legacySaved.data.workout.timeOfDay, 'night');
+  saved = (await call(a, '/api/training' + scope)).data;
   assert.equal(saved.restDays.length, 1);
   const backup = (await call(a, '/api/export')).data;
   assert.deepEqual(normalizeTrainingBackup(backup), backup);
@@ -169,7 +179,7 @@ try {
       db.prepare("INSERT INTO training_plans (id,owner_id,status,race_name,race_date,pace_guide,created_at,updated_at) VALUES (?,'node-proof-a','draft','Encoded proof','2027-05-01','[]',?,?)")
         .run(blockId, new Date().toISOString(), new Date().toISOString());
       const page = await fetch(base + '/blocks/' + encodeURIComponent(blockId), { headers: { Cookie: a } });
-      assert.match(await page.text(), /Weekly workout tracker/);
+      assert.match(await page.text(), /Milestones, phases/);
     }
     db.exec(`CREATE TRIGGER node_proof_delete_failure BEFORE DELETE ON training_plans WHEN OLD.id = '${guidedId}' BEGIN SELECT RAISE(ABORT, 'proof rollback'); END`);
     const preview = (await call(a, '/api/blocks/' + guidedId)).data.deletion;
