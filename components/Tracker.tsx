@@ -176,7 +176,7 @@ export default function Tracker({ initial, preview = false, activeBlock = null }
         period={previewPeriod ?? featured?.timeOfDay ?? localPeriod} onOpenWorkout={openTodayWorkout} onSelectWorkout={selectWorkout} />
       {(editing || expandedWorkoutId === 'new') && <WorkoutDialog
         title={editing ? `${editing.done ? 'Edit' : 'Log'} workout` : 'Add workout'}
-        date={(editing ?? newWorkout).date} saving={saving} onClose={closeEditor}>
+        date={(editing ?? newWorkout).date} saving={saving} onClose={closeEditor} returnFocusId="featured-workout-action">
         <WorkoutEditor key={`${expandedWorkoutId}:${editing?.version ?? 1}`} workout={editing ?? newWorkout} saving={saving} error={error}
           initialPeriod={previewPeriod ?? localPeriod} onPeriodChange={setPreviewPeriod}
           onSave={input => saveWorkout(expandedWorkoutId!, input)} onCancel={closeEditor} onDirty={setHasUnsavedChanges} />

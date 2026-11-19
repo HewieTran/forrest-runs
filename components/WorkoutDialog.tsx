@@ -4,12 +4,13 @@ import { useEffect, useId, useRef, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 import { formatDate } from '../lib/domain';
 
-export default function WorkoutDialog({ title, date, saving, onClose, children }: {
+export default function WorkoutDialog({ title, date, saving, onClose, children, returnFocusId }: {
   title: string;
   date: string;
   saving: boolean;
   onClose: () => void;
   children: ReactNode;
+  returnFocusId: string;
 }) {
   const titleId = useId();
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -28,9 +29,10 @@ export default function WorkoutDialog({ title, date, saving, onClose, children }
     return () => {
       dialog.close();
       document.body.style.overflow = previousOverflow;
-      if (trigger?.isConnected) trigger.focus({ preventScroll: true });
+      const returnTarget = trigger?.isConnected && trigger !== document.body ? trigger : document.getElementById(returnFocusId);
+      returnTarget?.focus({ preventScroll: true });
     };
-  }, []);
+  }, [returnFocusId]);
 
   return <dialog ref={dialogRef} className="workout-dialog" aria-labelledby={titleId}
     onCancel={event => {
