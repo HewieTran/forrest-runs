@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { adjacentWorkouts, blockMileage, journey, todayWorkout } from '../lib/block-overview.ts';
+import { adjacentWorkouts, blockMileage, journey, overviewStats, todayWorkout } from '../lib/block-overview.ts';
 import { WORKOUT_PERIODS, periodForHour } from '../lib/workout-period.ts';
 import { EMPTY_WORKOUT_MEASUREMENTS, validateWorkout } from '../lib/domain.ts';
 import { normalizeTrainingBackup } from '../lib/backups.ts';
@@ -51,4 +51,23 @@ test('period validation and backups preserve explicit periods and leave old reco
   for (const timeOfDay of ['dawn', 12, {}, true]) assert.throws(() => validateWorkout({ ...workout, timeOfDay }));
   const legacy = normalizeTrainingBackup({ schemaVersion: 6, exportedAt: stamp, blocks: [plan], workouts: [workout], restDays: [] });
   assert.equal(legacy.workouts[0].timeOfDay, null);
+});
+
+test('overview stats include every workout in completion but only completed runs in mileage/longest', () => {
+  const stats = overviewStats(data([
+    row('measured', '2026-12-30', { done: true, plannedDistance: 5, actualDistance: 4 }),
+    row('zero', '2026-12-31', { done: true, actualDistance: 0 }),
+    row('missing', '2026-12-31', { done: true }),
+    row('support', '2026-12-31', { done: true, type: 'Strength', actualDistance: 99 }),
+    row('future', '2027-01-04', { plannedDistance: 12, actualDistance: 50 }),
+  ]));
+  assert.equal(stats.completed, 4);
+  assert.equal(stats.longest, 4);
+  assert.equal(stats.blockMiles.recorded, 4);
+  assert.equal(stats.blockMiles.planned, 17);
+  assert.equal(stats.weekly.recorded, 4);
+  assert.equal(stats.weekly.planned, 5);
+  assert.equal(stats.blockMiles.missingRecorded, 1);
+  assert.equal(overviewStats(data([])).longest, null);
+  assert.equal(overviewStats(data([row('unknown', '2026-12-31', { done: true })])).blockMiles.recorded, null);
 });

@@ -1,18 +1,12 @@
-import { addDays, distanceMilestones, formatDate, isRun, phaseMilestones, weekStart, type AppData } from '../lib/domain';
-import { journey } from '../lib/block-overview';
-import { runningMileage } from '../lib/progress';
+import { distanceMilestones, formatDate, phaseMilestones, type AppData } from '../lib/domain';
+import { journey, overviewStats } from '../lib/block-overview';
 import WeeklyMileageChart from './WeeklyMileageChart';
 import '../app/progress.css';
 import './block-overview.css';
 
 const number = (value: number | null) => value === null ? '—' : value.toLocaleString('en-US', { maximumFractionDigits: 1 });
 export default function BlockProgress({ data }: { data: AppData }) {
-  const runs = data.workouts.filter(isRun);
-  const blockMiles = runningMileage(runs);
-  const completed = data.workouts.filter(row => row.done).length;
-  const longest = runs.filter(row => row.done && row.actualDistance !== null).reduce<number | null>((max, row) => Math.max(max ?? 0, row.actualDistance!), null);
-  const start = weekStart(data.today), end = addDays(start, 6);
-  const weekly = runningMileage(runs.filter(row => row.date >= start && row.date <= end));
+  const { start, end, weekly, blockMiles, completed, longest } = overviewStats(data);
   const route = journey(data);
   const milestones = distanceMilestones(data.workouts);
   const phases = phaseMilestones(data.workouts, data.today).filter(phase => phase.total);

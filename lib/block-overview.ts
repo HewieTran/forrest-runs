@@ -50,3 +50,16 @@ export function blockMileage(data: AppData) {
     return { start, end: addDays(start, 6), ...runningMileage(byWeek.get(start) ?? []) };
   });
 }
+
+export function overviewStats(data: AppData) {
+  const runs = data.workouts.filter(isRun);
+  const start = weekStart(data.today), end = addDays(start, 6);
+  return {
+    start, end,
+    weekly: runningMileage(runs.filter(row => row.date >= start && row.date <= end)),
+    blockMiles: runningMileage(runs),
+    completed: data.workouts.filter(row => row.done).length,
+    longest: runs.filter(row => row.done && row.actualDistance !== null)
+      .reduce<number | null>((max, row) => Math.max(max ?? 0, row.actualDistance!), null),
+  };
+}
