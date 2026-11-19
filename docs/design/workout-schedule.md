@@ -38,7 +38,7 @@ server persistence.
   Multiple workouts stack; overflow count and the selected-day list expose all.
 - Phone: compact workout names and mileage/duration in a seven-column calendar;
   the selected-day list shows full names and actions. No horizontal page scrolling.
-  Tapping any date immediately opens its popup, even on phones.
+  Single-clicking or tapping a date selects it without a popup. Desktop double-click on a workout edits that exact session; double-click on blank space adds a workout. Phones and keyboards use the selected-day action buttons. Completed cards are forest green with cream text; scheduled cards are muted warm stone.
 - One workout opens Edit workout directly. Multiple workouts open one popup with
   a workout selector, the first scheduled workout's existing editor, and Add
   another. Changing the selected workout or adding another checks dirty state.

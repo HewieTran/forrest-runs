@@ -98,7 +98,7 @@ export default function Tracker({ initial, preview = false, activeBlock = null, 
     if (saving || !canEdit || !confirmDiscardChanges() || (schedule && data.restDays.some(day => day.date === selectedDate))) return;
     setExpandedWorkoutId('new'); setHasUnsavedChanges(false); setError(''); setSaveConflict(false); setPreviewPeriod(localPeriod);
   }
-  function chooseDate(date: string, open = false) {
+  function chooseDate(date: string, open = false, add = false) {
     if (saving || !confirmDiscardChanges()) return;
     setSelectedDate(date); setVisibleMonth(monthStart(date));
     if (!open) return;
@@ -106,7 +106,7 @@ export default function Tracker({ initial, preview = false, activeBlock = null, 
     if (data.restDays.some(day => day.date === date) || !canEdit) {
       setReadOnlyDate(date); setExpandedWorkoutId(null); return;
     }
-    const row = orderedWorkouts(data.workouts).find(row => row.date === date);
+    const row = add ? undefined : orderedWorkouts(data.workouts).find(row => row.date === date);
     setExpandedWorkoutId(row?.id ?? 'new');
     setPreviewPeriod(row?.timeOfDay ?? periodForHour(new Date().getHours()));
   }
@@ -224,7 +224,7 @@ export default function Tracker({ initial, preview = false, activeBlock = null, 
       {schedule ? <>
         <a className="block-breadcrumb" href={preview ? '/preview?view=overview' : `/blocks/${encodeURIComponent(data.plan.id)}`}><ChevronLeft size={15} /> Training Block Overview</a>
         <WorkoutSchedule data={data} date={selectedDate} month={visibleMonth} canEdit={canEdit} disabled={saving}
-          onDate={date => chooseDate(date)} onMonth={setVisibleMonth} onOpen={date => chooseDate(date, true)} onAdd={addWorkout} onOpenWorkout={openTodayWorkout} />
+          onDate={date => chooseDate(date)} onMonth={setVisibleMonth} onOpen={date => chooseDate(date, true)} onAdd={addWorkout} onOpenWorkout={openTodayWorkout} onAddDate={date => chooseDate(date, true, true)} />
       </> : <>
       <a className="block-breadcrumb" href={preview ? '/preview?view=blocks' : '/blocks'}><ChevronLeft size={15} /> All training blocks</a>
       <section className="page-heading block-detail-heading"><div>
