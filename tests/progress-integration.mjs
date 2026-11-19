@@ -9,8 +9,9 @@ export async function testProgress(db, dispatch) {
     const route='/blocks/'+encodeURIComponent(block.id)+'/progress';
     const response=await dispatch('http://localhost'+route,{headers:auth});
     const html=await response.text();
-    assert.ok(response.status >= 300 && response.status < 400 || html.includes('http-equiv="refresh"'));
-    assert.ok(response.headers.get('location')?.endsWith('#progress') || html.includes('#progress'));
+    assert.ok(response.status >= 300 && response.status < 400 || html.includes('today-workout-title'));
+    // Worker dispatch may follow the redirect before returning its response.
+    assert.ok(response.headers.get('location')?.endsWith('#progress') || html.includes('Milestones, phases'));
     const overview = await dispatch('http://localhost/blocks/' + encodeURIComponent(block.id), { headers: auth });
     const overviewHtml = await overview.text();
     assert.ok(overviewHtml.includes(block.race_name));
