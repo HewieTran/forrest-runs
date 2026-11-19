@@ -6,10 +6,10 @@ import { EMPTY_WORKOUT_MEASUREMENTS, formatDate, isRun, type AppData, type Plan,
 import { periodForHour, todayWorkout, type WorkoutPeriod } from '../lib/block-overview';
 import AppHeader from './AppHeader';
 import WorkoutEditor from './WorkoutEditor';
+import WorkoutDialog from './WorkoutDialog';
 import TodayWorkout from './TodayWorkout';
 import BlockProgress from './BlockProgress';
 import BlockActions from './BlockActions';
-import { BlockStatusBadge } from './BlockActions';
 import { applyCompletion } from '../lib/workout-completion';
 import { raceDistanceLabel } from '../lib/race-distance';
 import { setupTargetTime } from '../lib/setup';
@@ -28,7 +28,6 @@ export default function Tracker({ initial, preview = false, activeBlock = null }
   const [error, setError] = useState('');
   const [toast, setToast] = useState('');
   const [savedRunId, setSavedRunId] = useState<string | null>(null);
-  const [actualFocus, setActualFocus] = useState<{ id: string } | null>(null);
   const [localPeriod, setLocalPeriod] = useState<WorkoutPeriod>('morning');
   const [previewPeriod, setPreviewPeriod] = useState<WorkoutPeriod | null>(null);
   const featured = data.workouts.find(row => row.id === featuredId) ?? todayWorkout(data.workouts, data.today);
@@ -54,22 +53,16 @@ export default function Tracker({ initial, preview = false, activeBlock = null }
     window.addEventListener('beforeunload', handler);
     return () => window.removeEventListener('beforeunload', handler);
   }, [hasUnsavedChanges]);
-  useEffect(() => {
-    if (!actualFocus || actualFocus.id !== expandedWorkoutId) return;
-    const section = document.getElementById(`workout-actual-${actualFocus.id}`);
-    section?.focus({ preventScroll: true });
-    section?.scrollIntoView({ block: 'start' });
-  }, [actualFocus, expandedWorkoutId]);
   function confirmDiscardChanges() {
     return !hasUnsavedChanges || window.confirm('Discard your unsaved workout changes?');
   }
   function closeEditor() {
     if (saving || !confirmDiscardChanges()) return;
-    setExpandedWorkoutId(null); setActualFocus(null); setHasUnsavedChanges(false); setError(''); setPreviewPeriod(null);
+    setExpandedWorkoutId(null); setHasUnsavedChanges(false); setError(''); setPreviewPeriod(null);
   }
   function selectWorkout(id: string | null) {
     if (saving || !confirmDiscardChanges()) return;
-    setFeaturedId(id); setExpandedWorkoutId(null); setActualFocus(null); setHasUnsavedChanges(false); setError(''); setPreviewPeriod(null);
+    setFeaturedId(id); setExpandedWorkoutId(null); setHasUnsavedChanges(false); setError(''); setPreviewPeriod(null);
   }
   function openTodayWorkout(id: string) {
     if (saving || (expandedWorkoutId !== id && !confirmDiscardChanges())) return;
@@ -78,7 +71,6 @@ export default function Tracker({ initial, preview = false, activeBlock = null }
       setPreviewPeriod(row?.timeOfDay ?? periodForHour(new Date().getHours()));
       setFeaturedId(id); setExpandedWorkoutId(id); setHasUnsavedChanges(false); setError('');
     }
-    setActualFocus({ id });
   }
   async function saveWorkout(id: string, input: WorkoutInput) {
     const existing = data.workouts.find(workout => workout.id === id);
@@ -133,16 +125,10 @@ export default function Tracker({ initial, preview = false, activeBlock = null }
       setPreviewPeriod(null);
       setExpandedWorkoutId(null);
       setHasUnsavedChanges(false);
-      setActualFocus(null);
       const completedRun = savedWorkout.done && !existing?.done && isRun(savedWorkout);
       const celebrateInHero = completedRun;
       if (celebrateInHero) {
         setSavedRunId(savedWorkout.id);
-        if (actualFocus?.id === id) {
-          const title = document.getElementById('today-workout-title');
-          title?.focus({ preventScroll: true });
-          title?.scrollIntoView({ block: 'center' });
-        }
       }
       else if (savedRunId === savedWorkout.id && (!savedWorkout.done || !isRun(savedWorkout))) {
         setSavedRunId(null);
@@ -175,33 +161,33 @@ export default function Tracker({ initial, preview = false, activeBlock = null }
       <a className="block-breadcrumb" href={preview ? '/preview?view=blocks' : '/blocks'} onClick={event => { if (!confirmDiscardChanges()) event.preventDefault(); }}><ChevronLeft size={15} /> All training blocks</a>
       <section className="page-heading block-detail-heading"><div>
         <div className="block-title-row"><h1>{data.plan.raceName}</h1><div className="block-header-controls" role="group" aria-label="Block management">
-          <BlockActions plan={data.plan} activeBlock={currentActive} preview={preview} disabled={saving || hasUnsavedChanges} ready={blockReady({ ...data.plan, workoutCount: data.workouts.length })} onChanged={block => {
+          <a className="icon-button" aria-label="Training block settings" href={preview ? '/preview?view=settings' : `/blocks/${encodeURIComponent(data.plan.id)}/settings`} onClick={event => { if (!confirmDiscardChanges()) event.preventDefault(); }}><Settings2 size={19} /></a>
+        </div></div>
+        <div className="block-header-details"><BlockActions pill plan={data.plan} activeBlock={currentActive} preview={preview} disabled={saving || hasUnsavedChanges} ready={blockReady({ ...data.plan, workoutCount: data.workouts.length })} onChanged={block => {
             setData(current => ({ ...current, plan: block }));
             if (block.status === 'active') setCurrentActive({ id: block.id, raceName: block.raceName });
             else if (currentActive?.id === block.id) setCurrentActive(null);
             setToast('Block status updated.');
-          }} />
-          <a className="icon-button" aria-label="Training block settings" href={preview ? '/preview?view=settings' : `/blocks/${encodeURIComponent(data.plan.id)}/settings`} onClick={event => { if (!confirmDiscardChanges()) event.preventDefault(); }}><Settings2 size={19} /></a>
-        </div></div>
-        <div className="block-header-details"><BlockStatusBadge status={data.plan.status} ready={blockReady({ ...data.plan, workoutCount: data.workouts.length })} /><span>Race · {formatDate(data.plan.raceDate, { month: 'long', day: 'numeric', year: 'numeric' })}</span></div>
+          }} /><span>Race · {formatDate(data.plan.raceDate, { month: 'long', day: 'numeric', year: 'numeric' })}</span></div>
       </div></section>
       {preview && <div className="preview-notice"><Info size={16} /> Internal preview with example workouts. Changes here are not saved.</div>}
       {simulatedBlock(data.plan) && <p className="block-callout"><strong>Simulation mode.</strong> This example schedule demonstrates the app flow. It is not a personalized running plan and cannot be activated.</p>}
       <TodayWorkout data={data} featured={featured} savedRunId={savedRunId} saving={saving}
         period={previewPeriod ?? featured?.timeOfDay ?? localPeriod} onOpenWorkout={openTodayWorkout} onSelectWorkout={selectWorkout} />
-      {(editing || expandedWorkoutId === 'new') && <section className="overview-editor" aria-label={editing ? 'Log or edit workout' : 'Add workout'}>
-        <h2>{editing ? `${editing.done ? 'Edit' : 'Log'} workout` : 'Add workout'} <span>{formatDate((editing ?? newWorkout).date, { month: 'short', day: 'numeric', year: 'numeric' })}</span></h2>
+      {(editing || expandedWorkoutId === 'new') && <WorkoutDialog
+        title={editing ? `${editing.done ? 'Edit' : 'Log'} workout` : 'Add workout'}
+        date={(editing ?? newWorkout).date} saving={saving} onClose={closeEditor}>
         <WorkoutEditor key={`${expandedWorkoutId}:${editing?.version ?? 1}`} workout={editing ?? newWorkout} saving={saving} error={error}
           initialPeriod={previewPeriod ?? localPeriod} onPeriodChange={setPreviewPeriod}
           onSave={input => saveWorkout(expandedWorkoutId!, input)} onCancel={closeEditor} onDirty={setHasUnsavedChanges} />
-      </section>}
+      </WorkoutDialog>}
       {data.plan.setup && <section className="block-callout overview-setup"><Flag size={21} /><div><strong>Your starting setup</strong><p>{raceDistanceLabel(data.plan.setup.goal.distanceKm)} · Target {setupTargetTime(data.plan.setup) || 'time not set'} · {data.plan.setup.availability.days.length} available running days</p>
         {acceptedPlan(data.plan) && <p>{data.plan.generation?.alteredAt ? 'Altered since acceptance. Your original generated plan is preserved.' : 'Your generated plan is saved.'} <a href={`/blocks/${encodeURIComponent(data.plan.id)}/plan`}>View original plan</a></p>}
         <a className="button" href={preview ? '/preview?view=setup' : `/blocks/${encodeURIComponent(data.plan.id)}/setup`}>{data.plan.status === 'draft' && !acceptedPlan(data.plan) ? 'Continue setup' : 'View starting setup'}</a></div></section>}
       <BlockProgress data={data} />
       <div className="overview-manage"><button type="button" className="button" disabled={saving || (!!data.plan.setup && !acceptedPlan(data.plan))} onClick={() => {
         if (!confirmDiscardChanges()) return;
-        setExpandedWorkoutId('new'); setActualFocus(null); setHasUnsavedChanges(false); setError(''); setPreviewPeriod(localPeriod);
+        setExpandedWorkoutId('new'); setHasUnsavedChanges(false); setError(''); setPreviewPeriod(localPeriod);
       }}><Plus size={16} /> Add workout</button>{!data.workouts.length && !data.plan.setup && <a className="button" href={preview ? '/preview?view=setup' : `/blocks/${encodeURIComponent(data.plan.id)}/setup`}>Start guided setup</a>}</div>
       {error && !expandedWorkoutId && <p className="form-error" role="alert">{error}</p>}
       <footer className="app-footer"><span><span className="footer-dot" /> Dates use Central time · Artwork defaults to your device’s time</span><span>{latestSavedAt ? `Last saved ${new Intl.DateTimeFormat('en-US', { timeZone: 'America/Chicago', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }).format(new Date(latestSavedAt))}` : ''}</span></footer>
