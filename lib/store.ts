@@ -14,7 +14,7 @@ import {
 } from './domain';
 import type { AppUser } from './user';
 import { insertInitialTraining, loadOwnerSeed } from '../db/initial-training';
-import type { TrainingBackupV6 } from './backups';
+import type { TrainingBackupV7 } from './backups';
 import { TrainingRequestError } from './training-errors';
 import { canChangeBlockStatus, type NewBlockInput, type BlockStatusInput, type BlockSummary, type BlockDeletionPreview, type DeleteBlockInput } from './blocks';
 import type { BlockSetup } from './setup';
@@ -250,7 +250,7 @@ export async function activeBlock(user: AppUser): Promise<Pick<Plan, 'id' | 'rac
     .where(and(eq(plans.ownerId, user.userId), eq(plans.status, 'active'))).get() ?? null;
 }
 
-export async function exportTraining(user: AppUser, blockId?: string): Promise<TrainingBackupV6> {
+export async function exportTraining(user: AppUser, blockId?: string): Promise<TrainingBackupV7> {
   if (blockId === undefined) await ensureUserInitialized(user);
   else await userPlan(user, blockId);
   const database = getDb();
@@ -268,7 +268,7 @@ export async function exportTraining(user: AppUser, blockId?: string): Promise<T
       .orderBy(asc(restDays.planId), asc(restDays.date), asc(restDays.id)),
   ]);
   return {
-    schemaVersion: 6,
+    schemaVersion: 7,
     exportedAt: new Date().toISOString(),
     blocks: ownedBlocks.map(({ ownerId: _ownerId, ...block }) => block),
     workouts: ownedWorkouts.map(({ workout }) => workout),
@@ -330,6 +330,7 @@ export async function addWorkout(user: AppUser, input: WorkoutInput, blockId?: s
     date: sql<string>`${input.date}`.as('date'), phase: sql<string>`${input.phase}`.as('phase'), type: sql<string>`${input.type}`.as('type'),
     plannedWorkout: sql<string>`${input.plannedWorkout}`.as('plannedWorkout'), targetPace: sql<string>`${input.targetPace}`.as('targetPace'),
     planStructure: sql<import('./workout-structure').WorkoutStructure | null>`${input.planStructure ? JSON.stringify(input.planStructure) : null}`.as('planStructure'),
+    timeOfDay: sql<import('./workout-period').WorkoutPeriod | null>`${input.timeOfDay ?? null}`.as('timeOfDay'),
     done: sql<boolean>`${input.done ? 1 : 0}`.as('done'), actualDistance: sql<number | null>`${copied.actualDistance}`.as('actualDistance'),
     plannedDistance: sql<number | null>`${plannedDistance}`.as('plannedDistance'),
     plannedDurationSeconds: sql<number | null>`${plannedDurationSeconds}`.as('plannedDurationSeconds'),
@@ -502,6 +503,7 @@ export async function acceptGeneratedPlan(user: AppUser, blockId: string, versio
       date: sql<string>`${w.date}`.as('date'), phase: sql<string>`${w.phase}`.as('phase'), type: sql<string>`${w.type}`.as('type'),
       plannedWorkout: sql<string>`${w.plannedWorkout}`.as('plannedWorkout'), targetPace: sql<string>`${w.targetPace}`.as('targetPace'),
       planStructure: sql<import('./workout-structure').WorkoutStructure | null>`${JSON.stringify(w.planStructure)}`.as('planStructure'),
+      timeOfDay: sql<import('./workout-period').WorkoutPeriod | null>`null`.as('timeOfDay'),
       done: sql<boolean>`0`.as('done'), actualDistance: sql<number | null>`null`.as('actualDistance'),
       plannedDistance: sql<number | null>`${w.plannedDistance ?? null}`.as('plannedDistance'), plannedDurationSeconds: sql<number | null>`${w.plannedDurationSeconds ?? null}`.as('plannedDurationSeconds'),
       actualDurationSeconds: sql<number | null>`null`.as('actualDurationSeconds'), targetMetric: sql<'distance' | 'duration'>`${w.targetMetric}`.as('targetMetric'),

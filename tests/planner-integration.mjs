@@ -92,7 +92,7 @@ export async function testPlanner(db, dispatch, mock) {
   assert.equal((await call(restPath, 'DELETE', { version: 1, confirmPlanChange: true })).status, 200);
   assert.equal((await call('/api/training' + scope, 'PATCH', { raceName: 'Updated goal', raceDate: setup.goal.targetDate, version: (await call('/api/training' + scope)).data.plan.version })).status, 409);
   const backup = (await call('/api/export' + scope)).data;
-  assert.equal(backup.schemaVersion, 6);
+  assert.equal(backup.schemaVersion, 7);
   assert.deepEqual(normalizeTrainingBackup(backup), backup);
   await testRestore(backup);
   assert.deepEqual((await call('/api/training')).data.plan, original.plan);

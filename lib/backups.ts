@@ -4,8 +4,8 @@ import { validateSetup } from './setup.ts';
 import { EMPTY_WORKOUT_MEASUREMENTS, type RestDay } from './workout-targets.ts';
 import { validateResultOrigins } from './workout-completion.ts';
 
-export type TrainingBackupV6 = {
-  schemaVersion: 6;
+export type TrainingBackupV7 = {
+  schemaVersion: 7;
   exportedAt: string;
   blocks: Plan[];
   workouts: Workout[];
@@ -40,9 +40,9 @@ function version(value: unknown): number {
 
 // Validate and normalize offline only. This does not grant ownership or write to storage.
 // IDs, source data, null distances, and optimistic-lock versions survive unchanged.
-export function normalizeTrainingBackup(value: unknown): TrainingBackupV6 {
+export function normalizeTrainingBackup(value: unknown): TrainingBackupV7 {
   const input = record(value);
-  if (![1, 2, 3, 4, 5, 6].includes(input.schemaVersion as number))
+  if (![1, 2, 3, 4, 5, 6, 7].includes(input.schemaVersion as number))
     throw new Error('Unsupported backup version.');
   const sourceBlocks = input.schemaVersion === 1 ? [input.plan] : input.blocks;
   if (!Array.isArray(sourceBlocks) || !Array.isArray(input.workouts))
@@ -86,7 +86,7 @@ export function normalizeTrainingBackup(value: unknown): TrainingBackupV6 {
     const values = validateWorkout({ ...EMPTY_WORKOUT_MEASUREMENTS, ...workout });
     return {
       ...EMPTY_WORKOUT_MEASUREMENTS,
-      ...values, plannedWorkout: text(workout.plannedWorkout), id: workoutId, planId,
+      ...values, timeOfDay: values.timeOfDay ?? null, plannedWorkout: text(workout.plannedWorkout), id: workoutId, planId,
       version: version(workout.version), updatedAt: timestamp(workout.updatedAt),
       sourceRow: workout.sourceRow as number | null,
       originalSource: workout.originalSource === null ? null : record(workout.originalSource),
@@ -106,5 +106,5 @@ export function normalizeTrainingBackup(value: unknown): TrainingBackupV6 {
     restIds.add(restId); restDates.add(key);
     return { id: restId, planId, date: rest.date, version: version(rest.version), updatedAt: timestamp(rest.updatedAt) };
   });
-  return { schemaVersion: 6, exportedAt: timestamp(input.exportedAt), blocks, workouts, restDays };
+  return { schemaVersion: 7, exportedAt: timestamp(input.exportedAt), blocks, workouts, restDays };
 }

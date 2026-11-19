@@ -2,6 +2,7 @@
 
 import { useId, useRef, useState, type FormEvent } from 'react';
 import { Check, Link2, LoaderCircle } from 'lucide-react';
+import { PERIOD_LABELS, WORKOUT_PERIODS, periodArtwork, type WorkoutPeriod } from '../lib/workout-period';
 import { isRun, WORKOUT_PHASES, TYPES, validDate, validateWorkout, type Workout, type WorkoutInput } from '../lib/domain';
 import { applyCompletion, paceFromRecordedResults, type ResultField as CopiedField } from '../lib/workout-completion';
 import {
@@ -53,12 +54,14 @@ function WorkoutTimeInput({ id, name, value, unit, invalid, onChange, onBlur }: 
   </div>;
 }
 
-export default function WorkoutEditor({ workout, saving, error, onSave, onCancel, onDirty }: {
+export default function WorkoutEditor({ workout, saving, error, onSave, onCancel, onDirty, initialPeriod, onPeriodChange }: {
+  initialPeriod?: WorkoutPeriod; onPeriodChange?: (period: WorkoutPeriod) => void;
   workout: Workout; saving: boolean; error: string;
   onSave: (value: WorkoutInput) => void; onCancel: () => void; onDirty: (dirty: boolean) => void;
 }) {
   const id = useId(), form = useRef<HTMLFormElement>(null);
   const [draft, setDraft] = useState(workout);
+  const [period, setPeriod] = useState<WorkoutPeriod | null>(workout.timeOfDay ?? initialPeriod ?? null);
   const [unit, setUnit] = useState<DistanceUnit>('mi');
   const [plan, setPlan] = useState(() => initialLinkedPlan(workout));
   const [planChanged, setPlanChanged] = useState(false);
@@ -188,7 +191,7 @@ export default function WorkoutEditor({ workout, saving, error, onSave, onCancel
         ...(structureChanged || structure && draft.type !== workout.type ? { planStructure: structure } : {}),
         manualResultFields: [...changedResults].filter(key => key !== 'effort').map(key => key === 'actualDuration' ? 'actualDurationSeconds' : key === 'actualPace' ? 'actualPaceSecondsPerMile' : key),
         plannedWorkout: description, targetPace: draft.targetPace, actualPace: draft.actualPace,
-        done: draft.done, actualDistance: changedResults.has('actualDistance') ? actualDistance : workout.actualDistance,
+        timeOfDay: period, done: draft.done, actualDistance: changedResults.has('actualDistance') ? actualDistance : workout.actualDistance,
         effort: results.effort === '' ? null : Number(results.effort), pain: draft.pain, notes: draft.notes, version: workout.version,
       }));
     } catch (caught) { setLocalError(caught instanceof Error ? caught.message : 'Check your workout values.'); }
@@ -218,7 +221,11 @@ export default function WorkoutEditor({ workout, saving, error, onSave, onCancel
       <label className="visible-workout-instructions">Workout instructions<textarea rows={4} maxLength={1000} value={draft.plannedWorkout} onChange={event => update('plannedWorkout', event.target.value)} placeholder="Warmup, intervals, or effort guidance" /></label>
       </>}
     </fieldset>
-    <fieldset disabled={saving}><legend className="sr-only">Actual</legend><div className="measurement-heading"><h4>Actual</h4><span>What you recorded</span></div>
+    <fieldset id={`workout-actual-${workout.id}`} className="workout-actual-section" tabIndex={-1} disabled={saving}><legend className="sr-only">Actual</legend><div className="measurement-heading"><h4>Actual</h4><span>What you recorded</span></div>
+      {initialPeriod && <fieldset className="workout-period-picker"><legend>When did you work out?</legend><div className="workout-period-options">{WORKOUT_PERIODS.map(value => <label key={value} className={period === value ? 'selected' : ''}>
+        <input type="radio" name={`${id}-time-of-day`} value={value} checked={period === value} onChange={() => { setPeriod(value); onPeriodChange?.(value); onDirty(true); }} />
+        {/* eslint-disable-next-line @next/next/no-img-element */}<img src={periodArtwork(value)} alt="" width={240} height={100} />
+        <span>{PERIOD_LABELS[value]}{period === value && <Check size={16} aria-hidden="true" />}</span></label>)}</div><p className="field-hint">Defaults to the current period on your device. Choose when this workout happened.</p></fieldset>}
       <div className="form-grid measurement-grid">
         {measurementField('actualDuration', 'Recorded duration', '')}
         {measurementField('actualPace', 'Recorded pace · optional', '/'+unit)}

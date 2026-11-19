@@ -188,3 +188,13 @@ extended backups requires this release to retain editable steps; an older reader
 may omit the optional field. Keep migration 0009 and structure-aware exports when
 rolling back unrelated features. Calculations remain in provider-independent
 `lib/workout-structure.ts`; no new service or OpenAI call is introduced.
+
+## Workout time of day (backup v7)
+
+Migration 0010 adds nullable `time_of_day`. It never infers or backfills historical
+values. `timeOfDay` accepts `morning`, `afternoon`, `evening`, `night`, or null.
+Older clients omitting the field preserve the saved value on PATCH. The editor
+defaults to the browser's local period when first logging: morning 05:00–11:59,
+afternoon 12:00–16:59, evening 17:00–20:59, night 21:00–04:59. No timestamp
+or timezone is stored; training dates remain Central. Exports use v7, and offline
+normalization accepts v1–v7, leaving unspecified legacy periods null.

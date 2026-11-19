@@ -18,7 +18,7 @@ export async function testWorkoutContract(db, dispatch) {
   const blockId = initial.plan.id, scope = '?blockId=' + encodeURIComponent(blockId);
   const restPath = '/api/blocks/' + encodeURIComponent(blockId) + '/rest-days';
   const workout = { date: '2026-12-31', phase: 'Peak', type: 'Easy Run', plannedWorkout: 'Easy running', targetPace: 'Conversational', done: true, actualDistance: 5, actualPace: '', effort: null, pain: '', notes: '', version: 1 };
-  const measurements = { plannedDistance: 5, plannedDurationSeconds: 3600, actualDurationSeconds: 0, targetMetric: 'distance' };
+  const measurements = { plannedDistance: 5, plannedDurationSeconds: 3600, actualDurationSeconds: 0, targetMetric: 'distance', timeOfDay: 'evening' };
   assert.deepEqual(initial.restDays, []);
   assert.equal((await call('/api/workouts' + scope, 'POST', { ...workout, ...measurements }, {})).status, 401);
   const created = await call('/api/workouts' + scope, 'POST', { ...workout, ...measurements });
@@ -26,6 +26,7 @@ export async function testWorkoutContract(db, dispatch) {
   let saved = created.data.workout;
   const editPath = '/api/workouts/' + encodeURIComponent(saved.id) + scope;
   for (const [key, value] of Object.entries(measurements)) assert.equal(saved[key], value);
+  assert.equal((await call('/api/training' + scope)).data.workouts.find(row => row.id === saved.id).timeOfDay, 'evening');
   const oldClient = { ...saved, notes: 'Saved by an old form' };
   for (const key of Object.keys(measurements)) delete oldClient[key];
   const legacySave = await call(editPath, 'PATCH', oldClient);
@@ -34,7 +35,7 @@ export async function testWorkoutContract(db, dispatch) {
   for (const [key, value] of Object.entries(measurements)) assert.equal(saved[key], value, 'Legacy form erased ' + key);
   assert.equal((await call(editPath, 'PATCH', oldClient)).status, 409);
   for (const fields of [
-    { plannedDistance: 6 }, { actualDurationSeconds: -1 }, { actualDurationSeconds: 1.5 },
+    { timeOfDay: 'dawn' }, { plannedDistance: 6 }, { actualDurationSeconds: -1 }, { actualDurationSeconds: 1.5 },
     { plannedDistance: null, plannedDurationSeconds: null, targetMetric: 'duration' },
     { plannedDistance: 5, plannedDurationSeconds: null, targetMetric: 'pace' },
   ]) assert.equal((await call(editPath, 'PATCH', { ...oldClient, version: saved.version, ...fields })).status, 400);
@@ -107,7 +108,7 @@ export async function testWorkoutContract(db, dispatch) {
 
   for (const path of ['/api/export', '/api/export' + scope]) {
     const exported = await call(path);
-    assert.equal(exported.status, 200); assert.equal(exported.data.schemaVersion, 6);
+    assert.equal(exported.status, 200); assert.equal(exported.data.schemaVersion, 7);
     assert.ok(exported.data.restDays.some(r => r.id === rest.id));
     assert.ok(exported.data.workouts.some(w => w.id === saved.id && w.plannedDistance === 5 && w.actualDurationSeconds === 0));
     if (path.includes('?')) assert.equal(exported.data.blocks.length, 1);

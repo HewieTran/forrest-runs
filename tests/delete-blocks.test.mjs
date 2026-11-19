@@ -10,5 +10,5 @@ test('permanent deletion needs an exact-name confirmation, version and snapshot 
 });
 test('an account with all blocks deleted can export an empty v5 backup', () => {
   const backup = { schemaVersion: 5, exportedAt: '2026-10-24T00:00:00.000Z', blocks: [], workouts: [], restDays: [] };
-  assert.deepEqual(normalizeTrainingBackup(backup), { ...backup, schemaVersion: 6 });
+  assert.deepEqual(normalizeTrainingBackup(backup), { ...backup, schemaVersion: 7 });
 });

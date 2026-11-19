@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
-import { Archive, CheckCircle2, Play, RotateCcw, X } from 'lucide-react';
+import { Archive, CheckCircle2, ChevronDown, Play, RotateCcw, X } from 'lucide-react';
 import { acceptedPlan, simulatedBlock } from '../lib/planner';
 import { BLOCK_TRANSITIONS, STATUS_LABELS } from '../lib/blocks';
 import type { BlockStatus, Plan } from '../lib/domain';
@@ -11,9 +11,9 @@ const actions = {
   archived: { label: 'Archive block', Icon: Archive, description: 'Move this block to your archive. All workouts, notes, and results remain available. Archiving does not mean the goal was achieved.' },
   draft: { label: 'Move to drafts', Icon: RotateCcw, description: 'Reopen this block as a draft. Its workouts and results stay intact; it will not become active automatically.' },
 };
-export default function BlockActions({ plan, activeBlock, onChanged, disabled, preview = false, management = false, ready = false }: {
+export default function BlockActions({ plan, activeBlock, onChanged, disabled, preview = false, management = false, ready = false, pill = false }: {
   plan: Plan; activeBlock: Pick<Plan, 'id' | 'raceName'> | null;
-  onChanged: (block: Plan) => void; disabled: boolean; preview?: boolean; management?: boolean; ready?: boolean;
+  onChanged: (block: Plan) => void; disabled: boolean; preview?: boolean; management?: boolean; ready?: boolean; pill?: boolean;
 }) {
   const [target, setTarget] = useState<BlockStatus | null>(null);
   const [saving, setSaving] = useState(false);
@@ -45,7 +45,7 @@ export default function BlockActions({ plan, activeBlock, onChanged, disabled, p
   }
   return <>
     <div className="block-action-buttons" aria-label="Block status actions">
-      {!management && <label className="block-status-control"><select aria-label="Training block status" value={plan.status} disabled={disabled || saving} onChange={event => { setError(''); setTarget(event.target.value as BlockStatus); }}><option value={plan.status}>{ready ? 'Not started' : STATUS_LABELS[plan.status]}</option>{BLOCK_TRANSITIONS[plan.status].filter(status => ['active', 'completed'].includes(status) && (status !== 'active' || (!simulatedBlock(plan) && (!plan.setup || acceptedPlan(plan))))).map(status => <option key={status} value={status}>{STATUS_LABELS[status]}</option>)}</select></label>}
+      {!management && <label className={`block-status-control${pill ? ` block-status-pill block-status-${plan.status}` : ''}`}>{pill && <span className="block-status-dot" aria-hidden="true" />}<select aria-label="Training block status" value={plan.status} disabled={disabled || saving} onChange={event => { setError(''); setTarget(event.target.value as BlockStatus); }}><option value={plan.status}>{ready ? 'Not started' : STATUS_LABELS[plan.status]}</option>{BLOCK_TRANSITIONS[plan.status].filter(status => ['active', 'completed'].includes(status) && (status !== 'active' || (!simulatedBlock(plan) && (!plan.setup || acceptedPlan(plan))))).map(status => <option key={status} value={status}>{STATUS_LABELS[status]}</option>)}</select>{pill && <ChevronDown size={15} aria-hidden="true" />}</label>}
       {management && BLOCK_TRANSITIONS[plan.status].filter(status => status === 'archived' || status === 'draft').map(status => {
         const { Icon, label } = actions[status];
         return <button className="button" key={status} disabled={disabled} onClick={() => { setError(''); setTarget(status); }}><Icon size={15} />{label}</button>;

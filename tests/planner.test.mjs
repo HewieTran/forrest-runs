@@ -67,7 +67,7 @@ test('v5 backups preserve accepted generation provenance and reject damaged snap
   const generation = { schemaVersion: 1, id: 'generation-test', status: 'accepted', startedAt: timestamp, finishedAt: timestamp, acceptedAt: timestamp, alteredAt: null, model: 'test-model', promptVersion: '5k-coach-v1', validatorVersion: '5k-v1', input, setupSnapshot: setup, output, error: null, responseId: 'resp_test', usage: { inputTokens: 1000, outputTokens: 2000 } };
   assert.deepEqual(validateGeneration(generation), generation);
   const backup = { schemaVersion: 5, exportedAt: timestamp, blocks: [{ id: 'test', status: 'draft', raceName: 'Example', raceDate: setup.goal.targetDate, setup, generation, paceGuide: [], sourceName: null, version: 4, createdAt: timestamp, updatedAt: timestamp }], workouts: [], restDays: [] };
-  assert.deepEqual(normalizeTrainingBackup(backup), { ...backup, schemaVersion: 6 });
+  assert.deepEqual(normalizeTrainingBackup(backup), { ...backup, schemaVersion: 7 });
   const invalid = structuredClone(backup); invalid.blocks[0].generation.input.baseline.weeklyDistanceMiles = 100;
   assert.throws(() => normalizeTrainingBackup(invalid));
 });

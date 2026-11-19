@@ -60,21 +60,30 @@ export function calendarYears(range: { start: string; end: string }) {
   return Array.from({ length: Number(range.end.slice(0, 4)) - Number(range.start.slice(0, 4)) + 1 }, (_, i) => Number(range.start.slice(0, 4)) + i);
 }
 
+export function runningMileage(runs: Workout[]) {
+  const completed = runs.filter(row => row.done);
+  const plannedKnown = runs.filter(row => row.plannedDistance !== null);
+  const recordedKnown = completed.filter(row => row.actualDistance !== null);
+  return {
+    planned: plannedKnown.length ? plannedKnown.reduce((sum, row) => sum + row.plannedDistance!, 0) : null,
+    recorded: recordedKnown.length ? recordedKnown.reduce((sum, row) => sum + row.actualDistance!, 0) : null,
+    missingPlanned: runs.length - plannedKnown.length,
+    missingRecorded: completed.length - recordedKnown.length,
+    scheduled: runs.length,
+    completed: completed.length,
+  };
+}
+
 export function annualMileage(workouts: Workout[], year: number) {
   const start = `${year}-01-01`, end = `${year}-12-31`, firstWeek = weekStart(start);
   const runs = workouts.filter(row => isRun(row) && row.date >= start && row.date <= end);
   const byWeek = new Map<string, Workout[]>();
   for (const row of runs) byWeek.set(weekStart(row.date), [...(byWeek.get(weekStart(row.date)) ?? []), row]);
   return Array.from({ length: Math.floor(dateDiff(end, firstWeek) / 7) + 1 }, (_, i) => {
-    const week = addDays(firstWeek, i * 7), rows = byWeek.get(week) ?? [], completed = rows.filter(row => row.done);
-    const plannedKnown = rows.filter(row => row.plannedDistance !== null);
-    const recordedKnown = completed.filter(row => row.actualDistance !== null);
+    const week = addDays(firstWeek, i * 7);
     return {
       start: week < start ? start : week, end: addDays(week, 6) > end ? end : addDays(week, 6),
-      planned: plannedKnown.length ? plannedKnown.reduce((sum, row) => sum + row.plannedDistance!, 0) : null,
-      recorded: recordedKnown.length ? recordedKnown.reduce((sum, row) => sum + row.actualDistance!, 0) : null,
-      missingPlanned: rows.length - plannedKnown.length, missingRecorded: completed.length - recordedKnown.length,
-      scheduled: rows.length, completed: completed.length,
+      ...runningMileage(byWeek.get(week) ?? []),
     };
   });
 }
