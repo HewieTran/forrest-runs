@@ -54,9 +54,9 @@ function WorkoutTimeInput({ id, name, value, unit, invalid, onChange, onBlur }: 
   </div>;
 }
 
-export default function WorkoutEditor({ workout, saving, error, onSave, onCancel, onDirty, initialPeriod, onPeriodChange }: {
+export default function WorkoutEditor({ workout, saving, error, onSave, onCancel, onDirty, initialPeriod, onPeriodChange, saveBlocked = false }: {
   initialPeriod?: WorkoutPeriod; onPeriodChange?: (period: WorkoutPeriod) => void;
-  workout: Workout; saving: boolean; error: string;
+  workout: Workout; saving: boolean; error: string; saveBlocked?: boolean;
   onSave: (value: WorkoutInput) => void; onCancel: () => void; onDirty: (dirty: boolean) => void;
 }) {
   const id = useId(), form = useRef<HTMLFormElement>(null);
@@ -242,6 +242,6 @@ export default function WorkoutEditor({ workout, saving, error, onSave, onCancel
       </div></details>
     </fieldset>
     {(localError || error) && <div className="form-error" role="alert">{localError || error}</div>}
-    <div className="editor-footer"><label className="checkbox-label"><input type="checkbox" checked={draft.done} disabled={saving} onChange={event => toggleCompleted(event.target.checked)} />Workout completed</label><div className="button-group"><button type="button" className="button quiet" disabled={saving} onClick={onCancel}>Cancel</button><button type="submit" className="button primary" disabled={saving}>{saving ? <LoaderCircle className="spin" size={16} /> : <Check size={16} />}{saving ? 'Saving…' : 'Save workout'}</button></div></div>
+    <div className="editor-footer"><label className="checkbox-label"><input type="checkbox" checked={draft.done} disabled={saving} onChange={event => toggleCompleted(event.target.checked)} />Workout completed</label><div className="button-group"><button type="button" className="button quiet" disabled={saving} onClick={onCancel}>Cancel</button><button type="submit" className="button primary" disabled={saving || saveBlocked}>{saving ? <LoaderCircle className="spin" size={16} /> : <Check size={16} />}{saving ? 'Saving…' : 'Save workout'}</button></div></div>
   </form>;
 }
