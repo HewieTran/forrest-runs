@@ -67,34 +67,20 @@ export default function Tracker({ initial, preview = false, activeBlock = null, 
   useEffect(() => {
     if (!hasUnsavedChanges && !saving) return;
     allowNavigation.current = false;
-    const currentUrl = window.location.href, currentHistory = window.history.state;
     const handler = (event: BeforeUnloadEvent) => {
       if (allowNavigation.current) return;
       event.preventDefault(); event.returnValue = '';
     };
-    // Client-router Back/Forward transitions do not unload the document. Run
-    // before the router's popstate listener so a cancelled move keeps the form.
-    const guardHistory = (event: PopStateEvent) => {
-      if (!saving && (!hasUnsavedChanges || window.confirm('Discard your unsaved workout changes?'))) {
-        allowNavigation.current = true;
-        return;
-      }
-      event.stopImmediatePropagation();
-      window.history.pushState(currentHistory, '', currentUrl);
-    };
     window.addEventListener('beforeunload', handler);
-    window.addEventListener('popstate', guardHistory, true);
-    return () => {
-      window.removeEventListener('beforeunload', handler);
-      window.removeEventListener('popstate', guardHistory, true);
-    };
+    return () => window.removeEventListener('beforeunload', handler);
   }, [hasUnsavedChanges, saving]);
   function confirmDiscardChanges() {
     return !hasUnsavedChanges || window.confirm('Discard your unsaved workout changes?');
   }
   function closeEditor() {
-    if (saving || !confirmDiscardChanges()) return;
+    if (saving || !confirmDiscardChanges()) return false;
     setExpandedWorkoutId(null); setReadOnlyDate(null); setHasUnsavedChanges(false); setError(''); setSaveConflict(false); setPreviewPeriod(null);
+    return true;
   }
   function selectWorkout(id: string | null) {
     if (saving || !confirmDiscardChanges()) return;
@@ -268,7 +254,7 @@ export default function Tracker({ initial, preview = false, activeBlock = null, 
     </main>
     {(editing || expandedWorkoutId === 'new') && <WorkoutDialog
       title={editing ? (schedule ? 'Edit workout' : `${editing.done ? 'Edit' : 'Log'} workout`) : 'Add workout'}
-      date={(editing ?? newWorkout).date} saving={saving} onClose={closeEditor} returnFocusId={schedule ? `schedule-date-${selectedDate}` : 'featured-workout-action'}>
+      date={(editing ?? newWorkout).date} saving={saving} onClose={closeEditor} returnFocusId={schedule ? 'schedule-selected-date' : 'featured-workout-action'}>
       {schedule && data.workouts.some(row => row.date === selectedDate) && <div className="schedule-workout-selector"><label>Workout on this date<select value={expandedWorkoutId ?? ''} disabled={saving} onChange={event => event.target.value === 'new' ? addWorkout() : openTodayWorkout(event.target.value)}>
         {expandedWorkoutId === 'new' && <option value="new">New workout</option>}
         {orderedWorkouts(data.workouts).filter(row => row.date === selectedDate).map(row => <option key={row.id} value={row.id}>{row.type} · {scheduleTarget(row)}{row.done ? ' · Completed' : ''}</option>)}
@@ -278,7 +264,7 @@ export default function Tracker({ initial, preview = false, activeBlock = null, 
         onSave={input => saveWorkout(expandedWorkoutId!, input)} onCancel={closeEditor} onDirty={setHasUnsavedChanges} />
       {error && !preview && <div className="workout-recovery"><p>{saveConflict ? 'This workout or block changed elsewhere. Reload the latest data before trying again; reloading will discard these edits.' : 'You can retry saving with your edits above, or reload the latest saved data.'}</p><button className="button" disabled={saving} onClick={reloadLatest}>Reload latest data</button></div>}
     </WorkoutDialog>}
-    {readOnlyDate && <WorkoutDialog title={data.restDays.some(day => day.date === readOnlyDate) ? 'Rest day' : 'Scheduled workouts'} date={readOnlyDate} saving={false} onClose={closeEditor} returnFocusId={`schedule-date-${selectedDate}`}>
+    {readOnlyDate && <WorkoutDialog title={data.restDays.some(day => day.date === readOnlyDate) ? 'Rest day' : 'Scheduled workouts'} date={readOnlyDate} saving={false} onClose={closeEditor} returnFocusId="schedule-selected-date">
       <div className="schedule-rest-detail">{data.restDays.some(day => day.date === readOnlyDate) ? <><p>A little recovery goes a long way.</p><p>This date is marked for rest. There is no workout to log.</p></> : <><p>Finish your starting setup and save a plan before editing workouts.</p>{data.workouts.filter(row => row.date === readOnlyDate).map(row => <p key={row.id}><strong>{row.type}</strong><br />{row.plannedWorkout}</p>)}</>}<button className="button" disabled>Add workout</button></div>
     </WorkoutDialog>}
     {toast && <div className="toast" role="status"><CheckCircle2 size={18} /><span>{toast}</span><button onClick={() => setToast('')} aria-label="Dismiss notification"><X size={16} /></button></div>}

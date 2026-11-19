@@ -34,7 +34,7 @@ export default function WorkoutSchedule({ data, date, month, canEdit, disabled, 
       <div className="schedule-days">{monthDates(month).map(day => {
         const workouts = index.workouts.get(day) ?? [], rest = index.rest.has(day), today = day === data.today;
         const summary = rest ? 'Rest day' : workouts.length ? workouts.map(row => `${formatWorkoutTitle(row.type)}, ${scheduleTarget(row)}, ${row.done ? 'completed' : 'scheduled'}`).join('; ') : 'No workout scheduled';
-        return <button key={day} id={`schedule-date-${day}`} type="button" className={`schedule-day${day.slice(0, 7) !== month.slice(0, 7) ? ' outside-month' : ''}${day === date ? ' selected' : ''}${today ? ' today' : ''}`}
+        return <button key={day} id={day === date ? 'schedule-selected-date' : `schedule-date-${day}`} type="button" className={`schedule-day${day.slice(0, 7) !== month.slice(0, 7) ? ' outside-month' : ''}${day === date ? ' selected' : ''}${today ? ' today' : ''}`}
           aria-label={`${formatDate(day, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}. ${summary}${day === date ? '. Selected date' : ''}`}
           aria-current={today ? 'date' : undefined} aria-pressed={day === date} disabled={disabled || !validDate(day)} onClick={() => onOpen(day)}>
           <span className="schedule-day-number"><span>{Number(day.slice(-2))}</span>{today && <small>Today</small>}</span>
