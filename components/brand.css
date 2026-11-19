@@ -1,0 +1,24 @@
+/* Keep the full name readable while the shared artwork scales with its holder. */
+.brand {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.brand-icon {
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.brand-icon img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+@media (max-width: 480px) {
+  /* The link retains its accessible name while the full brand name stays visible. */
+  .header-library-link span {
+    display: none;
+  }
+}
