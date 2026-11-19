@@ -25,37 +25,71 @@ library. Keep the current deployment separate from proposed changes.
   exists in the inspected main tree; a running automatic pipeline is not
   established by this review.
 
+## Diagram conventions
+
+Read diagrams from left to right. Keep runtime and deployment in separate views;
+split a growing view into focused diagrams instead of adding an unreadably long row.
+
+| Color | Component purpose |
+| --- | --- |
+| Blue | Networking and HTTPS entry |
+| Purple | Hosting, app processes and request handling |
+| Amber | Identity and sign-in, including the external Google provider |
+| Green | Persistent data and backups |
+| Slate | Browser, source control and release artifacts |
+
+Color identifies purpose, not deployment status. Boundaries show where services
+live; labels and dashed connections/borders identify reported, proposed or
+unverified items. These status cues remain readable without distinguishing colors.
+
 ## AWS beta: service relationships
 
 ```mermaid
-flowchart TB
+flowchart LR
     browser["Runner's browser"]
     google["Google sign-in"]
 
-    subgraph aws["AWS beta"]
-        edge["Amazon CloudFront"]
-        cognito["Amazon Cognito user pool"]
-        subgraph host["Amazon Lightsail instance"]
-            caddy["Caddy HTTPS reverse proxy"]
-            app["Forrest Runs app: Next.js / Node.js"]
-            db[("SQLite database on persistent disk")]
-            caddy -->|"Local request"| app
-            app <-->|"Read and write owned training records"| db
+    subgraph aws["AWS beta — documented baseline"]
+        edge["CloudFront — public HTTPS entry"]
+        cognito["Cognito user pool — identity"]
+        snapshots["Lightsail snapshots — reported enabled"]
+        subgraph host["Lightsail instance — hosting"]
+            caddy["Caddy — HTTPS proxy"]
+            app["Next.js / Node.js — app and authorization"]
+            db[("SQLite — persistent training data")]
+            caddy -->|"Local requests"| app
+            app <-->|"Owned records"| db
         end
-        snapshots["Lightsail instance snapshots"]
-        edge -->|"HTTPS to origin"| caddy
-        app <-->|"Code exchange and signing keys"| cognito
-        host -.->|"Reported backup setup"| snapshots
+        edge <-->|"Origin HTTPS"| caddy
+        cognito <-->|"Token exchange and signing keys"| app
+        snapshots -.-|"Reported instance backup"| host
     end
 
-    browser <-->|"HTTPS pages and app requests"| edge
+    browser <-->|"Pages and app requests"| edge
     browser <-->|"Sign-in redirects"| cognito
-    cognito <-->|"Federated sign-in"| google
+    google <-->|"Federated sign-in"| cognito
+
+    classDef client fill:#F1F5F9,stroke:#64748B,color:#243447
+    classDef network fill:#E8F2FF,stroke:#2563EB,color:#12315A
+    classDef compute fill:#F1EBFF,stroke:#7C3AED,color:#3B1A66
+    classDef identity fill:#FFF3D6,stroke:#B7791F,color:#68450F
+    classDef storage fill:#E9F6EE,stroke:#238636,color:#17452B
+    classDef reported fill:#E9F6EE,stroke:#238636,color:#17452B,stroke-dasharray:5 4
+    class browser client
+    class edge network
+    class caddy,app compute
+    class cognito,google identity
+    class db storage
+    class snapshots reported
+    style aws fill:#F8FAFC,stroke:#94A3B8,color:#334155
+    style host fill:#FAF7FF,stroke:#7C3AED,color:#3B1A66
 ```
 
 Solid connections describe the documented running relationships. The dotted
-backup connection records a reported operational setting that needs current
-verification. Arrows show interaction, not a packet-level authentication sequence.
+backup connection and dashed snapshot border record a reported operational
+setting that needs current verification. The backup line is an association with
+the whole Lightsail instance, not an app-triggered backup operation. Arrows show
+interaction, not a packet-level authentication sequence.
 
 | Component | Responsibility |
 | --- | --- |
@@ -104,16 +138,23 @@ There is no live OpenAI API dependency in the current beta runtime.
 ### Current release path and requested automation
 
 ```mermaid
-flowchart TB
+flowchart LR
     source["GitHub main"]
     bundle["Versioned Node release package"]
-    beta["AWS beta on Lightsail"]
-    automation["Deployment automation: requested"]
+    beta["Lightsail AWS beta"]
+    automation["Deployment automation — requested, unverified"]
 
     source -->|"Manual release build"| bundle
     bundle -->|"Manual install and restart"| beta
     source -.->|"Proposed trigger"| automation
-    automation -.->|"Not yet verified as deployed"| beta
+    automation -.->|"Not verified as deployed"| beta
+
+    classDef delivery fill:#F1F5F9,stroke:#64748B,color:#243447
+    classDef compute fill:#F1EBFF,stroke:#7C3AED,color:#3B1A66
+    classDef proposed fill:#F8FAFC,stroke:#64748B,color:#475569,stroke-dasharray:5 4
+    class source,bundle delivery
+    class beta compute
+    class automation proposed
 ```
 
 The solid route is the documented manual release method. The dotted route is
@@ -166,3 +207,4 @@ placement, deployment automation or external integrations.
 | Date | Change | Status |
 | --- | --- | --- |
 | 2026-11-19 | Establish AWS beta topology, environment boundaries and architecture-maintenance rule. | Documentation prepared from repository source and deployment reports; live AWS configuration not re-audited. |
+| 2026-11-19 | Reorient runtime and deployment views horizontally and add a shared color key for component roles, retaining explicit status labels. | Documentation presentation only; no service, deployment or infrastructure change. |
