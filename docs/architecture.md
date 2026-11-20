@@ -9,7 +9,7 @@ library. Keep the current deployment separate from proposed changes.
 
 ## Evidence and deployment status
 
-- Source inspected: GitHub main `b8dbc7bc1e2690a21bf4ac6b32b1d381aac66394`.
+- Source inspected: GitHub main `ce0b6f20cca2fcb7e4c7fb6f9a8b795b83835303` (merged pipeline PR #30).
 - Hieu reported updating AWS beta with the latest merged UI on 2026-11-19.
   This documentation task did not inspect the running server's release SHA or
   AWS resource configuration. Treat service placement below as the documented
@@ -23,11 +23,17 @@ library. Keep the current deployment separate from proposed changes.
   predate the live beta; they are historical context, not current deployment status.
 - Hieu reported enabling dual-stack networking and supplied static IPv4
   `3.132.106.53` for the existing Lightsail instance. This workspace could not
-  reach the instance; firewall, host key and live network settings remain unaudited.
-- Automatic GitHub Actions delivery is implemented in draft PR #30 at
-  `049940a59d4e599c43a5555b545b68836e198e7a`, with local package and recovery tests.
-  It is unmerged. Dedicated deployment access, server setup and a successful
-  hosted deployment remain pending. Current main still uses manual deployment.
+  reach the instance directly. GitHub Actions attempt 2 successfully verified the
+  trusted server host key and authenticated the restricted deployment key over IPv4;
+  this is not a full firewall or AWS inventory audit.
+- Automatic GitHub Actions delivery merged in PR #30. Server receiver setup and
+  GitHub credentials are configured. Hosted build, persistence, account isolation
+  and simulated Cognito tests passed, but the receiver rejected archive links before
+  service/database cutover. The first successful automated deployment remains pending;
+  the existing manually installed app continues serving.
+- PR #31 fixes portable archive creation and tests the receiver-extracted archive
+  outside the source checkout. It is unmerged and not deployed. Failure evidence:
+  [main workflow attempt 2](https://github.com/HewieTran/forrest-runs/actions/runs/44667776786/attempts/2).
 
 ## Diagram conventions
 
@@ -224,7 +230,7 @@ flowchart LR
     source["GitHub main"]
     bundle["Versioned Node release package"]
     beta["Lightsail AWS beta"]
-    automation["GitHub Actions — draft PR #30; setup pending"]
+    automation["GitHub Actions — merged; first deployment blocked"]
 
     source -->|"D1"| bundle
     bundle -->|"D2"| beta
@@ -245,17 +251,19 @@ D2.2 Restart using server-held configuration
 and the existing persistent SQLite database.
 Record the running SHA and verify the affected flow
 as separate release gates; no new check performed here.`"]
-        noteD3["`**D3 · Approved trigger — implementation pending merge**
+        noteD3["`**D3 · Main trigger — build verified**
 D3.1 A main push starts the Node build and synthetic checks.
 D3.2 Retain the exact commit package for five days.
-PR #30 is unmerged; a live trigger is unverified.`"]
-        noteD4["`**D4 · Approved SSH deployment — activation pending**
+PR #30 is merged; main-triggered build/tests passed.`"]
+        noteD4["`**D4 · SSH deployment — archive fix pending**
 D4.1 Send package over IPv4 using a dedicated restricted key.
 D4.2 Verify checksum, preflight a database copy,
 pause Caddy, back up live SQLite and switch the service.
 D4.3 Verify package identity and the running revision;
 restore the prior service/database on startup failure.
-D4.4 Check public HTTPS. Server setup and live run pending.`"]
+D4.4 Check public HTTPS after activation.
+SSH access verified; archive rejected before cutover.
+PR #31 fixes packaging; successful live deployment pending.`"]
         noteD1 ~~~ noteD2
         noteD2 ~~~ noteD3
         noteD3 ~~~ noteD4
@@ -276,8 +284,9 @@ D4.4 Check public HTTPS. Server setup and live run pending.`"]
 ```
 
 The solid route is the documented manual release method. The dotted route is
-approved GitHub Actions/SSH delivery implemented in draft PR #30, with server
-activation and live verification still pending.
+approved GitHub Actions/SSH delivery merged in PR #30. Its main-triggered build
+and restricted SSH access are verified. Archive portability blocked activation;
+PR #31 addresses that failure. Live deployment and public verification remain pending.
 A merge, release build, deployment and post-deployment verification are distinct
 events. Record their status separately.
 
@@ -287,7 +296,7 @@ AWS. Both environments should integrate the approved feature source while
 preserving their platform adapters and separate data.
 
 Pipeline setup and recovery details are maintained in
-[PR #30 deployment documentation](https://github.com/HewieTran/forrest-runs/blob/deploy/aws-beta-automation/docs/aws-deployment.md).
+[PR #30 deployment documentation](https://github.com/HewieTran/forrest-runs/blob/main/docs/aws-deployment.md).
 GitHub holds the dedicated deployment private key. Lightsail holds its public
 key, root-owned receiver, application secrets, release files and local database
 backups. This adds no S3 bucket or second instance. Hieu approved the dual-stack
@@ -338,3 +347,4 @@ placement, deployment automation or external integrations.
 | 2026-11-19 | Embed numbered activity descriptions directly on every runtime and deployment connection using multiline labels; remove duplicate connection tables. | Documentation presentation only; horizontal layout, colors and deployment evidence preserved. |
 | 2026-11-19 | Record reported dual-stack/static IPv4, the decision to share one AWS instance, and draft PR #30 Actions/SSH delivery with D3/D4 activities. | Approved design and code in draft PR; server setup and live automatic deployment pending. |
 | 2026-11-19 | Restore short connection IDs on arrows and move their full descriptions to a side panel inside each expandable diagram. | Documentation layout only; service relationships and deployment status unchanged. |
+| 2026-11-19 | Record merged pipeline PR #30, successful main build and restricted SSH verification, and pre-activation archive rejection; track packaging fix PR #31. | Automatic deployment not yet successful; manually installed app preserved. |
