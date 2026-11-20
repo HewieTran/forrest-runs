@@ -1,9 +1,9 @@
 .workout-schedule-page { max-width:1180px; padding-top:25px; }
-.workout-schedule-page h1 { font:400 clamp(32px,4vw,44px)/1.15 Georgia,serif; letter-spacing:-.04em; color:#26332a; margin:5px 0 9px; }
+.workout-schedule-page h1 { font:500 clamp(32px,4vw,44px)/1.15 var(--font-heading); letter-spacing:-.04em; color:#26332a; margin:5px 0 9px; }
 .schedule-block-name { margin-top:25px; color:#3d634c; font-size:14px; font-weight:600; }
 .schedule-range { margin-bottom:28px; color:#5b6258; font-size:14px; }
 .schedule-toolbar { display:flex; align-items:flex-end; flex-wrap:wrap; gap:10px; margin-bottom:18px; }
-.schedule-toolbar h2 { font:400 27px/1.2 Georgia,serif; margin:auto auto auto 0; }
+.schedule-toolbar h2 { font:500 27px/1.2 var(--font-heading); margin:auto auto auto 0; }
 .schedule-month-actions { display:flex; align-items:center; gap:6px; }
 .schedule-toolbar .icon-button { width:42px; height:42px; }
 .schedule-date-picker { display:grid; gap:4px; font-size:13px; color:#445345; }
@@ -34,7 +34,7 @@
 .schedule-key { width:10px; height:10px; background:#efeee6; border:1px solid #a0ac96; border-radius:2px; }
 .schedule-key.today { background:#f6cf90; border-color:#bfa06d; }
 .schedule-selected-day { border-top:1px solid #d8ddcf; padding-top:20px; display:grid; grid-template-columns:250px 1fr; gap:20px; }
-.schedule-selected-day h2 { font:400 24px Georgia,serif; }
+.schedule-selected-day h2 { font:500 24px var(--font-heading); }
 .schedule-selected-day p { font-size:14px; color:#5b6258; margin-top:5px; }
 .schedule-selected-list { display:grid; gap:8px; }
 .schedule-selected-row { display:flex; align-items:center; justify-content:space-between; gap:14px; padding:14px; background:#fffdf7; border:1px solid #d8ddcf; border-radius:10px; }
