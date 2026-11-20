@@ -9,6 +9,7 @@ import BlockLibrary from '../../components/BlockLibrary';
 import SetupWizard from '../../components/SetupWizard';
 import ProgressOverview from '../../components/ProgressOverview';
 import {progressPreview} from '../../lib/progress-preview';
+import {libraryFilter,landingFilter} from '../../lib/onboarding';
 import {type BlockSummary} from '../../lib/blocks';
 import {BLOCK_STATUSES,validDate,type BlockStatus} from '../../lib/domain';
 import {centralToday,weekStart,addDays,EMPTY_WORKOUT_MEASUREMENTS,type AppData,type Workout} from '../../lib/domain';
@@ -19,6 +20,16 @@ export default async function Preview({searchParams}:{searchParams:Promise<Recor
  if(query.view==='overview-mobile') return <iframe title="Mobile training block overview" src={`/preview?view=overview&scenario=${['rest','unscheduled','empty'].includes(query.scenario??'')?query.scenario:''}`} style={{display:'block',width:390,maxWidth:'100%',height:850,border:0,margin:'20px auto'}}/>;
  if(query.view==='schedule-mobile') return <iframe title="Mobile workout schedule" src="/preview?view=schedule" style={{display:'block',width:390,maxWidth:'100%',height:850,border:0,margin:'20px auto'}}/>;
  if(query.view==='schedule') return <Tracker initial={overviewPreview(centralToday(), query.scenario)} view="schedule" initialDate={query.date} preview/>;
+ if(query.view==='overview' && ['ready','ready-today','ready-past','ready-missing','ready-blocked'].includes(query.scenario??'')){
+  const data=overviewPreview(centralToday());
+  data.plan={...data.plan,status:'draft',setup:null,generation:null};
+  const shift=query.scenario==='ready-today'?0:query.scenario==='ready-past'?-2:3;
+  data.workouts=query.scenario==='ready-missing'?[]:data.workouts.slice(0,1).map(row=>({...row,date:addDays(data.today,shift),done:false}));
+  // A legacy manual block can be ready even without a generated snapshot. The
+  // missing-date case uses the existing readiness metadata only in this preview.
+  if(query.scenario==='ready-missing') data.plan={...data.plan,generation:{status:'accepted'} as NonNullable<AppData['plan']['generation']>};
+  return <Tracker initial={data} activeBlock={query.scenario==='ready-blocked'?{id:'other-current',raceName:'Current example plan'}:null} preview/>;
+ }
  if(query.view==='overview') return <Tracker initial={overviewPreview(centralToday(), query.scenario)} preview/>;
  if(query.view==='setup-mobile'){const scenario=['goal-adjustment','cross-distance','schedule-earlier','schedule-later','benchmark-refresh','validation-error','legacy-validation-error'].includes(query.scenario??'')?query.scenario:'';return <iframe title="Mobile race setup preview" src={`/preview?view=setup&scenario=${scenario}`} style={{display:'block',width:390,maxWidth:'100%',height:850,border:0,margin:'20px auto'}}/>;}
  if(query.view==='workout-mobile')return <iframe title="Mobile workout preview" src={`/preview?view=workout&scenario=${['steps','race-steps','legacy'].includes(query.scenario??'')?query.scenario:''}`} style={{display:'block',width:390,maxWidth:'100%',height:850,border:0,margin:'20px auto'}}/>;
@@ -62,7 +73,20 @@ export default async function Preview({searchParams}:{searchParams:Promise<Recor
   {...initial.plan,id:'autumn-half',raceName:'Autumn Half Marathon',raceDate:'2026-09-20',status:'completed',sourceName:null,workoutCount:6,completedCount:2,recordedMiles:5,firstWorkoutDate:rows[0].date,lastWorkoutDate:rows[5].date},
   {...initial.plan,id:'summer-base',raceName:'Summer base miles',raceDate:'2026-07-12',status:'archived',sourceName:null,workoutCount:6,completedCount:2,recordedMiles:5,firstWorkoutDate:rows[0].date,lastWorkoutDate:rows[5].date},
  ];
- if(query.view==='blocks')return <BlockLibrary initial={summaries} displayName="Runner" preview/>;
+ if(query.view==='blocks'){
+  const draft={...summaries[1],hasSetup:true};
+  const ready={...summaries[0],id:'ready',raceName:'Winter 5K',status:'draft' as const,sourceName:null,firstWorkoutDate:addDays(today,3),completedCount:0,recordedMiles:0};
+  let examples=summaries;
+  if(query.scenario==='empty')examples=[];
+  if(query.scenario==='draft')examples=[draft];
+  if(query.scenario==='ready')examples=[ready];
+  if(query.scenario==='mixed')examples=[draft,ready];
+  if(query.scenario==='history')examples=summaries.filter(b=>['completed','archived'].includes(b.status));
+  if(query.scenario==='archived')examples=summaries.filter(b=>b.status==='archived');
+  if(query.scenario==='simulation')examples=[{...ready,isSimulation:true,hasGeneratedPlan:true}];
+  if(query.scenario==='dates')examples=[3,1,0,-2,null].map((offset,i)=>({...ready,id:'date-'+i,raceName:['Future','Tomorrow','Today','Past','Unknown'][i],firstWorkoutDate:offset===null?null:addDays(today,offset)}));
+  return <BlockLibrary initial={examples} initialFilter={libraryFilter(query.status)??landingFilter(examples)} initialSearch={query.q??''} displayName="Runner" today={today} preview/>;
+ }
  if(query.blockId){
   const chosen=summaries.find(block=>block.id===query.blockId);
   if(chosen){initial.plan=chosen;initial.workouts=chosen.workoutCount?rows.map(row=>({...row,planId:chosen.id})):[];}

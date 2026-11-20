@@ -1,5 +1,6 @@
 'use client';
 
+import { clearGuidanceSession } from '../lib/onboarding';
 import { createContext, useContext, type ReactNode } from 'react';
 
 const SignOutPath = createContext<string | null>(null);
@@ -14,6 +15,6 @@ export function AccountAvatar({ displayName, preview }: { displayName: string; p
   if (!path || preview) return <span className="avatar" title={displayName}>{initial}</span>;
   return <details className="session-menu">
     <summary className="avatar" aria-label="Account menu" title={displayName}>{initial}</summary>
-    <form action={path} method="post"><button className="button quiet" type="submit">Sign out</button></form>
+    <form action={path} method="post" onSubmit={() => { try { clearGuidanceSession(sessionStorage); } catch { /* Browser storage can be disabled. */ } }}><button className="button quiet" type="submit">Sign out</button></form>
   </details>;
 }

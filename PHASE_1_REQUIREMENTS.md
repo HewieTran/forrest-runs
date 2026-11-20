@@ -90,3 +90,13 @@ Follow Hieu's requirements and UI. Collaborate on changes before expanding scope
 ## Future phases
 
 Other race distances; richer fitness/performance inputs; adaptive plans; wearable/Strava imports; native mobile app; AWS deployment and separate environments. Each needs a separate scope decision.
+
+## Landing and start discoverability (approved 2026-11-20)
+
+See `docs/onboarding-acceptance.md`. Keep automatic generation/save and opening
+of the saved overview. Ready real blocks offer a prominent **Start this block**
+action and **Keep for later** in that overview, plus a start action on library
+cards. Starting makes the block current immediately even before its first
+scheduled workout. It does not reschedule anything. No date-triggered activation,
+additional wizard step, or second schedule approval is introduced. Existing
+one-active-block, simulation, authorization and version rules stay enforced.
