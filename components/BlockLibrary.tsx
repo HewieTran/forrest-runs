@@ -15,7 +15,7 @@ export default function BlockLibrary({ initial, displayName, preview = false }: 
   const counts = (status: BlockStatus | 'ready') => blocks.filter(block => status === 'ready' ? blockReady(block) : status === 'draft' ? block.status === 'draft' && !blockReady(block) : block.status === status).length;
   return <div className="app-shell"><AppHeader displayName={displayName} preview={preview} />
     <main className="main-content blocks-main">
-      <section className="page-heading blocks-page-heading"><div><div className="overline">Your training blocks</div><h1>Forrest Runs</h1></div><div className="block-create-options"><a className="button primary" href={preview ? '/preview?view=setup' : '/blocks/new'}><Plus size={17} />Create training block</a></div></section>
+      <section className="page-heading blocks-page-heading"><div><div className="overline">Your training blocks</div><h1 className="brand-wordmark">Forrest Runs</h1></div><div className="block-create-options"><a className="button primary" href={preview ? '/preview?view=setup' : '/blocks/new'}><Plus size={17} />Create training block</a></div></section>
       <div className="library-stats" aria-label="Training block totals">
         <div><Layers3 size={19} /><span><strong>{blocks.length}</strong> total blocks</span></div>
         <div><Flag size={19} /><span><strong>{counts('active')}</strong> in progress</span></div>
