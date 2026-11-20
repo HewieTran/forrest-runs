@@ -47,8 +47,9 @@ live; labels and dashed connections/borders identify reported, proposed or
 unverified items. These status cues remain readable without distinguishing colors.
 
 Each connection has a stable numbered reference: **R1–R8** for runtime and
-**D1–D4** for deployment. The numbered explanation is embedded directly on each
-connection; expand or zoom the diagram to read its activities without a table lookup.
+**D1–D4** for deployment. Connections carry short ID labels; their numbered explanations appear in a
+panel beside the architecture inside the same diagram. Expand or zoom to read
+both together. Invisible layout links position the panels and are not system connections.
 References identify connections, not a universal execution order. A request can
 reuse a connection, and sign-in, ordinary app traffic and backups follow different
 paths. Substeps such as **R7.1–R7.3** explain several activities on one connection.
@@ -59,6 +60,8 @@ renumbering unaffected links. Double-headed arrows include requests and response
 
 ```mermaid
 flowchart LR
+    subgraph runtimeView["Runtime architecture"]
+        direction LR
     browser["Runner's browser"]
     google["Google sign-in"]
 
@@ -70,53 +73,76 @@ flowchart LR
             caddy["Caddy — HTTPS proxy"]
             app["Next.js / Node.js — app and authorization"]
             db[("SQLite — persistent training data")]
-            caddy <-->|"`R3 · Local proxy
+            caddy <-->|"R3"| app
+            app <-->|"R4"| db
+        end
+        edge <-->|"R2"| caddy
+        cognito <-->|"R7"| app
+        snapshots -.-|"R8"| host
+    end
+
+    browser <-->|"R1"| edge
+    browser <-->|"R5"| cognito
+    google <-->|"R6"| cognito
+
+    end
+
+    subgraph runtimeGuide["Connection explanations"]
+        direction TB
+        noteR1["`**R1 · App traffic**
+R1.1 Browser requests pages or submits API actions,
+sending its app-session cookie when signed in.
+R1.2 Pages, data, errors and cookie updates
+return through CloudFront.`"]
+        noteR2["`**R2 · Origin HTTPS**
+R2.1 CloudFront forwards requests to Caddy over HTTPS,
+including cookies, callback parameters and write methods.
+R2.2 Origin responses return through CloudFront.
+App caching is documented as disabled; live settings unverified.`"]
+        noteR3["`**R3 · Local proxy**
 R3.1 Caddy terminates HTTPS and forwards to local Node.
 R3.2 App handles the route, checking the session,
 input and ownership where required.
-R3.3 Response returns through Caddy, R2 and R1.`"| app
-            app <-->|"`R4 · Training records
+R3.3 Response returns through Caddy, R2 and R1.`"]
+        noteR4["`**R4 · Training records**
 R4.1 Storage layer reads owned records
 or performs an authorized write.
 R4.2 Validation and version checks protect changes;
 records or save/conflict results return to the app.
-Browser has no direct database connection.`"| db
-        end
-        edge <-->|"`R2 · Origin HTTPS
-R2.1 CloudFront forwards requests to Caddy over HTTPS,
-including cookies, callback parameters and write methods.
-R2.2 Origin responses return through CloudFront.
-App caching is documented as disabled; live settings unverified.`"| caddy
-        cognito <-->|"`R7 · Tokens and signing keys
+Browser has no direct database connection.`"]
+        noteR5["`**R5 · Login redirects**
+R5.1 Browser follows the app redirect to Cognito,
+with Google selected.
+R5.2 Cognito redirects back with a login code.
+The callback reaches the app through R1, R2 and R3.`"]
+        noteR6["`**R6 · Google federation**
+R6.1 Runner completes Google sign-in in the browser.
+R6.2 Cognito processes the Google identity
+and continues authorization.
+This relationship includes browser redirects;
+it is not a direct app-to-Google connection.`"]
+        noteR7["`**R7 · Tokens and signing keys**
 R7.1 Server exchanges login code for Cognito tokens.
 R7.2 Fetches public signing keys when needed;
 verifies the identity and approved beta email.
 R7.3 App creates its own session cookie,
 returned through R3, R2 and R1.
 Later requests verify the app session locally;
-they do not repeat the code exchange.`"| app
-        snapshots -.-|"`R8 · Backup — reported
+they do not repeat the code exchange.`"]
+        noteR8["`**R8 · Backup — reported**
 Reported instance snapshots, outside the request path.
 An instance-backup association, not an app call.
-Schedule, retention and restore readiness unverified.`"| host
+Schedule, retention and restore readiness unverified.`"]
+        noteR1 ~~~ noteR2
+        noteR2 ~~~ noteR3
+        noteR3 ~~~ noteR4
+        noteR4 ~~~ noteR5
+        noteR5 ~~~ noteR6
+        noteR6 ~~~ noteR7
+        noteR7 ~~~ noteR8
     end
 
-    browser <-->|"`R1 · App traffic
-R1.1 Browser requests pages or submits API actions,
-sending its app-session cookie when signed in.
-R1.2 Pages, data, errors and cookie updates
-return through CloudFront.`"| edge
-    browser <-->|"`R5 · Login redirects
-R5.1 Browser follows the app redirect to Cognito,
-with Google selected.
-R5.2 Cognito redirects back with a login code.
-The callback reaches the app through R1, R2 and R3.`"| cognito
-    google <-->|"`R6 · Google federation
-R6.1 Runner completes Google sign-in in the browser.
-R6.2 Cognito processes the Google identity
-and continues authorization.
-This relationship includes browser redirects;
-it is not a direct app-to-Google connection.`"| cognito
+    runtimeView ~~~ runtimeGuide
 
     classDef client fill:#F1F5F9,stroke:#64748B,color:#243447
     classDef network fill:#E8F2FF,stroke:#2563EB,color:#12315A
@@ -132,6 +158,10 @@ it is not a direct app-to-Google connection.`"| cognito
     class snapshots reported
     style aws fill:#F8FAFC,stroke:#94A3B8,color:#334155
     style host fill:#FAF7FF,stroke:#7C3AED,color:#3B1A66
+    classDef explanation fill:#FFFFFF,stroke:#CBD5E1,color:#243447
+    class noteR1,noteR2,noteR3,noteR4,noteR5,noteR6,noteR7,noteR8 explanation
+    style runtimeView fill:transparent,stroke:transparent
+    style runtimeGuide fill:#F8FAFC,stroke:#94A3B8,color:#334155
 ```
 
 Solid connections describe the documented running relationships. The dotted
@@ -189,32 +219,49 @@ There is no live OpenAI API dependency in the current beta runtime.
 
 ```mermaid
 flowchart LR
+    subgraph deploymentView["Deployment architecture"]
+        direction LR
     source["GitHub main"]
     bundle["Versioned Node release package"]
     beta["Lightsail AWS beta"]
     automation["GitHub Actions — draft PR #30; setup pending"]
 
-    source -->|"`D1 · Manual build
+    source -->|"D1"| bundle
+    bundle -->|"D2"| beta
+    source -.->|"D3"| automation
+    automation -.->|"D4"| beta
+
+    end
+
+    subgraph deploymentGuide["Connection explanations"]
+        direction TB
+        noteD1["`**D1 · Manual build**
 D1.1 Select an exact GitHub source revision.
 D1.2 Build its versioned Node release package.
-A successful build does not establish deployment.`"| bundle
-    bundle -->|"`D2 · Manual deployment
+A successful build does not establish deployment.`"]
+        noteD2["`**D2 · Manual deployment**
 D2.1 Install the release files on Lightsail.
 D2.2 Restart using server-held configuration
 and the existing persistent SQLite database.
 Record the running SHA and verify the affected flow
-as separate release gates; no new check performed here.`"| beta
-    source -.->|"`D3 · Approved trigger — implementation pending merge
+as separate release gates; no new check performed here.`"]
+        noteD3["`**D3 · Approved trigger — implementation pending merge**
 D3.1 A main push starts the Node build and synthetic checks.
 D3.2 Retain the exact commit package for five days.
-PR #30 is unmerged; a live trigger is unverified.`"| automation
-    automation -.->|"`D4 · Approved SSH deployment — activation pending
+PR #30 is unmerged; a live trigger is unverified.`"]
+        noteD4["`**D4 · Approved SSH deployment — activation pending**
 D4.1 Send package over IPv4 using a dedicated restricted key.
 D4.2 Verify checksum, preflight a database copy,
 pause Caddy, back up live SQLite and switch the service.
 D4.3 Verify package identity and the running revision;
 restore the prior service/database on startup failure.
-D4.4 Check public HTTPS. Server setup and live run pending.`"| beta
+D4.4 Check public HTTPS. Server setup and live run pending.`"]
+        noteD1 ~~~ noteD2
+        noteD2 ~~~ noteD3
+        noteD3 ~~~ noteD4
+    end
+
+    deploymentView ~~~ deploymentGuide
 
     classDef delivery fill:#F1F5F9,stroke:#64748B,color:#243447
     classDef compute fill:#F1EBFF,stroke:#7C3AED,color:#3B1A66
@@ -222,6 +269,10 @@ D4.4 Check public HTTPS. Server setup and live run pending.`"| beta
     class source,bundle delivery
     class beta compute
     class automation proposed
+    classDef explanation fill:#FFFFFF,stroke:#CBD5E1,color:#243447
+    class noteD1,noteD2,noteD3,noteD4 explanation
+    style deploymentView fill:transparent,stroke:transparent
+    style deploymentGuide fill:#F8FAFC,stroke:#94A3B8,color:#334155
 ```
 
 The solid route is the documented manual release method. The dotted route is
@@ -286,3 +337,4 @@ placement, deployment automation or external integrations.
 | 2026-11-19 | Number every runtime and deployment connection, explain multi-activity connections with substeps, and cross-reference the sign-in walkthrough. | Documentation explanation only; deployment and verification status unchanged. |
 | 2026-11-19 | Embed numbered activity descriptions directly on every runtime and deployment connection using multiline labels; remove duplicate connection tables. | Documentation presentation only; horizontal layout, colors and deployment evidence preserved. |
 | 2026-11-19 | Record reported dual-stack/static IPv4, the decision to share one AWS instance, and draft PR #30 Actions/SSH delivery with D3/D4 activities. | Approved design and code in draft PR; server setup and live automatic deployment pending. |
+| 2026-11-19 | Restore short connection IDs on arrows and move their full descriptions to a side panel inside each expandable diagram. | Documentation layout only; service relationships and deployment status unchanged. |
