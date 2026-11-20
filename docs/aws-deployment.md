@@ -93,6 +93,11 @@ Keep these statuses distinct from code committed or merged.
 - Builds use Node 24.22.1, matching the existing installed Lightsail runtime,
   with the locked pnpm dependencies. Releases use Next standalone output and
   include public artwork, static assets, SQL migrations and runtime dependencies.
+- Packaging materializes dependency links. Before upload, CI extracts the actual
+  archive using the Lightsail receiver's strict path/type/revision checks, then
+  runs persistence and simulated sign-in checks against that extracted copy
+  outside the checkout, preventing fallback to the checkout's dependencies.
+  This catches build-machine links before a package reaches the live server.
 - During preflight the old app keeps serving. The new app starts on loopback
   port 4181 against a disposable database copy, then stops. Tests do not modify
   personal workout records.

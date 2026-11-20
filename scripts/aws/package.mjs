@@ -56,7 +56,10 @@ for (const name of ['react', 'react-dom']) {
 writeFileSync(path.join(release, 'REVISION'), revision + '\n');
 cpSync(path.join(root, 'scripts/aws/start.sh'), path.join(release, 'start.sh'));
 const archive = path.join(output, 'release.tar.gz');
-execFileSync('tar', ['-czf', archive, '-C', output, 'release']);
+// Next/pnpm can leave links in the staged dependency tree. Materialize both
+// symbolic and hard links so the archive is portable and the receiver can keep
+// rejecting links instead of trusting paths on the build machine.
+execFileSync('tar', ['--dereference', '--hard-dereference', '-czf', archive, '-C', output, 'release']);
 const checksum = execFileSync('sha256sum', [archive], { encoding: 'utf8' }).split(' ')[0];
 writeFileSync(path.join(output, 'release.sha256'), checksum + '  release.tar.gz\n');
 console.log(JSON.stringify({ revision, archive, checksum }));
