@@ -285,5 +285,4 @@ placement, deployment automation or external integrations.
 | 2026-11-19 | Reorient runtime and deployment views horizontally and add a shared color key for component roles, retaining explicit status labels. | Documentation presentation only; no service, deployment or infrastructure change. |
 | 2026-11-19 | Number every runtime and deployment connection, explain multi-activity connections with substeps, and cross-reference the sign-in walkthrough. | Documentation explanation only; deployment and verification status unchanged. |
 | 2026-11-19 | Embed numbered activity descriptions directly on every runtime and deployment connection using multiline labels; remove duplicate connection tables. | Documentation presentation only; horizontal layout, colors and deployment evidence preserved. |
-
 | 2026-11-19 | Record reported dual-stack/static IPv4, the decision to share one AWS instance, and draft PR #30 Actions/SSH delivery with D3/D4 activities. | Approved design and code in draft PR; server setup and live automatic deployment pending. |
