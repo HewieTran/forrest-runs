@@ -8,7 +8,7 @@ export default function WorkoutDialog({ title, date, saving, onClose, children, 
   title: string;
   date: string;
   saving: boolean;
-  onClose: () => void;
+  onClose: () => boolean;
   children: ReactNode;
   returnFocusId: string;
 }) {
@@ -16,6 +16,9 @@ export default function WorkoutDialog({ title, date, saving, onClose, children, 
   const dialogRef = useRef<HTMLDialogElement>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
+  const closeRef = useRef(onClose), savingRef = useRef(saving);
+  closeRef.current = onClose;
+  savingRef.current = saving;
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -26,13 +29,58 @@ export default function WorkoutDialog({ title, date, saving, onClose, children, 
     dialog.showModal();
     if (contentRef.current) contentRef.current.scrollTop = 0;
     titleRef.current?.focus({ preventScroll: true });
+    // Give an open popup its own same-document Back step. This catches browser
+    // Back before a document/router transition can unmount an unsaved editor.
+    const key = '__forrestWorkoutDialog', historyId = `${titleId}:${Date.now()}`;
+    let active = true, added = false, poppedToBase = false;
+    let baseState: Record<string, unknown>, popupUrl: string;
+    queueMicrotask(() => {
+      if (!active) return;
+      baseState = { ...window.history.state };
+      delete baseState[key];
+      popupUrl = window.location.href;
+      window.history.replaceState({ ...baseState, [key]: { id: historyId, entry: 'base' } }, '', popupUrl);
+      window.history.pushState({ ...baseState, [key]: { id: historyId, entry: 'popup' } }, '', popupUrl);
+      added = true;
+    });
+    const onBack = (event: PopStateEvent) => {
+      const marker = event.state?.[key];
+      if (marker?.id !== historyId) return;
+      event.stopImmediatePropagation();
+      if (marker.entry !== 'base') return; // Restoring after Keep editing.
+      if (savingRef.current) { window.history.forward(); return; }
+      poppedToBase = true;
+      if (!closeRef.current()) {
+        poppedToBase = false;
+        window.history.forward();
+      } else {
+        window.history.replaceState(baseState, '', popupUrl);
+      }
+    };
+    window.addEventListener('popstate', onBack, true);
     return () => {
+      active = false;
+      window.removeEventListener('popstate', onBack, true);
+      if (added && !poppedToBase) queueMicrotask(() => {
+        if (window.history.state?.[key]?.id !== historyId) return;
+        const url = window.location.href, state = { ...window.history.state };
+        delete state[key];
+        const removePopupEntry = (event: PopStateEvent) => {
+          if (event.state?.[key]?.id === historyId) {
+            event.stopImmediatePropagation();
+            window.history.replaceState(state, '', url);
+          }
+          window.removeEventListener('popstate', removePopupEntry, true);
+        };
+        window.addEventListener('popstate', removePopupEntry, true);
+        window.history.back();
+      });
       dialog.close();
       document.body.style.overflow = previousOverflow;
       const returnTarget = trigger?.isConnected && trigger !== document.body ? trigger : document.getElementById(returnFocusId);
       returnTarget?.focus({ preventScroll: true });
     };
-  }, [returnFocusId]);
+  }, [returnFocusId, titleId]);
 
   return <dialog ref={dialogRef} className="workout-dialog" aria-labelledby={titleId}
     onCancel={event => {

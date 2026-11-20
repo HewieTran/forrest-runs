@@ -24,7 +24,7 @@ let server;
 let log = '';
 
 async function startServer() {
-  server = spawn(process.execPath, ['scripts/node-proof.mjs', 'start'], {
+  server = spawn(process.execPath, (process.env.FORREST_PACKAGED_ROOT ? ['tests/release-server.mjs'] : ['scripts/node-proof.mjs', 'start']), {
     env: { ...process.env, FORREST_SQLITE_PATH: filename, FORREST_PROOF_PORT: String(port),
       FORREST_PROOF_SESSION_SECRET: secret },
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -106,6 +106,27 @@ try {
   assert.match(plannedPage, /aria-label="Log Easy run workout"/);
   assert.match(plannedPage, /Weekly running mileage/);
   assert.match(plannedPage, /5 mi planned/);
+  const schedulePage = async (cookie = a, date = day) => fetch(`${base}/blocks/${id}/schedule?date=${date}`, { headers: { Cookie: cookie } }).then(async response => ({ status: response.status, html: (await response.text()).replaceAll('<!-- -->', '') }));
+  const scheduleHtml = (await schedulePage()).html;
+  assert.match(scheduleHtml, /Workout schedule/);
+  assert.match(scheduleHtml, /aria-label="Previous month"/);
+  assert.match(scheduleHtml, /aria-label="Next month"/);
+  assert.match(scheduleHtml, /Go to date/);
+  assert.match(scheduleHtml, /Easy run, 5 mi, scheduled/);
+  const forbiddenSchedule = await schedulePage(b);
+  assert.doesNotMatch(forbiddenSchedule.html, /Native Node training|Synthetic easy run/);
+  const futureDate = (Number(day.slice(0, 4)) + 1) + '-01-05';
+  const future = await call(a, '/api/workouts' + scope, 'POST', { ...workout, date: futureDate, plannedWorkout: 'Synthetic future schedule edit' });
+  assert.equal(future.status, 201);
+  const futureRoute = '/api/workouts/' + future.data.workout.id + scope;
+  const futureEdit = await call(a, futureRoute, 'PATCH', { ...future.data.workout, plannedDistance: 5.5, plannedDurationSeconds: 3300 });
+  assert.equal(futureEdit.status, 200);
+  assert.equal(futureEdit.data.workout.done, false);
+  assert.match((await schedulePage(a, futureDate)).html, /Easy run, 5.5 mi, scheduled/);
+  const persistedFuture = (await call(a, '/api/training' + scope)).data.workouts.find(row => row.id === future.data.workout.id);
+  assert.equal(persistedFuture.plannedDistance, 5.5);
+  assert.equal(persistedFuture.actualDistance, null);
+  assert.match(await blockPage(), /10.5/);
   const mobility = await call(a, '/api/workouts' + scope, 'POST', {
     ...workout, type: 'Mobility', plannedWorkout: 'Synthetic mobility',
     plannedDistance: null, plannedDurationSeconds: null, plannedPaceSecondsPerMile: null, targetMetric: null,

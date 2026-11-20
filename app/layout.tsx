@@ -24,6 +24,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head><link rel="preload" href="/branding/manrope-medium-latin.ttf" as="font" type="font/ttf" crossOrigin="anonymous" /></head>
       <body className="antialiased"><SessionActions signOutPath={signOutPath()}>{children}</SessionActions></body>
     </html>
   );

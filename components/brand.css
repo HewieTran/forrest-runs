@@ -1,3 +1,18 @@
+/* Brand type is local and isolated from the app's existing interface typography. */
+@font-face {
+  font-family: 'Forrest Manrope';
+  src: url('/branding/manrope-medium-latin.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+}
+
+.brand-wordmark {
+  font-family: 'Forrest Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-weight: 500;
+  color: #205e3a;
+}
+
 /* Keep the full name readable while the shared artwork scales with its holder. */
 .brand {
   flex-shrink: 0;
@@ -7,6 +22,21 @@
 .brand-icon {
   flex-shrink: 0;
   overflow: hidden;
+  background: #fff;
+}
+
+.signin-card .brand-icon {
+  width: 72px;
+  height: 72px;
+  margin-bottom: 18px;
+}
+
+.signin-card .signin-brand-name {
+  font-size: 22px;
+  line-height: 1.35;
+  letter-spacing: -0.4px;
+  text-transform: none;
+  margin-bottom: 18px;
 }
 
 .brand-icon img {

@@ -1,6 +1,6 @@
 'use client';
 import { acceptedPlan, simulatedBlock, changesPrescription } from '../lib/planner';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { CheckCircle2, ChevronLeft, Flag, Info, Plus, Settings2, X } from 'lucide-react';
 import { EMPTY_WORKOUT_MEASUREMENTS, formatDate, isRun, type AppData, type Plan, type Workout, type WorkoutInput } from '../lib/domain';
 import { periodForHour, todayWorkout, type WorkoutPeriod } from '../lib/block-overview';
@@ -14,12 +14,23 @@ import { applyCompletion } from '../lib/workout-completion';
 import { raceDistanceLabel } from '../lib/race-distance';
 import { setupTargetTime } from '../lib/setup';
 import { blockReady } from '../lib/blocks';
+import WorkoutSchedule from './WorkoutSchedule';
+import { initialScheduleDate, monthStart, scheduleTarget } from '../lib/workout-schedule';
+import { orderedWorkouts } from '../lib/block-overview';
 import './block-overview.css';
 
-export default function Tracker({ initial, preview = false, activeBlock = null }: {
-  initial: AppData; preview?: boolean; activeBlock?: Pick<Plan, 'id' | 'raceName'> | null;
+export default function Tracker({ initial, preview = false, activeBlock = null, view = 'overview', initialDate }: {
+  initial: AppData; preview?: boolean; view?: 'overview' | 'schedule'; initialDate?: string; activeBlock?: Pick<Plan, 'id' | 'raceName'> | null;
 }) {
   const [data, setData] = useState(initial);
+  const schedule = view === 'schedule';
+  const [selectedDate, setSelectedDate] = useState(() => initialScheduleDate(initial, initialDate));
+  const [visibleMonth, setVisibleMonth] = useState(() => monthStart(initialScheduleDate(initial, initialDate)));
+  const [readOnlyDate, setReadOnlyDate] = useState<string | null>(null);
+  const [saveConflict, setSaveConflict] = useState(false);
+  const saveInFlight = useRef(false);
+  const allowNavigation = useRef(false);
+  const canEdit = !data.plan.setup || !!acceptedPlan(data.plan);
   const [currentActive, setCurrentActive] = useState(activeBlock);
   const [featuredId, setFeaturedId] = useState<string | null>(null);
   const [expandedWorkoutId, setExpandedWorkoutId] = useState<string | null>(null);
@@ -33,9 +44,15 @@ export default function Tracker({ initial, preview = false, activeBlock = null }
   const featured = data.workouts.find(row => row.id === featuredId) ?? todayWorkout(data.workouts, data.today);
   const editing = data.workouts.find(row => row.id === expandedWorkoutId);
   const newWorkout: Workout = { ...EMPTY_WORKOUT_MEASUREMENTS, id: 'new', planId: data.plan.id,
-    date: featured?.date ?? data.today, phase: featured?.phase ?? 'Not applicable', type: 'Easy Run', plannedWorkout: '', targetPace: '',
+    date: schedule ? selectedDate : featured?.date ?? data.today, phase: featured?.phase ?? 'Not applicable', type: 'Easy Run', plannedWorkout: '', targetPace: '',
     done: false, actualDistance: null, actualPace: '', effort: null, pain: '', notes: '', sourceRow: null, originalSource: null,
     timeOfDay: null, version: 1, updatedAt: '' };
+  useEffect(() => {
+    if (!schedule) return;
+    const url = new URL(window.location.href);
+    url.searchParams.set('date', selectedDate);
+    window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash);
+  }, [schedule, selectedDate]);
   useEffect(() => {
     const update = () => setLocalPeriod(periodForHour(new Date().getHours()));
     update();
@@ -48,17 +65,22 @@ export default function Tracker({ initial, preview = false, activeBlock = null }
     return () => window.clearTimeout(timer);
   }, [toast]);
   useEffect(() => {
-    if (!hasUnsavedChanges) return;
-    const handler = (event: BeforeUnloadEvent) => event.preventDefault();
+    if (!hasUnsavedChanges && !saving) return;
+    allowNavigation.current = false;
+    const handler = (event: BeforeUnloadEvent) => {
+      if (allowNavigation.current) return;
+      event.preventDefault(); event.returnValue = '';
+    };
     window.addEventListener('beforeunload', handler);
     return () => window.removeEventListener('beforeunload', handler);
-  }, [hasUnsavedChanges]);
+  }, [hasUnsavedChanges, saving]);
   function confirmDiscardChanges() {
     return !hasUnsavedChanges || window.confirm('Discard your unsaved workout changes?');
   }
   function closeEditor() {
-    if (saving || !confirmDiscardChanges()) return;
-    setExpandedWorkoutId(null); setHasUnsavedChanges(false); setError(''); setPreviewPeriod(null);
+    if (saving || !confirmDiscardChanges()) return false;
+    setExpandedWorkoutId(null); setReadOnlyDate(null); setHasUnsavedChanges(false); setError(''); setSaveConflict(false); setPreviewPeriod(null);
+    return true;
   }
   function selectWorkout(id: string | null) {
     if (saving || !confirmDiscardChanges()) return;
@@ -69,15 +91,50 @@ export default function Tracker({ initial, preview = false, activeBlock = null }
     if (expandedWorkoutId !== id) {
       const row = data.workouts.find(row => row.id === id);
       setPreviewPeriod(row?.timeOfDay ?? periodForHour(new Date().getHours()));
-      setFeaturedId(id); setExpandedWorkoutId(id); setHasUnsavedChanges(false); setError('');
+      setFeaturedId(id); setExpandedWorkoutId(id); setHasUnsavedChanges(false); setError(''); setSaveConflict(false);
     }
   }
+  function addWorkout() {
+    if (saving || !canEdit || !confirmDiscardChanges() || (schedule && data.restDays.some(day => day.date === selectedDate))) return;
+    setExpandedWorkoutId('new'); setHasUnsavedChanges(false); setError(''); setSaveConflict(false); setPreviewPeriod(localPeriod);
+  }
+  function selectCalendarDate(date: string) {
+    if (saving || !confirmDiscardChanges()) return;
+    setSelectedDate(date);
+  }
+  function chooseDate(date: string, open = false, add = false) {
+    if (saving || !confirmDiscardChanges()) return;
+    setSelectedDate(date); setVisibleMonth(monthStart(date));
+    if (!open) return;
+    setHasUnsavedChanges(false); setError(''); setSaveConflict(false);
+    if (data.restDays.some(day => day.date === date) || !canEdit) {
+      setReadOnlyDate(date); setExpandedWorkoutId(null); return;
+    }
+    const row = add ? undefined : orderedWorkouts(data.workouts).find(row => row.date === date);
+    setExpandedWorkoutId(row?.id ?? 'new');
+    setPreviewPeriod(row?.timeOfDay ?? periodForHour(new Date().getHours()));
+  }
+  async function reloadLatest() {
+    if (saving || !confirmDiscardChanges()) return;
+    setSaving(true);
+    try {
+      const response = await fetch(`/api/training?blockId=${encodeURIComponent(data.plan.id)}`, { cache: 'no-store' });
+      if (!response.ok) throw new Error('Could not reload your workouts. Your edits are still here.');
+      const latest = await response.json() as AppData;
+      setData(latest); setExpandedWorkoutId(null); setHasUnsavedChanges(false); setError(''); setSaveConflict(false); setPreviewPeriod(null);
+      setToast('Latest workouts loaded. You can reopen the workout to edit it.');
+    } catch (caught) { setError(caught instanceof Error ? caught.message : 'Could not reload. Your edits are still here.'); }
+    finally { setSaving(false); }
+  }
   async function saveWorkout(id: string, input: WorkoutInput) {
+    if (saveInFlight.current || saving || saveConflict) return;
     const existing = data.workouts.find(workout => workout.id === id);
     const confirmPlanChange = acceptedPlan(data.plan) && (id === 'new' || !!existing && changesPrescription(existing, input));
     if (confirmPlanChange && !window.confirm('Changing prescribed workouts will mark this generated block as altered. The original plan will be kept. Save these changes?')) return;
+    saveInFlight.current = true;
     setSaving(true);
     setError('');
+    setSaveConflict(false);
     try {
       let savedWorkout: Workout;
       if (preview) {
@@ -106,8 +163,10 @@ export default function Tracker({ initial, preview = false, activeBlock = null }
           workout: Workout;
           error?: string;
         };
-        if (!response.ok)
+        if (!response.ok) {
+          setSaveConflict(response.status === 409);
           throw new Error(result.error || 'The workout could not be saved.');
+        }
         savedWorkout = result.workout;
       }
       const latestPlan = !preview && confirmPlanChange ? await fetch(`/api/blocks/${encodeURIComponent(data.plan.id)}/setup`).then(response => response.ok ? response.json() as Promise<{ block: Plan }> : null).catch(() => null) : null;
@@ -122,6 +181,7 @@ export default function Tracker({ initial, preview = false, activeBlock = null }
               ),
       }));
       setFeaturedId(savedWorkout.id);
+      if (schedule) { setSelectedDate(savedWorkout.date); setVisibleMonth(monthStart(savedWorkout.date)); }
       setPreviewPeriod(null);
       setExpandedWorkoutId(null);
       setHasUnsavedChanges(false);
@@ -143,10 +203,11 @@ export default function Tracker({ initial, preview = false, activeBlock = null }
       setToast('');
       setError(
         caughtError instanceof Error
-          ? caughtError.message
+          ? `${caughtError.message} Your edits are still here.`
           : 'Could not connect. Your edits are still here. Try saving again.',
       );
     } finally {
+      saveInFlight.current = false;
       setSaving(false);
     }
   }
@@ -155,13 +216,24 @@ export default function Tracker({ initial, preview = false, activeBlock = null }
     .concat(data.plan.updatedAt)
     .sort()
     .at(-1);
-  return <div className="app-shell">
+  return <div className="app-shell" onClickCapture={event => {
+    const link = event.target instanceof Element ? event.target.closest('a[href]') : null;
+    if (link) {
+      if (saving || !confirmDiscardChanges()) { event.preventDefault(); event.stopPropagation(); }
+      else allowNavigation.current = true;
+    }
+  }}>
     <AppHeader displayName={data.displayName} preview={preview} />
-    <main className="main-content training-block-overview">
-      <a className="block-breadcrumb" href={preview ? '/preview?view=blocks' : '/blocks'} onClick={event => { if (!confirmDiscardChanges()) event.preventDefault(); }}><ChevronLeft size={15} /> All training blocks</a>
+    <main className={`main-content ${schedule ? 'workout-schedule-page' : 'training-block-overview'}`}>
+      {schedule ? <>
+        <a className="block-breadcrumb" href={preview ? '/preview?view=overview' : `/blocks/${encodeURIComponent(data.plan.id)}`}><ChevronLeft size={15} /> Training Block Overview</a>
+        <WorkoutSchedule data={data} date={selectedDate} month={visibleMonth} canEdit={canEdit} disabled={saving}
+          onDate={date => chooseDate(date)} onMonth={setVisibleMonth} onOpen={date => chooseDate(date, true)} onAdd={addWorkout} onOpenWorkout={openTodayWorkout} onAddDate={date => chooseDate(date, true, true)} onSelectDate={selectCalendarDate} />
+      </> : <>
+      <a className="block-breadcrumb" href={preview ? '/preview?view=blocks' : '/blocks'}><ChevronLeft size={15} /> All training blocks</a>
       <section className="page-heading block-detail-heading"><div>
         <div className="block-title-row"><h1>{data.plan.raceName}</h1><div className="block-header-controls" role="group" aria-label="Block management">
-          <a className="icon-button" aria-label="Training block settings" href={preview ? '/preview?view=settings' : `/blocks/${encodeURIComponent(data.plan.id)}/settings`} onClick={event => { if (!confirmDiscardChanges()) event.preventDefault(); }}><Settings2 size={19} /></a>
+          <a className="icon-button" aria-label="Training block settings" href={preview ? '/preview?view=settings' : `/blocks/${encodeURIComponent(data.plan.id)}/settings`}><Settings2 size={19} /></a>
         </div></div>
         <div className="block-header-details"><BlockActions pill plan={data.plan} activeBlock={currentActive} preview={preview} disabled={saving || hasUnsavedChanges} ready={blockReady({ ...data.plan, workoutCount: data.workouts.length })} onChanged={block => {
             setData(current => ({ ...current, plan: block }));
@@ -173,25 +245,32 @@ export default function Tracker({ initial, preview = false, activeBlock = null }
       {preview && <div className="preview-notice"><Info size={16} /> Internal preview with example workouts. Changes here are not saved.</div>}
       {simulatedBlock(data.plan) && <p className="block-callout"><strong>Simulation mode.</strong> This example schedule demonstrates the app flow. It is not a personalized running plan and cannot be activated.</p>}
       <TodayWorkout data={data} featured={featured} savedRunId={savedRunId} saving={saving}
+        scheduleHref={preview ? `/preview?view=schedule&date=${featured?.date ?? data.today}` : `/blocks/${encodeURIComponent(data.plan.id)}/schedule?date=${featured?.date ?? data.today}`}
         period={previewPeriod ?? featured?.timeOfDay ?? localPeriod} onOpenWorkout={openTodayWorkout} onSelectWorkout={selectWorkout} />
-      {(editing || expandedWorkoutId === 'new') && <WorkoutDialog
-        title={editing ? `${editing.done ? 'Edit' : 'Log'} workout` : 'Add workout'}
-        date={(editing ?? newWorkout).date} saving={saving} onClose={closeEditor} returnFocusId="featured-workout-action">
-        <WorkoutEditor key={`${expandedWorkoutId}:${editing?.version ?? 1}`} workout={editing ?? newWorkout} saving={saving} error={error}
-          initialPeriod={previewPeriod ?? localPeriod} onPeriodChange={setPreviewPeriod}
-          onSave={input => saveWorkout(expandedWorkoutId!, input)} onCancel={closeEditor} onDirty={setHasUnsavedChanges} />
-      </WorkoutDialog>}
       {data.plan.setup && <section className="block-callout overview-setup"><Flag size={21} /><div><strong>Your starting setup</strong><p>{raceDistanceLabel(data.plan.setup.goal.distanceKm)} · Target {setupTargetTime(data.plan.setup) || 'time not set'} · {data.plan.setup.availability.days.length} available running days</p>
         {acceptedPlan(data.plan) && <p>{data.plan.generation?.alteredAt ? 'Altered since acceptance. Your original generated plan is preserved.' : 'Your generated plan is saved.'} <a href={`/blocks/${encodeURIComponent(data.plan.id)}/plan`}>View original plan</a></p>}
         <a className="button" href={preview ? '/preview?view=setup' : `/blocks/${encodeURIComponent(data.plan.id)}/setup`}>{data.plan.status === 'draft' && !acceptedPlan(data.plan) ? 'Continue setup' : 'View starting setup'}</a></div></section>}
       <BlockProgress data={data} />
-      <div className="overview-manage"><button type="button" className="button" disabled={saving || (!!data.plan.setup && !acceptedPlan(data.plan))} onClick={() => {
-        if (!confirmDiscardChanges()) return;
-        setExpandedWorkoutId('new'); setHasUnsavedChanges(false); setError(''); setPreviewPeriod(localPeriod);
-      }}><Plus size={16} /> Add workout</button>{!data.workouts.length && !data.plan.setup && <a className="button" href={preview ? '/preview?view=setup' : `/blocks/${encodeURIComponent(data.plan.id)}/setup`}>Start guided setup</a>}</div>
+      <div className="overview-manage"><button type="button" className="button" disabled={saving || (!!data.plan.setup && !acceptedPlan(data.plan))} onClick={addWorkout}><Plus size={16} /> Add workout</button>{!data.workouts.length && !data.plan.setup && <a className="button" href={preview ? '/preview?view=setup' : `/blocks/${encodeURIComponent(data.plan.id)}/setup`}>Start guided setup</a>}</div>
+      </>}
       {error && !expandedWorkoutId && <p className="form-error" role="alert">{error}</p>}
       <footer className="app-footer"><span><span className="footer-dot" /> Dates use Central time · Artwork defaults to your device’s time</span><span>{latestSavedAt ? `Last saved ${new Intl.DateTimeFormat('en-US', { timeZone: 'America/Chicago', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }).format(new Date(latestSavedAt))}` : ''}</span></footer>
     </main>
+    {(editing || expandedWorkoutId === 'new') && <WorkoutDialog
+      title={editing ? (schedule ? 'Edit workout' : `${editing.done ? 'Edit' : 'Log'} workout`) : 'Add workout'}
+      date={(editing ?? newWorkout).date} saving={saving} onClose={closeEditor} returnFocusId={schedule ? 'schedule-selected-date' : 'featured-workout-action'}>
+      {schedule && data.workouts.some(row => row.date === selectedDate) && <div className="schedule-workout-selector"><label>Workout on this date<select value={expandedWorkoutId ?? ''} disabled={saving} onChange={event => event.target.value === 'new' ? addWorkout() : openTodayWorkout(event.target.value)}>
+        {expandedWorkoutId === 'new' && <option value="new">New workout</option>}
+        {orderedWorkouts(data.workouts).filter(row => row.date === selectedDate).map(row => <option key={row.id} value={row.id}>{row.type} · {scheduleTarget(row)}{row.done ? ' · Completed' : ''}</option>)}
+      </select></label><button className="button" disabled={saving || expandedWorkoutId === 'new'} onClick={addWorkout}><Plus size={16} /> Add another</button></div>}
+      <WorkoutEditor key={`${expandedWorkoutId}:${editing?.version ?? 1}`} workout={editing ?? newWorkout} saving={saving} saveBlocked={saveConflict} error={error}
+        initialPeriod={previewPeriod ?? localPeriod} onPeriodChange={setPreviewPeriod}
+        onSave={input => saveWorkout(expandedWorkoutId!, input)} onCancel={closeEditor} onDirty={setHasUnsavedChanges} />
+      {error && !preview && <div className="workout-recovery"><p>{saveConflict ? 'This workout or block changed elsewhere. Reload the latest data before trying again; reloading will discard these edits.' : 'You can retry saving with your edits above, or reload the latest saved data.'}</p><button className="button" disabled={saving} onClick={reloadLatest}>Reload latest data</button></div>}
+    </WorkoutDialog>}
+    {readOnlyDate && <WorkoutDialog title={data.restDays.some(day => day.date === readOnlyDate) ? 'Rest day' : 'Scheduled workouts'} date={readOnlyDate} saving={false} onClose={closeEditor} returnFocusId="schedule-selected-date">
+      <div className="schedule-rest-detail">{data.restDays.some(day => day.date === readOnlyDate) ? <><p>A little recovery goes a long way.</p><p>This date is marked for rest. There is no workout to log.</p></> : <><p>Finish your starting setup and save a plan before editing workouts.</p>{data.workouts.filter(row => row.date === readOnlyDate).map(row => <p key={row.id}><strong>{row.type}</strong><br />{row.plannedWorkout}</p>)}</>}<button className="button" disabled>Add workout</button></div>
+    </WorkoutDialog>}
     {toast && <div className="toast" role="status"><CheckCircle2 size={18} /><span>{toast}</span><button onClick={() => setToast('')} aria-label="Dismiss notification"><X size={16} /></button></div>}
   </div>;
 }

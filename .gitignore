@@ -44,3 +44,7 @@ yarn-error.log*
 
 # OS metadata
 .DS_Store
+
+# Local AWS build artifacts
+.aws-release/
+__pycache__/

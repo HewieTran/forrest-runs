@@ -1,48 +1,63 @@
 # Forrest Runs identity
 
-Hieu selected the second, hand-drawn tree-and-走 app icon on 2026-11-19.
+Hieu approved the bright-green evergreen canopy with handwritten **走 inside**,
+inspired by Natsuki's sketch, and selected **Manrope Medium** for the English
+name on 2026-11-19. This supersedes the earlier tree-beside-kanji concept.
 The product name remains **Forrest Runs**, including both r's in Forrest.
 
 ## Placement and acceptance
 
-- Shared header: selected artwork beside the complete text name; the existing
-  home/library destination and account controls remain available.
-- Sign-in card: selected artwork above the existing visible product name.
-- Browser: Forrest Runs title/application name and matching 32px favicon.
-- Home-screen/bookmark metadata: full product name and matching 180px Apple,
-  192px and 512px icons. The manifest uses browser display mode; it does not
-  introduce offline behavior or a service worker.
-- Desktop and phone: preserve the artwork's square proportions; avoid layout
-  shift with explicit dimensions. At narrow phone widths the training-block
-  link uses its existing named icon so the full brand name fits.
-- The adjacent product name supplies the accessible label. The repeated icon
-  is decorative and must not cause duplicate announcements.
-- Check the signed-out screen, shared header across app pages, image loading,
-  mobile layout and metadata on the tested revision. Existing loading/error/
-  empty states use the same shared header without new branding-specific states.
+- Shared header: selected canopy artwork beside the complete name in real
+  Manrope Medium, retaining the existing home/library destination and account
+  controls. Keep the full name readable at desktop and phone widths.
+- Sign-in card: a larger canopy mark above the visible title-case product name
+  in Manrope Medium. Preserve the sign-in action and existing body text.
+- Library: use Manrope for the product-name heading. Other interface typography,
+  page layouts, workout status colors and app-wide palette remain unchanged.
+- Browser/home-screen metadata: Forrest Runs title/application name with matching
+  32px favicon, 180px Apple icon, and 192px/512px manifest icons. Browser display
+  mode introduces no offline behavior or service worker.
+- Palette: brighter natural green, white kanji/background and a small ochre trunk;
+  remove the previous dark tile and yellow ambient wash. The image retains all
+  essential kanji strokes and the hand-drawn irregular canopy silhouette.
+- Preserve square proportions and explicit dimensions to avoid layout shift.
+  At narrow phone widths the training-block link uses its existing accessible
+  named icon so the full brand name fits.
+- The adjacent product name supplies the accessible label; hide the repeated
+  decorative image from assistive technology to avoid duplicate announcements.
+- Check signed-out and synthetic app previews, image/font loading, navigation,
+  mobile layout and metadata. Existing loading/error/empty states use the shared
+  header without new branding-specific state or behavior.
 
-## Assets
+## Assets and font
 
 `public/branding/forrest-runs-512.png` is the largest production export of the
-standalone rendition prepared from the approved middle concept using the built-in
-image editor. The WebP header asset and other PNG sizes use the same artwork.
-The legacy `/favicon.svg` URL embeds the new PNG for older links.
+standalone canopy rendition prepared from the approved Manrope study using the
+built-in image editor. The WebP header asset and other PNG sizes use the same
+artwork. `/favicon.svg` embeds the matching PNG for older links.
 
-Keep the kanji artwork as an image so its lettering does not depend on installed
-Japanese fonts. Use the existing application typeface for the full name. This
-is the current provisional identity, not a new site palette or a hand-lettered
-English wordmark. All assets are served locally from `public/` in both hosting
-runtimes; no new dependency or external image request is required.
+The kanji remains an image to preserve Natsuki's lettering direction without
+relying on installed Japanese fonts. The English name is real text, rendered
+with a self-hosted, Latin-subset static 500 instance of Manrope. The generated
+font study was a visual approximation; app type uses the actual font file.
+
+Font source: https://github.com/google/fonts/tree/main/ofl/manrope
+License: SIL Open Font License 1.1, copied unchanged to
+`public/branding/Manrope-OFL.txt`. `manrope-medium-latin.ttf` includes U+0020–00FF;
+non-Latin interface/user content keeps its existing fonts. The brand-only face
+uses `font-display: swap` with a system fallback and local preload. No Google
+Fonts runtime request, new package or paid service is required. All assets are
+portable between the Worker and AWS/Node runtimes.
 
 ## Integration
 
-This focused branch starts from GitHub main `bebd5202e7f8dc123406949822a635f0c9520a4f`.
-The open workout-calendar PR #27 remains separate. Review overlapping header
-and layout work when integrating; do not replace another branch's entire files.
+This updates existing branding PR #28, rather than creating a second branding
+PR. Current GitHub main `ce0b6f2` (calendar PR #27 and deployment PR #30 included)
+was merged into the branding branch before the revision. Preserve concurrent
+changes when integrating; do not replace another branch's entire files.
 
-At inspection, the existing ChatGPT Site was version 38, source
-`d073c4c3d105c034375d2f138d808585650aec11`, which differs from GitHub main.
-This branding PR must not overwrite that Site's runtime adapters or unpublished
-calendar work. No live Site/AWS deployment or database change is included.
-Merge remains Hieu's decision. Record tested SHA, environment and any blocked
-checks in the PR before marking it ready.
+No live Site/AWS deployment or database change is included. The previously
+inspected ChatGPT Site source differed from GitHub main; this PR must not replace
+its runtime adapters or other Site-only changes. Merge remains Hieu's decision.
+Record tested head SHA, environment and blocked checks in the PR before marking
+it ready; approvals for an earlier revision do not cover this new artwork/font.
