@@ -36,9 +36,11 @@ jobs:
         run: node scripts/node-proof.mjs build
       - name: Package release
         run: node scripts/aws/package.mjs
+      - name: Verify archive with the Lightsail receiver
+        run: python3 scripts/aws/verify-package.py .aws-release/release.tar.gz "$RUNNER_TEMP/forrest-aws-package"
       - name: Test packaged saving, persistence and simulated sign-in
         env:
-          FORREST_PACKAGED_ROOT: ${{ github.workspace }}/.aws-release/release
+          FORREST_PACKAGED_ROOT: ${{ runner.temp }}/forrest-aws-package/release
         run: |
           node --experimental-strip-types tests/node-proof-integration.mjs
           node tests/node-beta-integration.mjs
