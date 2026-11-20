@@ -1,0 +1,10 @@
+import path from 'node:path';
+import { pathToFileURL } from 'node:url';
+const root = process.env.FORREST_PACKAGED_ROOT;
+if (!root || !path.isAbsolute(root)) throw new Error('Expected an absolute packaged release path.');
+const { migrateSQLite } = await import(pathToFileURL(path.join(root, 'runtime/sqlite.mjs')));
+migrateSQLite(process.env.FORREST_SQLITE_PATH, root);
+process.env.FORREST_NODE_PROOF = '1';
+process.env.PORT = process.env.FORREST_PROOF_PORT;
+process.env.HOSTNAME = '127.0.0.1';
+await import(pathToFileURL(path.join(root, 'server.js')));

@@ -1,0 +1,77 @@
+name: Build and deploy AWS beta
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: aws-beta-${{ github.event_name == 'pull_request' && github.ref || 'deploy' }}
+  cancel-in-progress: false
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24.22.1'
+          package-manager-cache: false
+      - name: Install locked dependencies
+        run: |
+          npm install --global pnpm@11.25.0
+          pnpm install --frozen-lockfile
+      - name: Test deployment failure handling
+        run: python3 -m unittest discover -s tests -p 'aws_deploy_test.py' -v
+      - name: Test schema, backups and UI calculations
+        run: node --experimental-strip-types --test tests/node-sqlite.test.mjs tests/migration.test.mjs tests/backups.test.mjs tests/block-overview.test.mjs tests/workout-schedule.test.mjs
+      - name: Build AWS release
+        run: node scripts/node-proof.mjs build
+      - name: Package release
+        run: node scripts/aws/package.mjs
+      - name: Test packaged saving, persistence and simulated sign-in
+        env:
+          FORREST_PACKAGED_ROOT: ${{ github.workspace }}/.aws-release/release
+        run: |
+          node --experimental-strip-types tests/node-proof-integration.mjs
+          node tests/node-beta-integration.mjs
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: aws-beta-${{ github.sha }}
+          path: |
+            .aws-release/release.tar.gz
+            .aws-release/release.sha256
+          if-no-files-found: error
+          retention-days: 5
+          compression-level: 0
+          include-hidden-files: true
+      - name: Confirm this is the latest main revision
+        id: current
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          latest="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
+          if [[ "$latest" == "$GITHUB_SHA" ]]; then
+            echo 'deploy=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'A newer main revision exists. This release will not deploy.' >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Deploy and verify running revision
+        if: steps.current.outputs.deploy == 'true'
+        env:
+          AWS_BETA_SSH_KEY: ${{ secrets.AWS_BETA_SSH_KEY }}
+          AWS_BETA_KNOWN_HOSTS: ${{ vars.AWS_BETA_KNOWN_HOSTS }}
+        run: bash scripts/aws/send.sh
+      - name: Check public HTTPS entry point
+        if: steps.current.outputs.deploy == 'true'
+        run: |
+          curl --fail --silent --show-error --retry 5 --retry-all-errors --retry-delay 3 --max-time 15 https://d1ousjd66s1cm3.cloudfront.net/ | grep -F 'Sign in with Google'
+          echo "AWS beta deployed and verified at revision $GITHUB_SHA." >> "$GITHUB_STEP_SUMMARY"
