@@ -21,9 +21,13 @@ library. Keep the current deployment separate from proposed changes.
 - The repository's Node/Cognito adapters establish the app, storage and sign-in
   behavior. Older planning sections in ENVIRONMENTS.md and NODE_RUNTIME_PROOF.md
   predate the live beta; they are historical context, not current deployment status.
-- GitHub-to-AWS automation has been requested in the AWS chat. No workflow
-  exists in the inspected main tree; a running automatic pipeline is not
-  established by this review.
+- Hieu reported enabling dual-stack networking and supplied static IPv4
+  `3.132.106.53` for the existing Lightsail instance. This workspace could not
+  reach the instance; firewall, host key and live network settings remain unaudited.
+- Automatic GitHub Actions delivery is implemented in draft PR #30 at
+  `049940a59d4e599c43a5555b545b68836e198e7a`, with local package and recovery tests.
+  It is unmerged. Dedicated deployment access, server setup and a successful
+  hosted deployment remain pending. Current main still uses manual deployment.
 
 ## Diagram conventions
 
@@ -140,7 +144,7 @@ interaction, not a packet-level authentication sequence.
 | --- | --- |
 | Runner's browser | Displays the React/TypeScript UI, sends app requests and follows sign-in redirects. |
 | Amazon CloudFront | Public HTTPS entry point forwarding the app's requests to the Lightsail origin. The documented app behavior uses CachingDisabled and forwards the cookies, headers, query strings and methods needed by authentication and writes. |
-| Amazon Lightsail | Linux host for the reverse proxy, app process and persistent SQLite file. The documented origin is IPv6-only. |
+| Amazon Lightsail | Linux host for the reverse proxy, app process and persistent SQLite file. Dual-stack and attached static IPv4 were reported on 2026-11-19; the existing CloudFront origin uses its IPv6 hostname. |
 | Caddy | Terminates origin HTTPS and proxies requests to the local Node app. |
 | Next.js / Node.js | Serves the UI and backend routes; validates input, verifies sessions, enforces approved-beta access, account ownership and optimistic concurrency. |
 | SQLite / Drizzle | Stores users' training blocks, prescriptions, results and saved generation data on the host's disk through the existing store boundary and versioned migrations. |
@@ -179,7 +183,7 @@ There is no live OpenAI API dependency in the current beta runtime.
 | Local QA | Disposable Node/SQLite or Worker/Miniflare builds; synthetic users | Tests a specified source revision; isolated from live records. |
 | ChatGPT Site staging | Sites runtime with Cloudflare Workers/D1 and managed ChatGPT sign-in | Separate hosting, identity and database from AWS. It has also held Hieu's real records, so the staging label alone does not make destructive testing safe. |
 | AWS beta / UAT | CloudFront, Lightsail/Caddy/Next.js/SQLite, Cognito with Google | Separate beta accounts and data. Deploy an identified release and verify it there. |
-| Future production | Not established by this review | Record its actual services and separate data/secrets when implemented. |
+| Shared live use | Hieu chose to keep the current AWS beta instance for himself and a few friends | Treat its records as live data. A separate production instance is deferred; every automatic main release would update this shared app. |
 
 ### Current release path and requested automation
 
@@ -188,7 +192,7 @@ flowchart LR
     source["GitHub main"]
     bundle["Versioned Node release package"]
     beta["Lightsail AWS beta"]
-    automation["Deployment automation — requested, unverified"]
+    automation["GitHub Actions — draft PR #30; setup pending"]
 
     source -->|"`D1 · Manual build
 D1.1 Select an exact GitHub source revision.
@@ -200,14 +204,17 @@ D2.2 Restart using server-held configuration
 and the existing persistent SQLite database.
 Record the running SHA and verify the affected flow
 as separate release gates; no new check performed here.`"| beta
-    source -.->|"`D3 · Proposed trigger
-A change to main would start an automated release.
-A working trigger is not established by this reference.`"| automation
-    automation -.->|"`D4 · Proposed deployment
-Would deliver the release and restart the app,
-then record and check the deployed revision.
-The AWS implementation PR must document transport,
-credentials and verification. Pipeline remains unverified.`"| beta
+    source -.->|"`D3 · Approved trigger — implementation pending merge
+D3.1 A main push starts the Node build and synthetic checks.
+D3.2 Retain the exact commit package for five days.
+PR #30 is unmerged; a live trigger is unverified.`"| automation
+    automation -.->|"`D4 · Approved SSH deployment — activation pending
+D4.1 Send package over IPv4 using a dedicated restricted key.
+D4.2 Verify checksum, preflight a database copy,
+pause Caddy, back up live SQLite and switch the service.
+D4.3 Verify package identity and the running revision;
+restore the prior service/database on startup failure.
+D4.4 Check public HTTPS. Server setup and live run pending.`"| beta
 
     classDef delivery fill:#F1F5F9,stroke:#64748B,color:#243447
     classDef compute fill:#F1EBFF,stroke:#7C3AED,color:#3B1A66
@@ -218,7 +225,8 @@ credentials and verification. Pipeline remains unverified.`"| beta
 ```
 
 The solid route is the documented manual release method. The dotted route is
-requested future work, not an implemented pipeline or a choice of CI provider.
+approved GitHub Actions/SSH delivery implemented in draft PR #30, with server
+activation and live verification still pending.
 A merge, release build, deployment and post-deployment verification are distinct
 events. Record their status separately.
 
@@ -226,6 +234,13 @@ The ChatGPT Site uses different runtime/auth/storage adapters. It is not an
 intermediate server that copies its database or whole deployed source tree into
 AWS. Both environments should integrate the approved feature source while
 preserving their platform adapters and separate data.
+
+Pipeline setup and recovery details are maintained in
+[PR #30 deployment documentation](https://github.com/HewieTran/forrest-runs/blob/deploy/aws-beta-automation/docs/aws-deployment.md).
+GitHub holds the dedicated deployment private key. Lightsail holds its public
+key, root-owned receiver, application secrets, release files and local database
+backups. This adds no S3 bucket or second instance. Hieu approved the dual-stack
+instance price increase; Actions compute and artifact usage follow account allowances.
 
 ## Keeping this reference current
 
@@ -270,3 +285,5 @@ placement, deployment automation or external integrations.
 | 2026-11-19 | Reorient runtime and deployment views horizontally and add a shared color key for component roles, retaining explicit status labels. | Documentation presentation only; no service, deployment or infrastructure change. |
 | 2026-11-19 | Number every runtime and deployment connection, explain multi-activity connections with substeps, and cross-reference the sign-in walkthrough. | Documentation explanation only; deployment and verification status unchanged. |
 | 2026-11-19 | Embed numbered activity descriptions directly on every runtime and deployment connection using multiline labels; remove duplicate connection tables. | Documentation presentation only; horizontal layout, colors and deployment evidence preserved. |
+
+| 2026-11-19 | Record reported dual-stack/static IPv4, the decision to share one AWS instance, and draft PR #30 Actions/SSH delivery with D3/D4 activities. | Approved design and code in draft PR; server setup and live automatic deployment pending. |
