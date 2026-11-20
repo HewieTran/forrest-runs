@@ -25,13 +25,26 @@ export default function BlockLibrary({ initial, displayName, preview = false, in
   useEffect(() => {
     function restore() {
       const url = new URL(window.location.href);
-      setFilter(libraryFilter(url.searchParams.get('status')) ?? initialFilter);
+      setFilter(libraryFilter(url.searchParams.get('status')) ?? landingFilter(blocks));
       setSearch(url.searchParams.get('q') ?? '');
     }
+    // A saved draft may have been created while this library was in the browser's
+    // back/forward cache. Re-read owned metadata instead of reviving an empty page.
+    function revisit(event: PageTransitionEvent) { if (event.persisted) window.location.reload(); }
     window.addEventListener('popstate', restore);
-    return () => window.removeEventListener('popstate', restore);
-  }, [initialFilter]);
-  useEffect(() => { selectedFilter.current?.scrollIntoView({ block: 'nearest', inline: 'nearest' }); }, [filter]);
+    window.addEventListener('pageshow', revisit);
+    restore(); // Reconcile a Back navigation that happened before hydration attached listeners.
+    return () => { window.removeEventListener('popstate', restore); window.removeEventListener('pageshow', revisit); };
+  }, [blocks]);
+  useEffect(() => {
+    const button = selectedFilter.current, strip = button?.parentElement;
+    if (!button || !strip) return;
+    const selected = button.getBoundingClientRect(), container = strip.getBoundingClientRect();
+    // Reveal the chosen tab horizontally without scrolling first-visit guidance
+    // out of view on short phone screens.
+    if (selected.left < container.left) strip.scrollLeft -= container.left - selected.left;
+    else if (selected.right > container.right) strip.scrollLeft += selected.right - container.right;
+  }, [filter]);
   function select(nextFilter: LibraryFilter, nextSearch = search, push = true) {
     setFilter(nextFilter); setSearch(nextSearch);
     const url = new URL(window.location.href);
@@ -60,13 +73,13 @@ export default function BlockLibrary({ initial, displayName, preview = false, in
         {LIBRARY_FILTERS.map(status => <button type="button" key={status} ref={filter === status ? selectedFilter : undefined} aria-pressed={filter === status} onClick={() => select(status)}>{label(status)}<span>{counts(status)}</span></button>)}
       </div><label className="block-search"><Search size={16} /><span className="sr-only">Search training blocks</span><input type="search" placeholder="Find a block…" value={search} onChange={event => select(filter, event.target.value, false)} /></label></div>
       {!activeBlock && filter === 'draft' && counts('draft') > 0 && <p className="library-guidance">Pick a draft to continue setting up your training block.</p>}
-      {!activeBlock && filter === 'ready' && counts('ready') > 0 && <p className="library-guidance"><strong>Your schedule is ready to review.</strong> Open a block to review its plan. Choose Start this block when you’re ready to make it your current plan.</p>}
+      {!activeBlock && filter === 'ready' && counts('ready') > 0 && <p className="library-guidance">{blocks.some(block => blockReady(block) && !block.isSimulation) ? <><strong>Your schedule is ready to review.</strong> Open a block to review its plan. Choose Start this block when you’re ready to make it your current plan.</> : <><strong>Your example schedule is saved.</strong> Simulation blocks demonstrate the app and cannot be started.</>}</p>}
       {historyOnly && <p className="library-guidance">Ready for your next goal? <a href={createHref}>Create a new training block.</a></p>}
       <div className="block-grid">
         {visible.map(block => {
           const ready = blockReady(block), canStart = ready && !block.isSimulation;
           const percent = block.workoutCount ? Math.round(block.completedCount / block.workoutCount * 100) : 0;
-          const href = preview ? `/preview?blockId=${encodeURIComponent(block.id)}&name=${encodeURIComponent(block.raceName)}&date=${block.raceDate}&status=${block.status}` : `/blocks/${encodeURIComponent(block.id)}`;
+          const href = preview && ready ? `/preview?view=overview&scenario=${block.isSimulation ? 'simulation-ready' : 'ready'}&start=${block.firstWorkoutDate ?? ''}` : preview ? `/preview?blockId=${encodeURIComponent(block.id)}&name=${encodeURIComponent(block.raceName)}&date=${block.raceDate}&status=${block.status}` : `/blocks/${encodeURIComponent(block.id)}`;
           const setupHref = preview ? '/preview?view=setup' : `/blocks/${encodeURIComponent(block.id)}/setup`;
           return <article className={`block-card ${block.status === 'active' ? 'active-block-card' : ''}`} key={block.id}>
             <div className="block-card-top"><BlockStatusBadge status={block.status} ready={ready} /><span className="block-source">{block.isSimulation ? 'SIMULATION · Example schedule' : block.hasGeneratedPlan ? 'OpenAI training plan' : block.sourceName ? 'Imported training log' : block.hasSetup ? 'Guided setup' : 'Manual training block'}</span></div>

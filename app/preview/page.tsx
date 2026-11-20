@@ -17,17 +17,25 @@ export const dynamic='force-dynamic';
 export default async function Preview({searchParams}:{searchParams:Promise<Record<string,string|undefined>>}){
  if(process.env.NODE_ENV!=='development')notFound();
  const query=await searchParams;
+ if(query.view==='blocks-mobile'||query.view==='ready-mobile'){
+  const target=new URLSearchParams({view:query.view==='blocks-mobile'?'blocks':'overview',scenario:query.scenario??(query.view==='ready-mobile'?'ready':'empty')});
+  const status=libraryFilter(query.status);if(status)target.set('status',status);
+  if(query.q)target.set('q',query.q);
+  return <iframe title="Mobile onboarding preview" src={'/preview?'+target} style={{display:'block',width:query.width==='320'?320:390,maxWidth:'100%',height:950,border:0,margin:'20px auto'}}/>;
+ }
+
  if(query.view==='overview-mobile') return <iframe title="Mobile training block overview" src={`/preview?view=overview&scenario=${['rest','unscheduled','empty'].includes(query.scenario??'')?query.scenario:''}`} style={{display:'block',width:390,maxWidth:'100%',height:850,border:0,margin:'20px auto'}}/>;
  if(query.view==='schedule-mobile') return <iframe title="Mobile workout schedule" src="/preview?view=schedule" style={{display:'block',width:390,maxWidth:'100%',height:850,border:0,margin:'20px auto'}}/>;
  if(query.view==='schedule') return <Tracker initial={overviewPreview(centralToday(), query.scenario)} view="schedule" initialDate={query.date} preview/>;
- if(query.view==='overview' && ['ready','ready-today','ready-past','ready-missing','ready-blocked'].includes(query.scenario??'')){
+ if(query.view==='overview' && ['ready','ready-today','ready-past','ready-missing','ready-blocked','simulation-ready'].includes(query.scenario??'')){
   const data=overviewPreview(centralToday());
   data.plan={...data.plan,status:'draft',setup:null,generation:null};
   const shift=query.scenario==='ready-today'?0:query.scenario==='ready-past'?-2:3;
-  data.workouts=query.scenario==='ready-missing'?[]:data.workouts.slice(0,1).map(row=>({...row,date:addDays(data.today,shift),done:false}));
+  data.workouts=query.scenario==='ready-missing'||query.start===''?[]:data.workouts.slice(0,1).map(row=>({...row,date:validDate(query.start)?query.start:addDays(data.today,shift),done:false}));
   // A legacy manual block can be ready even without a generated snapshot. The
   // missing-date case uses the existing readiness metadata only in this preview.
-  if(query.scenario==='ready-missing') data.plan={...data.plan,generation:{status:'accepted'} as NonNullable<AppData['plan']['generation']>};
+  if(query.scenario==='ready-missing'||query.start==='') data.plan={...data.plan,generation:{status:'accepted'} as NonNullable<AppData['plan']['generation']>};
+  if(query.scenario==='simulation-ready') data.plan={...data.plan,generation:{status:'accepted',provider:'simulation'} as NonNullable<AppData['plan']['generation']>};
   return <Tracker initial={data} activeBlock={query.scenario==='ready-blocked'?{id:'other-current',raceName:'Current example plan'}:null} preview/>;
  }
  if(query.view==='overview') return <Tracker initial={overviewPreview(centralToday(), query.scenario)} preview/>;
