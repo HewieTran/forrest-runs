@@ -15,7 +15,7 @@ await new Promise(resolve => probe.close(resolve));
 const base = `http://127.0.0.1:${port}`;
 const publicOrigin = 'https://forrest.example.test';
 const domain = 'https://login.example.test';
-const app = spawn(process.execPath, ['scripts/node-proof.mjs', 'start'], {
+const app = spawn(process.execPath, (process.env.FORREST_PACKAGED_ROOT ? ['tests/release-server.mjs'] : ['scripts/node-proof.mjs', 'start']), {
   stdio: ['ignore', 'pipe', 'pipe'],
   env: {
     ...process.env,

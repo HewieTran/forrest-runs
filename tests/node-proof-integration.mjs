@@ -24,7 +24,7 @@ let server;
 let log = '';
 
 async function startServer() {
-  server = spawn(process.execPath, ['scripts/node-proof.mjs', 'start'], {
+  server = spawn(process.execPath, (process.env.FORREST_PACKAGED_ROOT ? ['tests/release-server.mjs'] : ['scripts/node-proof.mjs', 'start']), {
     env: { ...process.env, FORREST_SQLITE_PATH: filename, FORREST_PROOF_PORT: String(port),
       FORREST_PROOF_SESSION_SECRET: secret },
     stdio: ['ignore', 'pipe', 'pipe'],
