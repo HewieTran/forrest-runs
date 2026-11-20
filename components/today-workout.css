@@ -3,7 +3,6 @@
   --today-cream: #fff5e2;
   --today-muted: #e2d8c5;
   --today-gold: #ffd18f;
-  --today-serif: Georgia, 'Times New Roman', serif;
   margin-bottom: 24px;
 }
 
@@ -30,8 +29,8 @@
 .today-workout h2 {
   margin: 12px 0 0;
   color: var(--today-muted);
-  font: 400 clamp(42px, 6vw, 76px)/1 var(--today-serif);
-  letter-spacing: -.045em;
+  font: 500 clamp(42px, 6vw, 76px)/1.1 var(--font-heading);
+  letter-spacing: -.035em;
 }
 .today-workout-instructions { margin: 12px 0 0; color: var(--today-muted); font-size: 15px; overflow-wrap: anywhere; }
 .today-workout-targets {

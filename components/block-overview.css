@@ -1,11 +1,11 @@
 .training-block-overview { max-width: 1180px; padding-top: 25px; }
 .training-block-overview .block-detail-heading { margin: 15px 0 24px; }
-.training-block-overview .block-detail-heading h1 { font-family: Georgia, 'Times New Roman', serif; font-weight: 400; font-size: clamp(32px,4vw,46px); letter-spacing: -.04em; }
+.training-block-overview .block-detail-heading h1 { font-family: var(--font-heading); font-weight: 500; font-size: clamp(32px,4vw,46px); letter-spacing: -.04em; }
 .training-block-overview .block-title-row { justify-content: space-between; }
 .training-block-overview .page-heading > div { width: 100%; }
 .block-overview-progress { margin-top: 24px; scroll-margin-top: 80px; }
 .overview-weekly { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px; padding: 22px 0; border-bottom: 1px solid #dcd9cc; }
-.overview-weekly h2 { font: 400 25px Georgia,serif; color: #26332a; }
+.overview-weekly h2 { font: 500 25px var(--font-heading); color: #26332a; }
 .overview-weekly > p { display: flex; gap: 15px; align-items: baseline; }
 .overview-weekly > p strong { font-size: 27px; }
 .overview-weekly > p small { font-size: 14px; font-weight: 400; }
@@ -21,14 +21,14 @@
 .overview-block-metrics span { display: block; font-size: 13px; line-height: 1.4; color: #5b6258; }
 .journey-panel { padding: 28px 0 30px; }
 .journey-heading { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px; margin-bottom: 40px; }
-.journey-heading h2 { font: 400 25px Georgia,serif; }
+.journey-heading h2 { font: 500 25px var(--font-heading); }
 .journey-heading > span { font-size: 14px; color: #445345; }
 .journey-track { position: relative; height: 5px; margin-inline: 27px; border-radius: 20px; background: #dce2d4; }
 .journey-track > span { display: block; height: 5px; border-radius: inherit; background: #53754e; }
 .journey-track img { position: absolute; bottom: -6px; transform: translateX(-50%); object-fit: contain; }
 .journey-labels { display: flex; justify-content: space-between; gap: 18px; margin-top: 14px; color: #5b6258; font-size: 13px; }
 .overview-guide { margin-top: 28px; padding: 25px 0; border-top: 1px solid #dcd9cc; border-bottom: 1px solid #dcd9cc; }
-.overview-guide h2 { font-size: 18px; font-weight: 600; margin-bottom: 24px; color: #26332a; }
+.overview-guide h2 { font-size: 18px; font-weight: 500; margin-bottom: 24px; color: #26332a; }
 .overview-guide-grid { display: grid; grid-template-columns: .8fr 1fr 1.2fr; gap: 30px; }
 .overview-guide h3 { font-size: 14px; margin-bottom: 14px; color: #445345; }
 .overview-guide p { margin: 0 0 15px; font-size: 14px; }
@@ -71,7 +71,7 @@
 .workout-dialog[open] { display: flex; flex-direction: column; }
 .workout-dialog::backdrop { background: #19271f80; }
 .workout-dialog-heading { display: flex; align-items: flex-start; justify-content: space-between; flex: none; gap: 16px; padding: 22px 24px 18px; border-bottom: 1px solid #dcd9cc; }
-.workout-dialog-heading h2 { margin: 0; color: #26332a; font-size: 23px; font-weight: 600; }
+.workout-dialog-heading h2 { margin: 0; color: #26332a; font-size: 23px; font-weight: 500; }
 .workout-dialog-heading h2:focus { outline: none; }
 .workout-dialog-heading p { margin-top: 5px; font-size: 14px; color: #5b6258; }
 .workout-dialog-heading .icon-button { width: 44px; height: 44px; flex: none; }
