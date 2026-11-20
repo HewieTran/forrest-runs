@@ -10,6 +10,9 @@ import WorkoutDialog from './WorkoutDialog';
 import TodayWorkout from './TodayWorkout';
 import BlockProgress from './BlockProgress';
 import BlockActions from './BlockActions';
+import StartBlockButton from './StartBlockButton';
+import BlockStartDate from './BlockStartDate';
+import './onboarding.css';
 import { applyCompletion } from '../lib/workout-completion';
 import { raceDistanceLabel } from '../lib/race-distance';
 import { setupTargetTime } from '../lib/setup';
@@ -23,6 +26,8 @@ export default function Tracker({ initial, preview = false, activeBlock = null, 
   initial: AppData; preview?: boolean; view?: 'overview' | 'schedule'; initialDate?: string; activeBlock?: Pick<Plan, 'id' | 'raceName'> | null;
 }) {
   const [data, setData] = useState(initial);
+  const readyToStart = blockReady({ ...data.plan, workoutCount: data.workouts.length }) && !simulatedBlock(data.plan);
+  const firstWorkoutDate = data.workouts.reduce<string | null>((first, workout) => first === null || workout.date < first ? workout.date : first, null);
   const schedule = view === 'schedule';
   const [selectedDate, setSelectedDate] = useState(() => initialScheduleDate(initial, initialDate));
   const [visibleMonth, setVisibleMonth] = useState(() => monthStart(initialScheduleDate(initial, initialDate)));
@@ -232,7 +237,7 @@ export default function Tracker({ initial, preview = false, activeBlock = null, 
       </> : <>
       <a className="block-breadcrumb" href={preview ? '/preview?view=blocks' : '/blocks'}><ChevronLeft size={15} /> All training blocks</a>
       <section className="page-heading block-detail-heading"><div>
-        <div className="block-title-row"><h1>{data.plan.raceName}</h1><div className="block-header-controls" role="group" aria-label="Block management">
+        <div className="block-title-row"><h1 id="block-overview-title" tabIndex={-1}>{data.plan.raceName}</h1><div className="block-header-controls" role="group" aria-label="Block management">
           <a className="icon-button" aria-label="Training block settings" href={preview ? '/preview?view=settings' : `/blocks/${encodeURIComponent(data.plan.id)}/settings`}><Settings2 size={19} /></a>
         </div></div>
         <div className="block-header-details"><BlockActions pill plan={data.plan} activeBlock={currentActive} preview={preview} disabled={saving || hasUnsavedChanges} ready={blockReady({ ...data.plan, workoutCount: data.workouts.length })} onChanged={block => {
@@ -244,6 +249,19 @@ export default function Tracker({ initial, preview = false, activeBlock = null, 
       </div></section>
       {preview && <div className="preview-notice"><Info size={16} /> Internal preview with example workouts. Changes here are not saved.</div>}
       {simulatedBlock(data.plan) && <p className="block-callout"><strong>Simulation mode.</strong> This example schedule demonstrates the app flow. It is not a personalized running plan and cannot be activated.</p>}
+      {readyToStart && <section className="block-ready-panel" aria-labelledby="block-ready-title">
+        <h2 id="block-ready-title">Your training block is ready</h2>
+        <p>Make this your current training block.</p>
+        <BlockStartDate date={firstWorkoutDate} today={data.today} />
+        <div className="block-ready-actions"><StartBlockButton plan={data.plan} activeBlock={currentActive} preview={preview} disabled={saving || hasUnsavedChanges} onBusyChange={setSaving} onStarted={block => {
+          setData(current => ({ ...current, plan: block }));
+          setCurrentActive({ id: block.id, raceName: block.raceName });
+          setToast('This is now your current training block. Your workout dates stay the same.');
+          document.getElementById('block-overview-title')?.focus();
+        }} /><a className="button" href={preview ? '/preview?view=blocks&status=ready' : '/blocks?status=ready'} aria-disabled={saving || hasUnsavedChanges} onClick={event => { if (saving || hasUnsavedChanges) event.preventDefault(); }}>Keep for later</a></div>
+        <p className="block-ready-footnote">Your block is already saved. You can start it later from Not started.</p>
+      </section>}
+      {data.plan.status === 'active' && firstWorkoutDate && firstWorkoutDate >= data.today && <div className="current-block-start"><BlockStartDate date={firstWorkoutDate} today={data.today} /></div>}
       <TodayWorkout data={data} featured={featured} savedRunId={savedRunId} saving={saving}
         scheduleHref={preview ? `/preview?view=schedule&date=${featured?.date ?? data.today}` : `/blocks/${encodeURIComponent(data.plan.id)}/schedule?date=${featured?.date ?? data.today}`}
         period={previewPeriod ?? featured?.timeOfDay ?? localPeriod} onOpenWorkout={openTodayWorkout} onSelectWorkout={selectWorkout} />
