@@ -43,7 +43,8 @@ live; labels and dashed connections/borders identify reported, proposed or
 unverified items. These status cues remain readable without distinguishing colors.
 
 Each connection has a stable numbered reference: **R1–R8** for runtime and
-**D1–D4** for deployment. Match it to the connection guide below its diagram.
+**D1–D4** for deployment. The numbered explanation is embedded directly on each
+connection; expand or zoom the diagram to read its activities without a table lookup.
 References identify connections, not a universal execution order. A request can
 reuse a connection, and sign-in, ordinary app traffic and backups follow different
 paths. Substeps such as **R7.1–R7.3** explain several activities on one connection.
@@ -65,17 +66,53 @@ flowchart LR
             caddy["Caddy — HTTPS proxy"]
             app["Next.js / Node.js — app and authorization"]
             db[("SQLite — persistent training data")]
-            caddy <-->|"R3 · Local proxy"| app
-            app <-->|"R4 · Training records"| db
+            caddy <-->|"`R3 · Local proxy
+R3.1 Caddy terminates HTTPS and forwards to local Node.
+R3.2 App handles the route, checking the session,
+input and ownership where required.
+R3.3 Response returns through Caddy, R2 and R1.`"| app
+            app <-->|"`R4 · Training records
+R4.1 Storage layer reads owned records
+or performs an authorized write.
+R4.2 Validation and version checks protect changes;
+records or save/conflict results return to the app.
+Browser has no direct database connection.`"| db
         end
-        edge <-->|"R2 · Origin HTTPS"| caddy
-        cognito <-->|"R7 · Tokens and signing keys"| app
-        snapshots -.-|"R8 · Backup — reported"| host
+        edge <-->|"`R2 · Origin HTTPS
+R2.1 CloudFront forwards requests to Caddy over HTTPS,
+including cookies, callback parameters and write methods.
+R2.2 Origin responses return through CloudFront.
+App caching is documented as disabled; live settings unverified.`"| caddy
+        cognito <-->|"`R7 · Tokens and signing keys
+R7.1 Server exchanges login code for Cognito tokens.
+R7.2 Fetches public signing keys when needed;
+verifies the identity and approved beta email.
+R7.3 App creates its own session cookie,
+returned through R3, R2 and R1.
+Later requests verify the app session locally;
+they do not repeat the code exchange.`"| app
+        snapshots -.-|"`R8 · Backup — reported
+Reported instance snapshots, outside the request path.
+An instance-backup association, not an app call.
+Schedule, retention and restore readiness unverified.`"| host
     end
 
-    browser <-->|"R1 · App traffic"| edge
-    browser <-->|"R5 · Login redirects"| cognito
-    google <-->|"R6 · Google federation"| cognito
+    browser <-->|"`R1 · App traffic
+R1.1 Browser requests pages or submits API actions,
+sending its app-session cookie when signed in.
+R1.2 Pages, data, errors and cookie updates
+return through CloudFront.`"| edge
+    browser <-->|"`R5 · Login redirects
+R5.1 Browser follows the app redirect to Cognito,
+with Google selected.
+R5.2 Cognito redirects back with a login code.
+The callback reaches the app through R1, R2 and R3.`"| cognito
+    google <-->|"`R6 · Google federation
+R6.1 Runner completes Google sign-in in the browser.
+R6.2 Cognito processes the Google identity
+and continues authorization.
+This relationship includes browser redirects;
+it is not a direct app-to-Google connection.`"| cognito
 
     classDef client fill:#F1F5F9,stroke:#64748B,color:#243447
     classDef network fill:#E8F2FF,stroke:#2563EB,color:#12315A
@@ -98,19 +135,6 @@ backup connection and dashed snapshot border record a reported operational
 setting that needs current verification. The backup line is an association with
 the whole Lightsail instance, not an app-triggered backup operation. Arrows show
 interaction, not a packet-level authentication sequence.
-
-### Runtime connection guide
-
-| Reference | Connection | Activities and result |
-| --- | --- | --- |
-| **R1** | Browser ↔ CloudFront | **R1.1** The browser requests pages or sends API actions, such as saving a workout, with its app-session cookie when signed in. **R1.2** Pages, data, status/error responses and any session-cookie updates return through CloudFront. |
-| **R2** | CloudFront ↔ Caddy | **R2.1** CloudFront forwards app requests to the Lightsail HTTPS origin, including the authentication cookies, callback query parameters and write methods required by the app. **R2.2** Origin responses return through CloudFront. The documented app behavior has caching disabled; live settings were not re-audited. |
-| **R3** | Caddy ↔ Next.js / Node.js | **R3.1** Caddy terminates origin HTTPS and proxies the request to the local Node app. **R3.2** The app serves the page or handles the route, including session, input and ownership checks where required. **R3.3** Its response returns through Caddy and R2/R1. |
-| **R4** | App ↔ SQLite | **R4.1** The app's storage layer reads the signed-in account's training records or performs an authorized write. **R4.2** Existing validation and version checks protect changes; records or save/conflict results return to the app. The browser does not connect to SQLite directly. |
-| **R5** | Browser ↔ Cognito | **R5.1** After the app initiates sign-in, the browser follows a redirect to Cognito with Google selected. **R5.2** Cognito redirects the browser back to the app's callback with a login code; this callback request reaches the app through R1, R2 and R3. |
-| **R6** | Cognito ↔ Google | **R6.1** The runner completes Google sign-in in the browser. **R6.2** Cognito processes the federated Google identity and continues its authorization flow. This is a high-level federation relationship, including browser redirects; it is not a direct app-to-Google connection or a complete network sequence. |
-| **R7** | App ↔ Cognito | **R7.1** The server exchanges the callback's code for Cognito tokens. **R7.2** It retrieves Cognito public signing keys when needed and verifies the returned identity and approved beta email. **R7.3** After verification, the app creates its own session cookie, returned through R3, R2 and R1. Later app requests verify that signed session locally rather than repeating the code exchange. |
-| **R8** | Lightsail instance ··· snapshots | Records the reported instance-backup relationship, outside the runner's request path. It does not represent an app-triggered operation or a verified backup run. Current schedule, retention and restore readiness remain unverified. |
 
 | Component | Responsibility |
 | --- | --- |
@@ -166,10 +190,24 @@ flowchart LR
     beta["Lightsail AWS beta"]
     automation["Deployment automation — requested, unverified"]
 
-    source -->|"D1 · Manual build"| bundle
-    bundle -->|"D2 · Manual deployment"| beta
-    source -.->|"D3 · Proposed trigger"| automation
-    automation -.->|"D4 · Proposed deployment"| beta
+    source -->|"`D1 · Manual build
+D1.1 Select an exact GitHub source revision.
+D1.2 Build its versioned Node release package.
+A successful build does not establish deployment.`"| bundle
+    bundle -->|"`D2 · Manual deployment
+D2.1 Install the release files on Lightsail.
+D2.2 Restart using server-held configuration
+and the existing persistent SQLite database.
+Record the running SHA and verify the affected flow
+as separate release gates; no new check performed here.`"| beta
+    source -.->|"`D3 · Proposed trigger
+A change to main would start an automated release.
+A working trigger is not established by this reference.`"| automation
+    automation -.->|"`D4 · Proposed deployment
+Would deliver the release and restart the app,
+then record and check the deployed revision.
+The AWS implementation PR must document transport,
+credentials and verification. Pipeline remains unverified.`"| beta
 
     classDef delivery fill:#F1F5F9,stroke:#64748B,color:#243447
     classDef compute fill:#F1EBFF,stroke:#7C3AED,color:#3B1A66
@@ -183,15 +221,6 @@ The solid route is the documented manual release method. The dotted route is
 requested future work, not an implemented pipeline or a choice of CI provider.
 A merge, release build, deployment and post-deployment verification are distinct
 events. Record their status separately.
-
-### Deployment connection guide
-
-| Reference | Connection | Activities and result |
-| --- | --- | --- |
-| **D1** | GitHub main → release package | **D1.1** Select an exact source revision. **D1.2** Build the Node release package manually. The source revision identifies what the package contains; a successful build alone does not mean it is deployed. |
-| **D2** | Release package → Lightsail | **D2.1** Install the release files manually. **D2.2** Restart the app using the server's separate configuration and persistent SQLite storage. Recording the running revision and checking the affected flow are separate verification gates; this documentation update performed no deployment or new hosted verification. |
-| **D3** | GitHub main → requested automation | **Proposed:** a change to main would trigger an automated release process. A working trigger is not established by this reference. |
-| **D4** | Requested automation → Lightsail | **Proposed:** automate release delivery and app restart, then record and check the deployed revision. The implementing AWS PR must document the actual transport, credentials and verification; this connection is not evidence of a running pipeline. |
 
 The ChatGPT Site uses different runtime/auth/storage adapters. It is not an
 intermediate server that copies its database or whole deployed source tree into
@@ -240,3 +269,4 @@ placement, deployment automation or external integrations.
 | 2026-11-19 | Establish AWS beta topology, environment boundaries and architecture-maintenance rule. | Documentation prepared from repository source and deployment reports; live AWS configuration not re-audited. |
 | 2026-11-19 | Reorient runtime and deployment views horizontally and add a shared color key for component roles, retaining explicit status labels. | Documentation presentation only; no service, deployment or infrastructure change. |
 | 2026-11-19 | Number every runtime and deployment connection, explain multi-activity connections with substeps, and cross-reference the sign-in walkthrough. | Documentation explanation only; deployment and verification status unchanged. |
+| 2026-11-19 | Embed numbered activity descriptions directly on every runtime and deployment connection using multiline labels; remove duplicate connection tables. | Documentation presentation only; horizontal layout, colors and deployment evidence preserved. |
