@@ -9,11 +9,12 @@ library. Keep the current deployment separate from proposed changes.
 
 ## Evidence and deployment status
 
-- Source inspected: GitHub main `ce0b6f20cca2fcb7e4c7fb6f9a8b795b83835303` (merged pipeline PR #30).
-- Hieu reported updating AWS beta with the latest merged UI on 2026-11-19.
-  This documentation task did not inspect the running server's release SHA or
-  AWS resource configuration. Treat service placement below as the documented
-  operational baseline, not a fresh AWS inventory audit.
+- Source inspected and AWS deployed revision: `24f7ee72b49e2cf9b32f6668db8bb2c77996959e` (merged pipeline PRs #30 and #31).
+- The first complete automatic main deployment succeeded on 2026-11-19.
+  The Lightsail receiver's status matched the workflow revision, readiness and
+  sign-in redirect passed locally, and the public CloudFront HTTPS sign-in page
+  passed. This verifies the deployment path, not a full AWS resource inventory.
+  Real Google sign-in and desktop/phone save/reload were not repeated in this run.
 - CloudFront, Lightsail/Caddy, and Cognito/Google were configured and live
   Google sign-in was previously reported working. Instance snapshots were
   reported enabled; their current schedule, retention and restore readiness
@@ -26,14 +27,14 @@ library. Keep the current deployment separate from proposed changes.
   reach the instance directly. GitHub Actions attempt 2 successfully verified the
   trusted server host key and authenticated the restricted deployment key over IPv4;
   this is not a full firewall or AWS inventory audit.
-- Automatic GitHub Actions delivery merged in PR #30. Server receiver setup and
-  GitHub credentials are configured. Hosted build, persistence, account isolation
-  and simulated Cognito tests passed, but the receiver rejected archive links before
-  service/database cutover. The first successful automated deployment remains pending;
-  the existing manually installed app continues serving.
-- PR #31 fixes portable archive creation and tests the receiver-extracted archive
-  outside the source checkout. It is unmerged and not deployed. Failure evidence:
-  [main workflow attempt 2](https://github.com/HewieTran/forrest-runs/actions/runs/44667776786/attempts/2).
+- Automatic GitHub Actions delivery is live. PR #31 fixed archive portability;
+  CI extracts the actual archive outside the checkout with the same strict receiver
+  checks before running persistence, account-isolation and simulated Cognito tests.
+- The successful run verified restricted IPv4 SSH, checksum and package revision,
+  database-copy preflight, final live SQLite backup, service cutover, readiness,
+  running revision and the public HTTPS entry point. Deployment backups remain on
+  the same instance; off-instance snapshot restore readiness remains unverified.
+  Evidence: [first complete main deployment](https://github.com/HewieTran/forrest-runs/actions/runs/44676880380).
 
 ## Diagram conventions
 
@@ -219,9 +220,9 @@ There is no live OpenAI API dependency in the current beta runtime.
 | Local QA | Disposable Node/SQLite or Worker/Miniflare builds; synthetic users | Tests a specified source revision; isolated from live records. |
 | ChatGPT Site staging | Sites runtime with Cloudflare Workers/D1 and managed ChatGPT sign-in | Separate hosting, identity and database from AWS. It has also held Hieu's real records, so the staging label alone does not make destructive testing safe. |
 | AWS beta / UAT | CloudFront, Lightsail/Caddy/Next.js/SQLite, Cognito with Google | Separate beta accounts and data. Deploy an identified release and verify it there. |
-| Shared live use | Hieu chose to keep the current AWS beta instance for himself and a few friends | Treat its records as live data. A separate production instance is deferred; every automatic main release would update this shared app. |
+| Shared live use | Hieu chose to keep the current AWS beta instance for himself and a few friends | Treat its records as live data. A separate production instance is deferred; every successful automatic main release updates this shared app. |
 
-### Current release path and requested automation
+### Current automatic release path and manual fallback
 
 ```mermaid
 flowchart LR
@@ -230,12 +231,12 @@ flowchart LR
     source["GitHub main"]
     bundle["Versioned Node release package"]
     beta["Lightsail AWS beta"]
-    automation["GitHub Actions — merged; first deployment blocked"]
+    automation["GitHub Actions — automatic delivery verified"]
 
     source -->|"D1"| bundle
     bundle -->|"D2"| beta
-    source -.->|"D3"| automation
-    automation -.->|"D4"| beta
+    source -->|"D3"| automation
+    automation -->|"D4"| beta
 
     end
 
@@ -255,15 +256,15 @@ as separate release gates; no new check performed here.`"]
 D3.1 A main push starts the Node build and synthetic checks.
 D3.2 Retain the exact commit package for five days.
 PR #30 is merged; main-triggered build/tests passed.`"]
-        noteD4["`**D4 · SSH deployment — archive fix pending**
+        noteD4["`**D4 · SSH deployment — verified**
 D4.1 Send package over IPv4 using a dedicated restricted key.
 D4.2 Verify checksum, preflight a database copy,
 pause Caddy, back up live SQLite and switch the service.
 D4.3 Verify package identity and the running revision;
 restore the prior service/database on startup failure.
 D4.4 Check public HTTPS after activation.
-SSH access verified; archive rejected before cutover.
-PR #31 fixes packaging; successful live deployment pending.`"]
+First complete main deployment passed at 24f7ee7.
+Live Google/phone smoke checks remain separate.`"]
         noteD1 ~~~ noteD2
         noteD2 ~~~ noteD3
         noteD3 ~~~ noteD4
@@ -276,17 +277,17 @@ PR #31 fixes packaging; successful live deployment pending.`"]
     classDef proposed fill:#F8FAFC,stroke:#64748B,color:#475569,stroke-dasharray:5 4
     class source,bundle delivery
     class beta compute
-    class automation proposed
+    class automation delivery
     classDef explanation fill:#FFFFFF,stroke:#CBD5E1,color:#243447
     class noteD1,noteD2,noteD3,noteD4 explanation
     style deploymentView fill:transparent,stroke:transparent
     style deploymentGuide fill:#F8FAFC,stroke:#94A3B8,color:#334155
 ```
 
-The solid route is the documented manual release method. The dotted route is
-approved GitHub Actions/SSH delivery merged in PR #30. Its main-triggered build
-and restricted SSH access are verified. Archive portability blocked activation;
-PR #31 addresses that failure. Live deployment and public verification remain pending.
+The automatic route is **D3–D4**, verified by the successful main deployment
+at `24f7ee72b49e2cf9b32f6668db8bb2c77996959e`. **D1–D2** retain the manual
+release method as a fallback. Pull requests run build/package tests without deploying;
+only the newest main revision can proceed through the automatic deployment gate.
 A merge, release build, deployment and post-deployment verification are distinct
 events. Record their status separately.
 
@@ -348,3 +349,4 @@ placement, deployment automation or external integrations.
 | 2026-11-19 | Record reported dual-stack/static IPv4, the decision to share one AWS instance, and draft PR #30 Actions/SSH delivery with D3/D4 activities. | Approved design and code in draft PR; server setup and live automatic deployment pending. |
 | 2026-11-19 | Restore short connection IDs on arrows and move their full descriptions to a side panel inside each expandable diagram. | Documentation layout only; service relationships and deployment status unchanged. |
 | 2026-11-19 | Record merged pipeline PR #30, successful main build and restricted SSH verification, and pre-activation archive rejection; track packaging fix PR #31. | Automatic deployment not yet successful; manually installed app preserved. |
+| 2026-11-19 | Record merged PR #31 and first successful main-to-Lightsail deployment; mark D3/D4 as active and retain manual delivery as fallback. | AWS revision 24f7ee72b49e2cf9b32f6668db8bb2c77996959e, receiver status/readiness and public HTTPS verified; real Google/phone smoke check not repeated. |
