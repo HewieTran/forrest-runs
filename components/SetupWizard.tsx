@@ -228,7 +228,7 @@ export default function SetupWizard({ initial = null, displayName, today, readOn
     return <div className="app-shell"><AppHeader displayName={displayName} preview={preview} /><main className="main-content setup-main">
       <a className="block-breadcrumb" href={preview ? '/preview?view=overview' : `/blocks/${encodeURIComponent(initial.id)}`}><ArrowLeft size={15} />Back to block</a>
       <section className="page-heading setup-heading"><div><h1>Original plan details</h1><p className="blocks-intro">A read-only snapshot of the details saved when you set up this block.</p></div></section>
-      <section className="setup-panel" aria-label="Saved plan details"><SetupReview setup={savedSetup} /></section>
+      <section className="setup-panel" aria-label="Saved plan details"><SetupReview setup={savedSetup} sample={initial.generation?.provider === 'simulation'} /></section>
     </main></div>;
   }
   return <div className="app-shell"><AppHeader displayName={displayName} preview={preview} /><main className="main-content setup-main">
@@ -257,7 +257,7 @@ export default function SetupWizard({ initial = null, displayName, today, readOn
         : input('height', 'Height (cm)', 'number')}</div>
         <section className="setup-benchmark" aria-labelledby="benchmark-heading">
           <h3 id="benchmark-heading">Recent race or hard run</h3>
-          <p className="setup-description text-balance">Pick a recent race or a run where you pushed hard over a known distance. Your result helps estimate workout paces.</p>
+          <p className="setup-description text-balance">Pick a recent race or a run where you pushed hard over a known distance. For a personalized plan, your result helps estimate workout paces.</p>
           <div className="setup-fields">
             <label htmlFor="setup-benchmarkDistance"><span className="setup-field-title">Result distance<span className="setup-required"> Required</span></span>
               <select id="setup-benchmarkDistance" value={fields.benchmarkDistance} onChange={event => update('benchmarkDistance', event.target.value)} aria-required="true" aria-invalid={!!issueFor('benchmarkDistance')} aria-describedby="benchmark-distance-feedback">
@@ -271,7 +271,7 @@ export default function SetupWizard({ initial = null, displayName, today, readOn
         </section>
       </>}
       {step === 2 && <><h2>Choose your training days</h2><p className="setup-description">Select the days you want a running workout. Race day is included even if it falls on another weekday.</p><div id="setup-trainingDays" tabIndex={-1} className="setup-days" role="group" aria-label="Selected training days">{DAY_NAMES.map((name, day) => <button type="button" key={name} aria-pressed={days.includes(day)} onClick={() => { setApplied(null);setClarification(null);setDays(current => current.includes(day) ? current.filter(value => value !== day) : [...current, day].sort());setDirty(true);setErrors([]); }}>{name.slice(0,3)}<span>{days.includes(day) ? 'Run' : '—'}</span></button>)}</div></>}
-      {step === 3 && <><h2 id="setup-review-title" tabIndex={-1}>Your plan details</h2><SetupReview setup={snapshot} />{windowIssue && <div className="setup-errors" role="status"><p>{windowIssue.message}</p><button className="button" type="button" onClick={() => { setStep(0); setFocusTarget(`setup-${windowIssue.field}`); }}>Edit training dates</button></div>}<p className="setup-footnote">{sample ? 'Generate a sample to explore the schedule and see how workouts are laid out. The sample saves automatically for you to revisit.' : generationAvailable ? 'Your recent result helps estimate workout paces. Your plan saves automatically so you can review it before you start.' : 'Plan generation is currently unavailable. Save your draft to return to it later.'}</p></>}
+      {step === 3 && <><h2 id="setup-review-title" tabIndex={-1}>Your plan details</h2><SetupReview setup={snapshot} sample={sample} />{windowIssue && <div className="setup-errors" role="status"><p>{windowIssue.message}</p><button className="button" type="button" onClick={() => { setStep(0); setFocusTarget(`setup-${windowIssue.field}`); }}>Edit training dates</button></div>}<p className="setup-footnote">{sample ? 'Generate a sample to explore a schedule with example paces. The sample saves automatically for you to revisit.' : generationAvailable ? 'Your recent result helps estimate workout paces. Your plan saves automatically so you can review it before you start.' : 'Plan generation is currently unavailable. Save your draft to return to it later.'}</p></>}
       </fieldset>
       {step === 3 && waitingToRetry && !clarification && <p className="setup-footnote" role="status">You can generate again one minute after your last request.</p>}
       <div className="setup-form-actions">
@@ -290,11 +290,11 @@ export default function SetupWizard({ initial = null, displayName, today, readOn
   </main></div>;
 }
 
-export function SetupReview({ setup }: { setup: BlockSetup }) {
+export function SetupReview({ setup, sample = false }: { setup: BlockSetup; sample?: boolean }) {
   const value = simpleSetup(setup), benchmark = setup.schemaVersion === 4 ? (setup as IntakeSetup).benchmark : null;
   const display = (v: number | null, unit: string) => v === null ? 'Not provided' : `${v} ${unit}`;
   const imperialHeight = heightParts(value.runner.height);
   const height = value.units === 'mi' && value.runner.height !== null
     ? `${imperialHeight[0]} ft ${imperialHeight[1]} in` : display(value.runner.height, 'cm');
-  return <dl className="setup-review"><div><dt>Goal</dt><dd>{value.goal.name || suggestedBlockName(value)} · {raceDistanceLabel(value.goal.distanceKm)} · {setupTargetTime(value) || 'Target time not set'}</dd></div><div><dt>Training window</dt><dd>{value.goal.startDate || 'Not set'} → {value.goal.targetDate || 'Not set'}</dd></div><div><dt>Runner</dt><dd>{value.runner.experience || 'Experience not provided'} · {display(value.runner.age, 'years')} · {display(value.runner.weight, value.units === 'mi' ? 'lb' : 'kg')} · {height}</dd></div>{setup.schemaVersion === 4 && <div><dt>Recent race or hard run</dt><dd>{benchmark?.distance ? RESULT_LABELS[benchmark.distance] : 'Distance not set'} · {formatDuration(benchmark?.durationSeconds ?? null) || 'Time not set'} · {benchmark?.date || 'Date not set'}</dd></div>}<div><dt>Training days</dt><dd>{value.availability.days.map(day => DAY_NAMES[day]).join(', ') || 'Not selected'}</dd></div><div><dt>Workout pace</dt><dd>{setup.schemaVersion === 4 ? 'Estimates based on your recent result' : setup.schemaVersion === 3 ? 'Estimated numeric pace' : 'Original guidance preserved in the saved snapshot'}</dd></div></dl>;
+  return <dl className="setup-review"><div><dt>Goal</dt><dd>{value.goal.name || suggestedBlockName(value)} · {raceDistanceLabel(value.goal.distanceKm)} · {setupTargetTime(value) || 'Target time not set'}</dd></div><div><dt>Training window</dt><dd>{value.goal.startDate || 'Not set'} → {value.goal.targetDate || 'Not set'}</dd></div><div><dt>Runner</dt><dd>{value.runner.experience || 'Experience not provided'} · {display(value.runner.age, 'years')} · {display(value.runner.weight, value.units === 'mi' ? 'lb' : 'kg')} · {height}</dd></div>{setup.schemaVersion === 4 && <div><dt>Recent race or hard run</dt><dd>{benchmark?.distance ? RESULT_LABELS[benchmark.distance] : 'Distance not set'} · {formatDuration(benchmark?.durationSeconds ?? null) || 'Time not set'} · {benchmark?.date || 'Date not set'}</dd></div>}<div><dt>Training days</dt><dd>{value.availability.days.map(day => DAY_NAMES[day]).join(', ') || 'Not selected'}</dd></div><div><dt>Workout pace</dt><dd>{sample ? 'Example paces' : setup.schemaVersion === 4 ? 'Estimates based on your recent result' : setup.schemaVersion === 3 ? 'Estimated numeric pace' : 'Original guidance preserved in the saved snapshot'}</dd></div></dl>;
 }
