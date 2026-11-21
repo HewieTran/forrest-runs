@@ -1,8 +1,10 @@
 'use client';
 
+import { useEffect, useRef } from 'react';
+
 import { ChevronLeft, ChevronRight, CalendarDays, Pencil, Sparkles } from 'lucide-react';
 import { formatDate, isRun, type AppData, type Workout } from '../lib/domain';
-import { adjacentWorkouts, PERIOD_LABELS, periodArtwork, type WorkoutPeriod } from '../lib/block-overview';
+import { adjacentWorkouts, todayWorkout, PERIOD_LABELS, periodArtwork, type WorkoutPeriod } from '../lib/block-overview';
 import { formatPace } from '../lib/workout-form';
 import { readableDuration, workoutStructure } from '../lib/workout-structure';
 import './today-workout.css';
@@ -15,6 +17,45 @@ export default function TodayWorkout({ data, featured, savedRunId, saving, perio
   scheduleHref: string;
   onOpenWorkout: (id: string) => void; onSelectWorkout: (id: string | null) => void;
 }) {
+  const copyRef = useRef<HTMLDivElement>(null);
+  const artRef = useRef<HTMLImageElement>(null);
+  const pendingMotion = useRef<{ direction: number; outgoing: HTMLElement; height: number } | null>(null);
+  const cleanupMotion = useRef<() => void>(() => {});
+  function browse(id: string | null, direction: number) {
+    cleanupMotion.current();
+    pendingMotion.current?.outgoing.remove();
+    pendingMotion.current = null;
+    const copy = copyRef.current;
+    const targetId = id ?? todayWorkout(data.workouts, data.today)?.id;
+    if (copy && !window.matchMedia('(prefers-reduced-motion: reduce)').matches && targetId !== featured?.id) {
+      const outgoing = copy.cloneNode(true) as HTMLElement;
+      outgoing.querySelectorAll('[id]').forEach(node => node.removeAttribute('id'));
+      outgoing.setAttribute('aria-hidden', 'true');
+      outgoing.inert = true;
+      outgoing.style.cssText = `position:absolute;top:${copy.offsetTop}px;left:${copy.offsetLeft}px;width:${copy.offsetWidth}px;pointer-events:none;`;
+      copy.parentElement!.appendChild(outgoing);
+      pendingMotion.current = { direction, outgoing, height: copy.parentElement!.offsetHeight };
+    }
+    onSelectWorkout(id);
+  }
+  useEffect(() => {
+    const motion = pendingMotion.current;
+    pendingMotion.current = null;
+    if (!motion || !copyRef.current) return;
+    const copy = copyRef.current, card = copy.parentElement!;
+    card.style.minHeight = `${motion.height}px`;
+    const options = { duration: 220, easing: 'cubic-bezier(.2,.7,.3,1)' };
+    const animations = [
+      motion.outgoing.animate([{ opacity: 1, transform: 'translateX(0)' }, { opacity: 0, transform: `translateX(${-motion.direction * 16}px)` }], options),
+      copy.animate([{ opacity: 0, transform: `translateX(${motion.direction * 16}px)` }, { opacity: 1, transform: 'translateX(0)' }], options),
+    ];
+    if (artRef.current) animations.push(artRef.current.animate([{ opacity: .65 }, { opacity: 1 }], options));
+    const cleanup = () => { animations.forEach(animation => animation.cancel()); motion.outgoing.remove(); card.style.minHeight = ''; };
+    cleanupMotion.current = cleanup;
+    void Promise.all(animations.map(animation => animation.finished)).then(cleanup, () => {});
+    return cleanup;
+  }, [featured?.id]);
+  useEffect(() => () => { cleanupMotion.current(); pendingMotion.current?.outgoing.remove(); }, []);
   const date = featured?.date ?? data.today;
   const isToday = date === data.today;
   const restDay = !featured && data.restDays.some(day => day.date === date);
@@ -31,10 +72,10 @@ export default function TodayWorkout({ data, featured, savedRunId, saving, perio
     featured.actualDurationSeconds === null ? '' : readableDuration(featured.actualDurationSeconds),
     featured.timeOfDay ? PERIOD_LABELS[featured.timeOfDay] : ''].filter(Boolean).join(' · ') : '';
   return <section className="today-workout" aria-labelledby="today-workout-title">
-    <button type="button" className="workout-browse workout-browse-previous" aria-label="Previous workout" disabled={saving || !previous} onClick={() => onSelectWorkout(previous!.id)}><ChevronLeft size={24} /></button>
-    <div className="today-workout-copy">
+    <button type="button" className="workout-browse workout-browse-previous" aria-label="Previous workout" disabled={saving || !previous} onClick={() => browse(previous!.id, -1)}><ChevronLeft size={24} /></button>
+    <div className="today-workout-copy" ref={copyRef}>
       <div className="today-workout-topline"><p className="today-workout-date">{isToday ? 'Today' : 'Workout'} · {formatDate(date, { weekday: 'short', month: 'short', day: 'numeric', year: isToday ? undefined : 'numeric' })}</p>
-        <button type="button" className="today-reset" disabled={saving} onClick={() => onSelectWorkout(null)}>Today</button></div>
+        <button type="button" className="today-reset" disabled={saving} onClick={() => browse(null, date > data.today ? -1 : 1)}>Today</button></div>
       <h2 id="today-workout-title" tabIndex={-1} aria-live="polite">{featured ? formatWorkoutTitle(featured.type) : restDay ? 'Rest day' : 'No workout scheduled'}</h2>
       {instructions && <p className="today-workout-instructions">{instructions}</p>}
       {!featured && <p className="today-workout-instructions">{restDay ? 'A little recovery goes a long way.' : 'Your next workout is just an arrow away.'}</p>}
@@ -45,7 +86,7 @@ export default function TodayWorkout({ data, featured, savedRunId, saving, perio
       {others.length > 0 && <ul className="today-workout-others" aria-label={`Other workouts ${isToday ? 'today' : 'on this date'}`}>{others.map(row => <li key={row.id}><span>{isToday ? 'Also today' : 'Same day'} · {formatWorkoutTitle(row.type)}</span><button type="button" className="today-workout-link" aria-label={`${row.done ? 'Edit' : 'Log'} ${formatWorkoutTitle(row.type)} workout`} disabled={saving} onClick={() => onOpenWorkout(row.id)}>{row.done ? 'Edit' : 'Log'}<span className="sr-only"> {formatWorkoutTitle(row.type)} workout</span></button></li>)}</ul>}
     </div>
     {/* eslint-disable-next-line @next/next/no-img-element */}
-    <img className="today-workout-art" src={periodArtwork(period)} alt="" width={1040} height={693} />
-    <button type="button" className="workout-browse workout-browse-next" aria-label="Next workout" disabled={saving || !next} onClick={() => onSelectWorkout(next!.id)}><ChevronRight size={24} /></button>
+    <img ref={artRef} className="today-workout-art" src={periodArtwork(period)} alt="" width={1040} height={693} />
+    <button type="button" className="workout-browse workout-browse-next" aria-label="Next workout" disabled={saving || !next} onClick={() => browse(next!.id, 1)}><ChevronRight size={24} /></button>
   </section>;
 }
