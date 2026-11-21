@@ -18,7 +18,7 @@ export async function testSimulation(db, dispatch) {
   const path = '/api/blocks/' + created.data.block.id;
   const page = await dispatch('http://localhost/blocks/' + created.data.block.id + '/plan', { headers });
   const html = await page.text();
-  assert.match(html, /Generate plan/);
+  assert.match(html, /Generate sample plan/);
   assert.match(html, /No AI calls or API charges/);
   const generated = await call(path + '/generation', 'POST', { version: created.data.block.version, consent: true, mode: 'openai', model: 'expensive-model' });
   assert.equal(generated.status, 200);
@@ -40,8 +40,9 @@ export async function testSimulation(db, dispatch) {
   assert.equal(card.isSimulation, true);
   const blockPage = await dispatch('http://localhost/blocks/' + block.id, { headers });
   const text = await blockPage.text();
-  assert.match(text, /SIMULATION/);
-  assert.doesNotMatch(text, /Activate block/);
+  assert.match(text, /Sample plan/);
+  assert.match(text, /View sample schedule/);
+  assert.doesNotMatch(text, /Activate block|Start this block/);
   const backup = (await call('/api/export?blockId=' + block.id)).data;
   assert.deepEqual(normalizeTrainingBackup(backup), backup);
   await testRestore(backup);
