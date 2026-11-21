@@ -14,6 +14,7 @@ const port = probe.address().port;
 await new Promise(resolve => probe.close(resolve));
 const base = `http://127.0.0.1:${port}`;
 const publicOrigin = 'https://forrest.example.test';
+const alternateOrigin = 'https://beta.forrest.example.test';
 const domain = 'https://login.example.test';
 const app = spawn(process.execPath, (process.env.FORREST_PACKAGED_ROOT ? ['tests/release-server.mjs'] : ['scripts/node-proof.mjs', 'start']), {
   stdio: ['ignore', 'pipe', 'pipe'],
@@ -23,6 +24,7 @@ const app = spawn(process.execPath, (process.env.FORREST_PACKAGED_ROOT ? ['tests
     FORREST_AWS_BETA: '1', FORREST_PROOF_PORT: String(port),
     FORREST_SQLITE_PATH: path.join(directory, 'beta.sqlite'),
     FORREST_BETA_ORIGIN: publicOrigin,
+    FORREST_BETA_ALTERNATE_ORIGIN: alternateOrigin,
     FORREST_COGNITO_DOMAIN: domain,
     FORREST_COGNITO_ISSUER: 'https://issuer.example.test/pool',
     FORREST_COGNITO_CLIENT_ID: 'fixture-client', FORREST_COGNITO_CLIENT_SECRET: 'fixture-client-secret',
@@ -37,8 +39,9 @@ function request(route, options = {}) {
   return fetch(base + route, { redirect: 'manual', signal: AbortSignal.timeout(12000), ...options });
 }
 
-async function callback(claim, { validState = true, returnTo = '/blocks' } = {}) {
-  const start = await request(`/auth/sign-in?${new URLSearchParams({ return_to: returnTo })}`);
+async function callback(claim, { validState = true, returnTo = '/blocks', origin = publicOrigin, callbackOrigin = origin } = {}) {
+  const viewer = origin === publicOrigin ? {} : { 'x-forrest-beta-host': new URL(origin).host };
+  const start = await request(`/auth/sign-in?${new URLSearchParams({ return_to: returnTo })}`, { headers: viewer });
   assert.equal(start.status, 303);
   const pending = start.headers.getSetCookie()[0];
   assert.match(pending, /^__Host-forrest-beta-login=/);
@@ -47,17 +50,19 @@ async function callback(claim, { validState = true, returnTo = '/blocks' } = {})
   assert.equal(authorize.origin, domain);
   assert.equal(authorize.searchParams.get('identity_provider'), 'Google');
   assert.equal(authorize.searchParams.get('code_challenge_method'), 'S256');
-  assert.equal(authorize.searchParams.get('redirect_uri'), `${publicOrigin}/auth/callback`);
+  assert.equal(authorize.searchParams.get('redirect_uri'), `${origin}/auth/callback`);
   const code = Buffer.from(JSON.stringify({
-    nonce: authorize.searchParams.get('nonce'), challenge: authorize.searchParams.get('code_challenge'), ...claim,
+    nonce: authorize.searchParams.get('nonce'), challenge: authorize.searchParams.get('code_challenge'),
+    callback: authorize.searchParams.get('redirect_uri'), ...claim,
   })).toString('base64url');
   const state = validState ? authorize.searchParams.get('state') : 'invalid-state';
-  return request(`/auth/callback?${new URLSearchParams({ code, state })}`, { headers: { Cookie: pending.split(';')[0] } });
+  const callbackViewer = callbackOrigin === publicOrigin ? {} : { 'x-forrest-beta-host': new URL(callbackOrigin).host };
+  return request(`/auth/callback?${new URLSearchParams({ code, state })}`, { headers: { ...callbackViewer, Cookie: pending.split(';')[0] } });
 }
 
-function sessionCookie(response, redirectPath = '/blocks') {
+function sessionCookie(response, redirectPath = '/blocks', origin = publicOrigin) {
   assert.equal(response.status, 303);
-  assert.equal(response.headers.get('location'), publicOrigin + redirectPath);
+  assert.equal(response.headers.get('location'), origin + redirectPath);
   assert.equal(response.headers.get('cache-control'), 'no-store');
   const cookies = response.headers.getSetCookie();
   assert.ok(cookies.some(cookie => cookie.startsWith('__Host-forrest-beta-login=;') && cookie.includes('Max-Age=0')));
@@ -88,6 +93,11 @@ try {
   assert.equal((await callback({ ...a, expires: Math.floor(Date.now() / 1000) - 60 })).status, 502);
   const aCookie = sessionCookie(await callback(a, { returnTo: '/\\untrusted.example.test' }), '/');
   const bCookie = sessionCookie(await callback(b));
+  const alternateCookie = sessionCookie(await callback(a, { origin: alternateOrigin }), '/blocks', alternateOrigin);
+  const alternateViewer = { 'x-forrest-beta-host': new URL(alternateOrigin).host };
+  assert.equal((await request('/auth/sign-in', { headers: { 'x-forrest-beta-host': 'untrusted.example.test' } })).status, 403);
+  assert.equal((await callback(a, { origin: alternateOrigin, callbackOrigin: publicOrigin })).status, 400);
+  assert.equal((await callback({ ...a, email: 'not-approved@example.test' }, { origin: alternateOrigin })).status, 403);
   assert.equal((await request('/api/blocks', { headers: { Cookie: `${aCookie}tampered` } })).status, 401);
   assert.deepEqual((await (await request('/api/blocks', { headers: { Cookie: bCookie } })).json()).blocks, []);
   const page = await request('/blocks', { headers: { Cookie: aCookie } });
@@ -101,6 +111,11 @@ try {
   const { block } = await created.json();
   assert.equal((await request(`/api/training?blockId=${block.id}`, { headers: { Cookie: aCookie } })).status, 200);
   assert.equal((await request(`/api/training?blockId=${block.id}`, { headers: { Cookie: bCookie } })).status, 404);
+  assert.equal((await request(`/api/training?blockId=${block.id}`, { headers: { ...alternateViewer, Cookie: alternateCookie } })).status, 200);
+  assert.equal((await request('/auth/sign-out', { method: 'POST', headers: { ...alternateViewer, Origin: publicOrigin } })).status, 403);
+  const alternateLogout = await request('/auth/sign-out', { method: 'POST', headers: { ...alternateViewer, Origin: alternateOrigin, Cookie: alternateCookie } });
+  assert.equal(alternateLogout.status, 303);
+  assert.equal(new URL(alternateLogout.headers.get('location')).searchParams.get('logout_uri'), `${alternateOrigin}/`);
 
   assert.equal((await request('/auth/sign-out', { method: 'POST', headers: { Origin: 'https://other.example.test', Cookie: aCookie } })).status, 403);
   const signedOut = await request('/auth/sign-out', { method: 'POST', headers: { Origin: publicOrigin, Cookie: aCookie } });

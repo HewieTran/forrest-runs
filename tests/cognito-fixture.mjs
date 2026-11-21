@@ -9,7 +9,6 @@ const domain = process.env.FORREST_COGNITO_DOMAIN;
 const issuer = process.env.FORREST_COGNITO_ISSUER;
 const client = process.env.FORREST_COGNITO_CLIENT_ID;
 const secret = process.env.FORREST_COGNITO_CLIENT_SECRET;
-const callback = `${process.env.FORREST_BETA_ORIGIN}/auth/callback`;
 const fetchFromNetwork = globalThis.fetch;
 
 globalThis.fetch = async (input, init) => {
@@ -22,7 +21,7 @@ globalThis.fetch = async (input, init) => {
   const auth = Buffer.from(`${client}:${secret}`).toString('base64');
   assert.equal(new Headers(init.headers).get('authorization'), `Basic ${auth}`);
   assert.equal(form.get('grant_type'), 'authorization_code');
-  assert.equal(form.get('redirect_uri'), callback);
+  assert.equal(form.get('redirect_uri'), claim.callback);
   assert.equal(createHash('sha256').update(form.get('code_verifier')).digest('base64url'), claim.challenge);
   const token = await new SignJWT({
     token_use: 'id', nonce: claim.nonce, email: claim.email, name: claim.name,

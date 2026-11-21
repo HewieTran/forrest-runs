@@ -15,6 +15,7 @@ export function isAwsBeta() {
 
 function config() {
   const origin = process.env.FORREST_BETA_ORIGIN;
+  const alternate = process.env.FORREST_BETA_ALTERNATE_ORIGIN;
   const domain = process.env.FORREST_COGNITO_DOMAIN;
   const issuer = process.env.FORREST_COGNITO_ISSUER;
   const clientId = process.env.FORREST_COGNITO_CLIENT_ID;
@@ -26,19 +27,30 @@ function config() {
       !sessionSecret || sessionSecret.length < 32 || !allowedEmails.size) return null;
   try {
     const publicOrigin = new URL(origin);
+    const alternateOrigin = alternate ? new URL(alternate) : null;
     const cognitoDomain = new URL(domain);
     const tokenIssuer = new URL(issuer);
     if (publicOrigin.protocol !== 'https:' || cognitoDomain.protocol !== 'https:' ||
         tokenIssuer.protocol !== 'https:' || tokenIssuer.username || tokenIssuer.password ||
         tokenIssuer.search || tokenIssuer.hash) return null;
+    if (alternateOrigin && (alternateOrigin.protocol !== 'https:' ||
+        (alternate !== alternateOrigin.origin && alternate !== alternateOrigin.origin + '/'))) return null;
     return {
       origin: publicOrigin.origin, domain: cognitoDomain.origin, issuer: tokenIssuer.href.replace(/\/$/, ''),
       clientId, clientSecret, allowedEmails, key: new TextEncoder().encode(sessionSecret),
-      callback: new URL(CALLBACK_PATH, publicOrigin).href,
+      alternateOrigin: alternateOrigin?.origin,
     };
   } catch {
     return null;
   }
+}
+
+function requestOrigin(request: Request, settings: NonNullable<ReturnType<typeof config>>) {
+  // CloudFront overwrites this header using the viewer Host before forwarding.
+  if (!settings.alternateOrigin) return settings.origin;
+  const hostname = request.headers.get('x-forrest-beta-host');
+  if (!hostname) return settings.origin;
+  return [settings.origin, settings.alternateOrigin].find(origin => new URL(origin).host === hostname) ?? null;
 }
 
 function returnPath(value: unknown, origin: string) {
@@ -84,15 +96,17 @@ export function betaSignInPath(returnTo: string) {
 export async function startBetaSignIn(request: Request) {
   const settings = config();
   if (!settings) return signInError('Sign-in is currently unavailable.', 503);
+  const origin = requestOrigin(request, settings);
+  if (!origin) return signInError('This beta address is unavailable.', 403);
   const state = randomBytes(32).toString('base64url');
   const nonce = randomBytes(32).toString('base64url');
   const verifier = randomBytes(32).toString('base64url');
-  const returnTo = returnPath(new URL(request.url).searchParams.get('return_to'), settings.origin);
-  const transaction = await new SignJWT({ state, nonce, verifier, returnTo }).setProtectedHeader({ alg: 'HS256' })
+  const returnTo = returnPath(new URL(request.url).searchParams.get('return_to'), origin);
+  const transaction = await new SignJWT({ state, nonce, verifier, returnTo, origin }).setProtectedHeader({ alg: 'HS256' })
     .setAudience(`login:${settings.clientId}`).setExpirationTime(`${LOGIN_LIFETIME}s`).sign(settings.key);
   const url = new URL('/oauth2/authorize', settings.domain);
   url.search = new URLSearchParams({
-    response_type: 'code', client_id: settings.clientId, redirect_uri: settings.callback,
+    response_type: 'code', client_id: settings.clientId, redirect_uri: new URL(CALLBACK_PATH, origin).href,
     scope: 'openid email profile', identity_provider: 'Google', state, nonce,
     code_challenge_method: 'S256', code_challenge: createHash('sha256').update(verifier).digest('base64url'),
   }).toString();
@@ -113,13 +127,16 @@ function cognitoKeys(issuer: string) {
 export async function finishBetaSignIn(request: Request) {
   const settings = config();
   if (!settings) return signInError('Sign-in is currently unavailable.', 503);
+  const origin = requestOrigin(request, settings);
+  if (!origin) return signInError('This beta address is unavailable.', 403);
   const parameters = new URL(request.url).searchParams;
   const pending = loginCookie(request);
   const { payload: transaction } = pending ? await jwtVerify(pending, settings.key, {
     audience: `login:${settings.clientId}`, algorithms: ['HS256'], requiredClaims: ['exp'],
   }).catch(() => ({ payload: null })) : { payload: null };
   if (typeof transaction?.state !== 'string' || transaction.state !== parameters.get('state') ||
-      typeof transaction.nonce !== 'string' || typeof transaction.verifier !== 'string') {
+      typeof transaction.nonce !== 'string' || typeof transaction.verifier !== 'string' ||
+      (transaction.origin ?? settings.origin) !== origin) {
     return signInError('This sign-in attempt expired. Please try again.', 400);
   }
   const code = parameters.get('code');
@@ -130,7 +147,7 @@ export async function finishBetaSignIn(request: Request) {
     const response = await fetch(new URL('/oauth2/token', settings.domain), {
       method: 'POST', cache: 'no-store', redirect: 'error', signal: AbortSignal.timeout(8000),
       headers: { 'Content-Type': 'application/x-www-form-urlencoded', Authorization: `Basic ${credentials}` },
-      body: new URLSearchParams({ grant_type: 'authorization_code', code, redirect_uri: settings.callback,
+      body: new URLSearchParams({ grant_type: 'authorization_code', code, redirect_uri: new URL(CALLBACK_PATH, origin).href,
         code_verifier: transaction.verifier }),
     });
     if (!response.ok) throw new Error('Cognito token exchange failed');
@@ -153,7 +170,7 @@ export async function finishBetaSignIn(request: Request) {
     const session = await new SignJWT({ email: payload.email, name: typeof payload.name === 'string' ? payload.name : null })
       .setProtectedHeader({ alg: 'HS256' }).setSubject(payload.sub).setIssuer(settings.issuer)
       .setAudience(`session:${settings.clientId}`).setExpirationTime(expires).sign(settings.key);
-    return redirect(new URL(returnPath(transaction.returnTo, settings.origin), settings.origin).href,
+    return redirect(new URL(returnPath(transaction.returnTo, origin), origin).href,
       cookie(LOGIN_COOKIE, '', 0), cookie(BETA_SESSION_COOKIE, session, expires - now));
   } catch {
     return signInError('Google sign-in could not finish. Please try again.', 502);
@@ -177,8 +194,9 @@ export async function getBetaUser(value: string | undefined): Promise<AppUser | 
 
 export async function finishBetaSignOut(request: Request) {
   const settings = config();
-  if (!settings || request.headers.get('origin') !== settings.origin) return new Response('Forbidden.', { status: 403 });
+  const origin = settings && requestOrigin(request, settings);
+  if (!origin || request.headers.get('origin') !== origin) return new Response('Forbidden.', { status: 403 });
   const url = new URL('/logout', settings.domain);
-  url.search = new URLSearchParams({ client_id: settings.clientId, logout_uri: `${settings.origin}/` }).toString();
+  url.search = new URLSearchParams({ client_id: settings.clientId, logout_uri: `${origin}/` }).toString();
   return redirect(url.href, cookie(BETA_SESSION_COOKIE, '', 0), cookie(LOGIN_COOKIE, '', 0));
 }
