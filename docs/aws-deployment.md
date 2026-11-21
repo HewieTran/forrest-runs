@@ -90,6 +90,29 @@ Keep these statuses distinct from code committed or merged.
 
 ## Upgrade and recovery behavior
 
+### Custom beta hostname
+
+Keep the existing CloudFront callback and sign-out URLs in Cognito alongside
+the custom hostname's exact `/auth/callback` and `/` URLs. Keep
+`FORREST_BETA_ORIGIN` set to the original CloudFront origin.
+
+After the compatible app revision is deployed, publish
+`scripts/aws/viewer-host.js` as a CloudFront Function and associate it with
+the beta distribution's app cache behavior on viewer request. Verify the
+behavior still uses CachingDisabled and AllViewerExceptHostHeader. If the
+behavior already has a viewer-request function, review that function before
+combining them. The function overwrites the viewer hostname header and leaves
+the origin Host header selection to CloudFront.
+
+In the protected Lightsail beta environment file, set
+`FORREST_BETA_ALTERNATE_ORIGIN=https://beta.forrestruns.com` and restart
+`forrest-runs-aws-beta.service`. Keep the approved-email list and Cognito pool
+and app client. In separate browser sessions, verify approved-account sign-in
+and sign-out on both URLs, verify an unapproved account is denied, and save and
+reload a synthetic workout through the custom hostname on desktop and phone.
+To roll back authentication routing, remove the alternate origin and restart.
+The original URL remains the default.
+
 - Builds use Node 24.22.1, matching the existing installed Lightsail runtime,
   with the locked pnpm dependencies. Releases use Next standalone output and
   include public artwork, static assets, SQL migrations and runtime dependencies.
