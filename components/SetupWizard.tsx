@@ -14,6 +14,7 @@ import { formatDuration } from '../lib/workout-form';
 import { finishTimeFromParts, finishTimeParts, heightFromParts, heightParts } from '../lib/setup-number-entry';
 import { GENERATION_COOLDOWN_MS } from '../lib/planner-policy';
 import { trainingWindowIssue } from '../lib/training-window';
+import type { PlannerMode } from '../lib/planner-runtime';
 import type { RecentBaseline } from '../lib/recent-baseline';
 
 function fieldsFor(value: IntakeSetup) {
@@ -21,16 +22,17 @@ function fieldsFor(value: IntakeSetup) {
   return { name: value.goal.name, goalKind: String(value.goal.distanceKm ?? ''), targetTime: finishTimeParts(setupTargetTime(value)), startDate: value.goal.startDate, targetDate: value.goal.targetDate,
     age: number(value.runner.age), height: number(value.runner.height), imperialHeight: heightParts(value.units === 'mi' ? value.runner.height : null), weight: number(value.runner.weight), experience: value.runner.experience ?? '',
     benchmarkDistance: value.benchmark?.distance ?? '', benchmarkTime: finishTimeParts(formatDuration(value.benchmark?.durationSeconds ?? null)),
-    benchmarkDate: value.benchmark?.date ?? '', benchmarkEffort: value.benchmark?.effortConfirmed ? 'yes' : '' };
+    benchmarkDate: value.benchmark?.date ?? '' };
 }
 
 type SetupFields = ReturnType<typeof fieldsFor>;
 type TextField = Exclude<keyof SetupFields, 'targetTime' | 'benchmarkTime' | 'imperialHeight'>;
 
-export default function SetupWizard({ initial = null, displayName, today, readOnly = false, preview = false, initialEdit }: {
-  initialEdit?: AssessmentAction; initial?: Plan | null; displayName: string; today: string; readOnly?: boolean; preview?: boolean; recentBaseline?: RecentBaseline | null;
+export default function SetupWizard({ initial = null, displayName, today, readOnly = false, preview = false, initialEdit, mode = 'simulation' }: {
+  initialEdit?: AssessmentAction; mode?: PlannerMode; initial?: Plan | null; displayName: string; today: string; readOnly?: boolean; preview?: boolean; recentBaseline?: RecentBaseline | null;
 }) {
-  const original = simpleSetup(initial?.setup ?? undefined, initial?.raceName, initial?.raceDate, today);
+  const savedSetup = (readOnly ? initial?.generation?.setupSnapshot : null) ?? initial?.setup;
+  const original = simpleSetup(savedSetup ?? undefined, initial?.raceName, initial?.raceDate, today);
   const [block, setBlock] = useState(initial), [fields, setFields] = useState(() => fieldsFor(original));
   const [step, setStep] = useState(initialEdit ? assessmentStep(initialEdit) : original.step), [units, setUnits] = useState(original.units), [days, setDays] = useState(original.availability.days);
   const [saveAction, setSaveAction] = useState<'draft' | 'generation' | null>(null);
@@ -55,6 +57,8 @@ export default function SetupWizard({ initial = null, displayName, today, readOn
   useEffect(() => { if (focusTarget) { document.getElementById(focusTarget)?.focus(); setFocusTarget(''); } }, [focusTarget, step]);
   function editAssessment(action: AssessmentAction) { setStep(assessmentStep(action)); setFocusTarget(ASSESSMENT_FIELDS[action]); setErrors([]); }
   const disabled = saving || readOnly;
+  const sample = mode === 'simulation';
+  const generationAvailable = mode !== 'disabled';
   const windowIssue = readOnly ? null : trainingWindowIssue(fields.startDate, fields.targetDate, today);
   const library = preview ? '/preview?view=blocks' : '/blocks';
   useEffect(() => { if (!dirty) return; const handler = (event: BeforeUnloadEvent) => event.preventDefault(); window.addEventListener('beforeunload', handler); return () => window.removeEventListener('beforeunload', handler); }, [dirty]);
@@ -73,7 +77,7 @@ export default function SetupWizard({ initial = null, displayName, today, readOn
     const timeMessage = 'Enter a time greater than zero and up to 24 hours. Minutes and seconds must be 0–59.';
     if (Number.isNaN(targetSeconds)) issues.push({ step: 0, field: 'targetTime', message: `Target finish time. ${timeMessage}` });
     if (imperialHeightIssue) issues.push({ step: 1, field: 'height', message: imperialHeightIssue });
-    if (Number.isNaN(benchmarkSeconds)) issues.push({ step: 1, field: 'benchmarkTime', message: `Benchmark finish time. ${timeMessage}` });
+    if (Number.isNaN(benchmarkSeconds)) issues.push({ step: 1, field: 'benchmarkTime', message: `Result time. ${timeMessage}` });
     if (!issues.length) return true;
     setErrors(issues);
     setStep(issues[0].step);
@@ -111,16 +115,22 @@ export default function SetupWizard({ initial = null, displayName, today, readOn
     setMessage('Original inputs restored.');
     setFocusTarget('adjustment-title');
   }
-  function collect(): IntakeSetup {
+  function collect(forGeneration = false): IntakeSetup {
     const value = simpleSetup(original);
     const number = (key: TextField) => fields[key].trim() === '' ? null : Number(fields[key]);
     value.step = step; value.units = units;
     value.goal = { ...value.goal, name: fields.name, distanceKm: number('goalKind'), startDate: fields.startDate, targetDate: fields.targetDate, targetDurationSeconds: Number.isNaN(targetSeconds) ? null : targetSeconds };
     const height = units === 'mi' ? imperialInches : number('height');
     value.runner = { ...value.runner, age: number('age'), height: Number.isNaN(height) ? null : height, weight: number('weight'), experience: (fields.experience || null) as IntakeSetup['runner']['experience'] };
-    value.benchmark = { distance: (fields.benchmarkDistance || null) as ResultDistance | null,
-      durationSeconds: Number.isNaN(benchmarkSeconds) ? null : benchmarkSeconds,
-      date: fields.benchmarkDate, effortConfirmed: fields.benchmarkEffort === 'yes' };
+    const distance = (fields.benchmarkDistance || null) as ResultDistance | null;
+    const durationSeconds = Number.isNaN(benchmarkSeconds) ? null : benchmarkSeconds;
+    const date = fields.benchmarkDate;
+    const savedResult = block?.setup?.schemaVersion === 4 ? block.setup.benchmark : null;
+    const matchesSavedResult = savedResult?.effortConfirmed === true &&
+      savedResult.distance === distance && savedResult.durationSeconds === durationSeconds && savedResult.date === date;
+    // The form guides runners to enter a hard effort. Submit that result as such at generation.
+    value.benchmark = { distance, durationSeconds, date,
+      effortConfirmed: Boolean(distance && durationSeconds && date && (forGeneration || matchesSavedResult)) };
     value.availability = { ...value.availability, days, longRunDay: value.availability.longRunDay !== null && days.includes(value.availability.longRunDay) ? value.availability.longRunDay : null,
       dayDurationLimits: Object.fromEntries(Object.entries(value.availability.dayDurationLimits).filter(([day]) => days.includes(Number(day)))) };
     return value;
@@ -150,13 +160,13 @@ export default function SetupWizard({ initial = null, displayName, today, readOn
   function next() {
     if (!checkNumberEntries()) return;
     try {
-      const issues = setupIssues(validateSetup(collect(), today)).filter(issue => issue.step === step);
+      const issues = setupIssues(validateSetup(collect(true), today)).filter(issue => issue.step === step);
       if (issues.length) { setErrors(issues); return; }
       setErrors([]);setStep(current => Math.min(3, current + 1));
     } catch (error) { setErrors([{ step, field: '', message: error instanceof Error ? error.message : 'Check your entries.' }]); }
   }
   async function save(complete: boolean) {
-    if (saving) return;
+    if (saving || readOnly || (complete && !generationAvailable)) return;
     if (complete && windowIssue) {
       setStep(0);
       setFocusTarget(`setup-${windowIssue.field}`);
@@ -169,7 +179,7 @@ export default function SetupWizard({ initial = null, displayName, today, readOn
     setErrors([]);
     let setup: BlockSetup;
     try {
-      setup = validateSetup(collect(), today);
+      setup = validateSetup(collect(complete), today);
       if (!setup.goal.targetDate) { setStep(0); throw new Error('Choose a race date to save a draft.'); }
       const issues = complete ? setupIssues(setup) : [];
       if (issues.length) { setErrors(issues);setStep(issues[0].step);return; }
@@ -180,7 +190,8 @@ export default function SetupWizard({ initial = null, displayName, today, readOn
       if (preview) { setApplied(null);setDirty(false);setMessage(complete ? 'Preview complete. The live app generates and saves your plan from here.' : 'Draft saved in this preview only.');return; }
       let saved = block;
       // A retry after an interrupted save reuses the existing validated result.
-      if (!saved || dirty || !saved.setup || saved.setup.schemaVersion !== 4) {
+      if (!saved || dirty || !saved.setup || saved.setup.schemaVersion !== 4 ||
+          (complete && !saved.setup.benchmark?.effortConfirmed)) {
         const response = await fetch(saved ? `/api/blocks/${encodeURIComponent(saved.id)}/setup` : '/api/blocks', { method: saved ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ setup, version: saved?.version, complete }) });
         const result = await response.json() as { block?: Plan; error?: string; issues?: SetupIssue[] };
         if (!response.ok || !result.block) { if (result.issues) setErrors(result.issues);throw new Error(result.error || 'Your draft could not be saved.'); }
@@ -213,9 +224,16 @@ export default function SetupWizard({ initial = null, displayName, today, readOn
   }
   const snapshot = collect();
   function submit(event: FormEvent) { event.preventDefault();if (step < 3) next();else void save(true); }
+  if (readOnly && initial && savedSetup) {
+    return <div className="app-shell"><AppHeader displayName={displayName} preview={preview} /><main className="main-content setup-main">
+      <a className="block-breadcrumb" href={preview ? '/preview?view=overview' : `/blocks/${encodeURIComponent(initial.id)}`}><ArrowLeft size={15} />Back to block</a>
+      <section className="page-heading setup-heading"><div><h1>Original plan details</h1><p className="blocks-intro">A read-only snapshot of the details saved when you set up this block.</p></div></section>
+      <section className="setup-panel" aria-label="Saved plan details"><SetupReview setup={savedSetup} /></section>
+    </main></div>;
+  }
   return <div className="app-shell"><AppHeader displayName={displayName} preview={preview} /><main className="main-content setup-main">
     <a className="block-breadcrumb" href={library}><ArrowLeft size={15} />Training blocks</a>
-    <section className="page-heading setup-heading"><div><h1>{readOnly ? 'Starting setup' : block ? 'Continue your setup' : 'Create a training block'}</h1><p className="blocks-intro">Your race goal, running experience and training days.</p></div><span className="block-status block-status-draft">{readOnly ? 'Saved snapshot' : 'Draft'}</span></section>
+    <section className="page-heading setup-heading"><div><h1>{block ? 'Continue your setup' : 'Create a training block'}</h1><p className="blocks-intro">Your race goal, running experience and training days.</p></div><span className="block-status block-status-draft">Draft</span></section>
     {preview && <p className="preview-notice">Example preview. No personal data or paid generation calls.</p>}
     <nav className="setup-stepper" aria-label="Setup steps">{SETUP_STEPS.map((name, index) => <button type="button" key={name} disabled={saving} aria-current={step === index ? 'step' : undefined} onClick={() => { setStep(index);setErrors([]); }}><span>{index + 1}</span>{name}</button>)}</nav>
     <div className="setup-layout"><form className="setup-panel" onSubmit={submit} noValidate>
@@ -234,38 +252,37 @@ export default function SetupWizard({ initial = null, displayName, today, readOn
         </select>
         <small id="race-distance-feedback" className={issueFor('goalKind') ? 'setup-field-error' : undefined}>{issueFor('goalKind')}</small>
       </label><FinishTimeField id="setup-targetTime" label="Target finish time" parts={fields.targetTime} error={issueFor('targetTime')} onChange={parts => update('targetTime', parts)} />{input('startDate', 'Training start date', 'date', true, 'Generated plans span 2 to 26 weeks.')}{input('targetDate', 'Race date', 'date')}{input('name', 'Block name', 'text', false, 'Leave blank for a suggested name.')}</div></>}
-      {step === 1 && <><h2>About you</h2><p className="setup-description">Choose your running experience and add your measurements.</p><div className="setup-fields"><label><span className="setup-field-title">Running experience<span className="setup-required"> Required</span></span><select aria-label="Running experience" value={fields.experience} onChange={event => update('experience', event.target.value)} aria-invalid={errors.some(issue => issue.field === 'experience')}><option value="">Choose experience</option><option value="novice">Novice</option><option value="intermediate">Intermediate</option><option value="advanced">Advanced</option></select></label>{input('age', 'Age (years)', 'number')}{input('weight', `Weight (${units === 'mi' ? 'lb' : 'kg'})`, 'number')}{units === 'mi'
+      {step === 1 && <><h2>About you</h2><p className="setup-description">Age helps check that you’re 18 or older. Height and weight are saved with your setup and included as context when a personalized plan is generated.</p><div className="setup-fields"><label><span className="setup-field-title">Running experience<span className="setup-required"> Required</span></span><select aria-label="Running experience" value={fields.experience} onChange={event => update('experience', event.target.value)} aria-invalid={errors.some(issue => issue.field === 'experience')}><option value="">Choose experience</option><option value="novice">Novice</option><option value="intermediate">Intermediate</option><option value="advanced">Advanced</option></select></label>{input('age', 'Age (years)', 'number')}{input('weight', `Weight (${units === 'mi' ? 'lb' : 'kg'})`, 'number')}{units === 'mi'
         ? <ImperialHeightField id="setup-height" label="Height" parts={fields.imperialHeight} error={issueFor('height')} onChange={parts => update('imperialHeight', parts)} />
         : input('height', 'Height (cm)', 'number')}</div>
         <section className="setup-benchmark" aria-labelledby="benchmark-heading">
-          <h3 id="benchmark-heading">Performance benchmark</h3>
-          <p className="setup-description text-balance">Enter a recent race or best-effort time trial result.</p>
+          <h3 id="benchmark-heading">Recent race or hard run</h3>
+          <p className="setup-description text-balance">Pick a recent race or a run where you pushed hard over a known distance. Your result helps estimate workout paces.</p>
           <div className="setup-fields">
             <label htmlFor="setup-benchmarkDistance"><span className="setup-field-title">Result distance<span className="setup-required"> Required</span></span>
               <select id="setup-benchmarkDistance" value={fields.benchmarkDistance} onChange={event => update('benchmarkDistance', event.target.value)} aria-required="true" aria-invalid={!!issueFor('benchmarkDistance')} aria-describedby="benchmark-distance-feedback">
                 <option value="">Choose a distance</option>{RESULT_DISTANCES.map(key => <option key={key} value={key}>{RESULT_LABELS[key]}</option>)}
               </select><small id="benchmark-distance-feedback" className={issueFor('benchmarkDistance') ? 'setup-field-error' : undefined}>{issueFor('benchmarkDistance')}</small>
             </label>
-            {input('benchmarkDate', 'Date achieved', 'date', true, fields.benchmarkDate && validDate(fields.benchmarkDate) && fields.benchmarkDate <= today ? `${dateDiff(today, fields.benchmarkDate)} days before today. The planner considers how representative this result is.` : undefined)}
-            <FinishTimeField id="setup-benchmarkTime" label="Benchmark finish time" parts={fields.benchmarkTime} error={issueFor('benchmarkTime')} onChange={parts => update('benchmarkTime', parts)} />
+            {input('benchmarkDate', 'Date of run', 'date', true, fields.benchmarkDate && validDate(fields.benchmarkDate) && fields.benchmarkDate <= today ? `${dateDiff(today, fields.benchmarkDate)} days before today. The planner considers how representative this result is.` : undefined)}
+            <FinishTimeField id="setup-benchmarkTime" label="Result time" parts={fields.benchmarkTime} error={issueFor('benchmarkTime')} onChange={parts => update('benchmarkTime', parts)} />
           </div>
-          <label className="setup-check" htmlFor="setup-benchmarkEffort"><input id="setup-benchmarkEffort" type="checkbox" checked={fields.benchmarkEffort === 'yes'} onChange={event => update('benchmarkEffort', event.target.checked ? 'yes' : '')} aria-required="true" aria-invalid={!!issueFor('benchmarkEffort')} aria-describedby="benchmark-effort-feedback" />I confirm this was a race or best-effort time trial.</label>
-          <small id="benchmark-effort-feedback" className={issueFor('benchmarkEffort') ? 'setup-field-error' : undefined}>{issueFor('benchmarkEffort') || 'Required before generation. You can save a draft without completing this section.'}</small>
+          <p className="setup-footnote">You can save a draft and add your result later.</p>
         </section>
       </>}
       {step === 2 && <><h2>Choose your training days</h2><p className="setup-description">Select the days you want a running workout. Race day is included even if it falls on another weekday.</p><div id="setup-trainingDays" tabIndex={-1} className="setup-days" role="group" aria-label="Selected training days">{DAY_NAMES.map((name, day) => <button type="button" key={name} aria-pressed={days.includes(day)} onClick={() => { setApplied(null);setClarification(null);setDays(current => current.includes(day) ? current.filter(value => value !== day) : [...current, day].sort());setDirty(true);setErrors([]); }}>{name.slice(0,3)}<span>{days.includes(day) ? 'Run' : '—'}</span></button>)}</div></>}
-      {step === 3 && <><h2 id="setup-review-title" tabIndex={-1}>Your plan details</h2><SetupReview setup={readOnly && initial?.setup ? initial.setup : snapshot} />{windowIssue && <div className="setup-errors" role="status"><p>{windowIssue.message}</p><button className="button" type="button" onClick={() => { setStep(0); setFocusTarget(`setup-${windowIssue.field}`); }}>Edit training dates</button></div>}<p className="setup-footnote">Your benchmark informs estimated paces; your target finish time remains a goal. Your plan saves automatically. Next, choose Start this block to make it your current plan, or keep it for later.</p></>}
+      {step === 3 && <><h2 id="setup-review-title" tabIndex={-1}>Your plan details</h2><SetupReview setup={snapshot} />{windowIssue && <div className="setup-errors" role="status"><p>{windowIssue.message}</p><button className="button" type="button" onClick={() => { setStep(0); setFocusTarget(`setup-${windowIssue.field}`); }}>Edit training dates</button></div>}<p className="setup-footnote">{sample ? 'Generate a sample to explore the schedule and see how workouts are laid out. The sample saves automatically for you to revisit.' : generationAvailable ? 'Your recent result helps estimate workout paces. Your plan saves automatically so you can review it before you start.' : 'Plan generation is currently unavailable. Save your draft to return to it later.'}</p></>}
       </fieldset>
       {step === 3 && waitingToRetry && !clarification && <p className="setup-footnote" role="status">You can generate again one minute after your last request.</p>}
       <div className="setup-form-actions">
         <button className="button" type="button" disabled={saving || step === 0} onClick={() => { setStep(current => current - 1);setErrors([]); }}><ArrowLeft size={15} />Back</button>
         <div>
-          {!readOnly && <button className="button" type="button" disabled={saving} onClick={() => void save(false)}>
+          <button className="button" type="button" disabled={saving} onClick={() => void save(false)}>
             <Save size={15} />{saveAction === 'draft' ? 'Saving draft…' : 'Save draft'}
-          </button>}
-          {step < 3 ? <button className="button primary" type={readOnly ? 'button' : 'submit'} disabled={saving} onClick={readOnly ? () => setStep(current => current + 1) : undefined}>Continue<ArrowRight size={15} /></button>
-            : !readOnly && <button className="button primary" type="submit" disabled={saving || waitingToRetry || !!clarification || !!windowIssue}>
-              {saveAction === 'generation' ? 'Generating and saving…' : 'Generate plan'}
+          </button>
+          {step < 3 ? <button className="button primary" type="submit" disabled={saving}>Continue<ArrowRight size={15} /></button>
+            : generationAvailable && <button className="button primary" type="submit" disabled={saving || waitingToRetry || !!clarification || !!windowIssue}>
+              {saveAction === 'generation' ? 'Generating and saving…' : sample ? 'Generate sample plan' : 'Generate plan'}
             </button>}
         </div>
       </div>
@@ -279,5 +296,5 @@ export function SetupReview({ setup }: { setup: BlockSetup }) {
   const imperialHeight = heightParts(value.runner.height);
   const height = value.units === 'mi' && value.runner.height !== null
     ? `${imperialHeight[0]} ft ${imperialHeight[1]} in` : display(value.runner.height, 'cm');
-  return <dl className="setup-review"><div><dt>Goal</dt><dd>{value.goal.name || suggestedBlockName(value)} · {raceDistanceLabel(value.goal.distanceKm)} · {setupTargetTime(value) || 'Target time not set'}</dd></div><div><dt>Training window</dt><dd>{value.goal.startDate || 'Not set'} → {value.goal.targetDate || 'Not set'}</dd></div><div><dt>Runner</dt><dd>{value.runner.experience || 'Experience not provided'} · {display(value.runner.age, 'years')} · {display(value.runner.weight, value.units === 'mi' ? 'lb' : 'kg')} · {height}</dd></div>{setup.schemaVersion === 4 && <div><dt>Benchmark</dt><dd>{benchmark?.distance ? RESULT_LABELS[benchmark.distance] : 'Distance not set'} · {formatDuration(benchmark?.durationSeconds ?? null) || 'Time not set'} · {benchmark?.date || 'Date not set'} · {benchmark?.effortConfirmed ? 'Race or best-effort time trial confirmed' : 'Effort not confirmed'}</dd></div>}<div><dt>Training days</dt><dd>{value.availability.days.map(day => DAY_NAMES[day]).join(', ') || 'Not selected'}</dd></div><div><dt>Workout pace</dt><dd>{setup.schemaVersion === 4 ? 'Benchmark-informed estimates' : setup.schemaVersion === 3 ? 'Estimated numeric pace' : 'Original guidance preserved in the saved snapshot'}</dd></div></dl>;
+  return <dl className="setup-review"><div><dt>Goal</dt><dd>{value.goal.name || suggestedBlockName(value)} · {raceDistanceLabel(value.goal.distanceKm)} · {setupTargetTime(value) || 'Target time not set'}</dd></div><div><dt>Training window</dt><dd>{value.goal.startDate || 'Not set'} → {value.goal.targetDate || 'Not set'}</dd></div><div><dt>Runner</dt><dd>{value.runner.experience || 'Experience not provided'} · {display(value.runner.age, 'years')} · {display(value.runner.weight, value.units === 'mi' ? 'lb' : 'kg')} · {height}</dd></div>{setup.schemaVersion === 4 && <div><dt>Recent race or hard run</dt><dd>{benchmark?.distance ? RESULT_LABELS[benchmark.distance] : 'Distance not set'} · {formatDuration(benchmark?.durationSeconds ?? null) || 'Time not set'} · {benchmark?.date || 'Date not set'}</dd></div>}<div><dt>Training days</dt><dd>{value.availability.days.map(day => DAY_NAMES[day]).join(', ') || 'Not selected'}</dd></div><div><dt>Workout pace</dt><dd>{setup.schemaVersion === 4 ? 'Estimates based on your recent result' : setup.schemaVersion === 3 ? 'Estimated numeric pace' : 'Original guidance preserved in the saved snapshot'}</dd></div></dl>;
 }

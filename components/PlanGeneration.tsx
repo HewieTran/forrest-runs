@@ -41,10 +41,10 @@ export default function PlanGeneration({ initial, displayName, configured, mode,
   return <><AppHeader displayName={displayName} /><main className="main-content plan-generation">
     <a className="text-link" href={accepted ? base : '/blocks'}>← {accepted ? 'Back to this block' : 'Training blocks'}</a>
     <section className="page-heading"><h1>{simulation ? `Try a simulated ${race} plan` : accepted ? 'Original training plan' : `Build your ${race} plan`}</h1><p className="blocks-intro">{block.raceName} · {formatDate(block.raceDate, { month: 'long', day: 'numeric', year: 'numeric' })}</p></section>
-    {simulation && <p className="block-callout" role="status"><strong>SIMULATION · No AI calls or API charges.</strong> This example uses your dates, selected days and experience to demonstrate numeric targets. It is not a personalized training recommendation. You can save it as a demonstration draft; it cannot become your active training block.</p>}
-    <details className="plan-intake"><summary>{accepted ? 'Starting intake' : 'Review saved intake'}</summary>{block.setup && <SetupReview setup={generation?.setupSnapshot ?? block.setup} />}</details>
+    {simulation && <p className="block-callout" role="status"><strong>SIMULATION · No AI calls or API charges.</strong> This example uses your dates, selected days and experience to demonstrate numeric targets. It is not a personalized training recommendation. Generate a sample to explore the schedule. It saves automatically for you to revisit.</p>}
+    <details className="plan-intake"><summary>{accepted ? 'Original plan details' : 'Review saved intake'}</summary>{block.setup && <SetupReview setup={generation?.setupSnapshot ?? block.setup} />}</details>
     {raceExtra && <p className="block-callout">Race day is {DAY_NAMES[raceDay]}, outside your selected running days. The plan includes the race on that date; the race stays on its actual date.</p>}
-    {!accepted && !simulation && <p className="setup-footnote">Generate with OpenAI sends this block’s confirmed benchmark, runner details, race goal and selected training days to OpenAI. It does not include your name, email, other blocks or raw run history. The validated schedule is saved directly to your block. Training suitability and goal achievement are not guaranteed.</p>}
+    {!accepted && !simulation && <p className="setup-footnote">Generate with OpenAI sends this block’s recent race or hard run result, runner details, race goal and selected training days to OpenAI. It does not include your name, email, other blocks or raw run history. The validated schedule is saved directly to your block. Training suitability and goal achievement are not guaranteed.</p>}
     {!configured && editable && <p className="block-callout">Plan generation isn’t connected yet. Your intake is saved.</p>}
     {staleDate && editable && <p className="block-callout">The start date is in the past. Update your intake before generating a plan.</p>}
     {(error || generation?.error) && <p role="alert" className="form-error">{displayGenerationError(error || generation?.error || '')}</p>}
@@ -72,7 +72,7 @@ export default function PlanGeneration({ initial, displayName, configured, mode,
     </section>}
     <div className="setup-form-actions">
       {editable && <a className="button" aria-disabled={busy} href={busy ? undefined : `${base}/setup`}>Edit intake</a>}
-      <div>{editable && <button className="button primary" disabled={busy || inFlight || output?.outcome === 'needs_clarification' || (cooldown > 0 && generation?.status !== 'review') || !configured || staleDate} onClick={() => void generate()}>{generation?.status === 'review' ? 'Finish saving plan' : 'Generate plan'}</button>}</div>
+      <div>{editable && <button className="button primary" disabled={busy || inFlight || output?.outcome === 'needs_clarification' || (cooldown > 0 && generation?.status !== 'review') || !configured || staleDate} onClick={() => void generate()}>{generation?.status === 'review' ? 'Finish saving plan' : simulation ? 'Generate sample plan' : 'Generate plan'}</button>}</div>
     </div>
     {generation && <p className="setup-footnote">Generated {new Date(generation.startedAt).toLocaleString()} · {generation.model} · {generation.promptVersion} / {generation.validatorVersion}</p>}
   </main></>;

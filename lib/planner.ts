@@ -44,7 +44,7 @@ export type ScheduleDay = { date: string; kind: 'run' | 'race' | 'rest'; limitSe
 
 // Scope gates, not a medical or training-readiness assessment.
 export function preparePlanner(setup: BlockSetup, today: string): PlannerIntake {
-  if (setup.schemaVersion !== 4) throw new Error('Open your Runner setup and add a confirmed performance benchmark before generating a new plan.');
+  if (setup.schemaVersion !== 4) throw new Error('Open your Runner setup and add a recent race or hard run result before generating a new plan.');
   const input = plannerIntake(validateSetup(setup, today));
   const windowIssue = trainingWindowIssue(input.goal.startDate, input.goal.raceDate, today);
   if (windowIssue) throw new Error(windowIssue.message);

@@ -178,13 +178,13 @@ export function validateSetup(value: unknown, today?: string): BlockSetup {
   }
   if (input.schemaVersion === 4) {
     const benchmark = record(input.benchmark);
-    if (benchmark.distance !== null && !RESULT_DISTANCES.includes(benchmark.distance as ResultDistance)) throw new Error('Choose 5K, 10K, half marathon or full marathon for the benchmark distance.');
+    if (benchmark.distance !== null && !RESULT_DISTANCES.includes(benchmark.distance as ResultDistance)) throw new Error('Choose 5K, 10K, half marathon or full marathon for your recent result.');
     if (typeof benchmark.effortConfirmed !== 'boolean') throw new Error('Confirm whether this was a race or best-effort time trial.');
-    const duration = numeric(benchmark.durationSeconds, 'benchmark finish time', false, true);
-    if (duration !== null && duration > 86400) throw new Error('Benchmark finish time cannot exceed 24 hours.');
+    const duration = numeric(benchmark.durationSeconds, 'result time', false, true);
+    if (duration !== null && duration > 86400) throw new Error('Result time cannot exceed 24 hours.');
     updated.benchmark = {
       distance: benchmark.distance as ResultDistance | null, durationSeconds: duration,
-      date: date(benchmark.date, 'benchmark date', today), effortConfirmed: benchmark.effortConfirmed,
+      date: date(benchmark.date, 'date of run', today), effortConfirmed: benchmark.effortConfirmed,
     };
   }
   // Name is a convenience, not another mandatory question. Do not change legacy names.
@@ -211,10 +211,10 @@ export function setupIssues(setup: BlockSetup): SetupIssue[] {
     need(value.runner.height === null, 1, 'height', 'Add your height.');
     need(value.runner.weight === null, 1, 'weight', 'Add your weight.');
     if (value.schemaVersion === 4) {
-      need(!value.benchmark?.distance, 1, 'benchmarkDistance', 'Choose a benchmark distance.');
-      need(value.benchmark?.durationSeconds == null, 1, 'benchmarkTime', 'Add your benchmark finish time.');
-      need(!value.benchmark?.date, 1, 'benchmarkDate', 'Add the date you achieved this result.');
-      need(value.benchmark?.effortConfirmed !== true, 1, 'benchmarkEffort', 'Confirm this result was a race or best-effort time trial.');
+      need(!value.benchmark?.distance, 1, 'benchmarkDistance', 'Choose the distance you ran.');
+      need(value.benchmark?.durationSeconds == null, 1, 'benchmarkTime', 'Add your result time.');
+      need(!value.benchmark?.date, 1, 'benchmarkDate', 'Add the date of your run.');
+      need(value.benchmark?.effortConfirmed !== true, 1, 'benchmarkEffort', 'Use a recent race or hard run from Runner setup.');
     }
     need(value.availability.days.length === 0, 2, 'days', 'Choose the days you want scheduled.');
     return issues;

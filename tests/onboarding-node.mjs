@@ -81,7 +81,16 @@ try {
   const generation = await call(a, '/api/blocks/' + guided.id + '/generation', 'POST', { version: guided.version, consent: true, saveImmediately: true });
   assert.equal(generation.status, 200); assert.equal(generation.data.block.generation.provider, 'simulation');
   assert.equal((await call(a, '/api/blocks/' + guided.id, 'PATCH', { status: 'active', version: generation.data.block.version })).status, 409);
-  const simulation = await html(a, '/blocks/' + guided.id); assert.match(simulation.text, /cannot be activated/); assert.doesNotMatch(simulation.text, /Your training block is ready/);
+  const samplePath = '/blocks/' + guided.id;
+  const simulation = await html(a, samplePath);
+  assert.match(simulation.text, /Sample plan/);
+  assert.match(simulation.text, new RegExp(`href="${samplePath}/schedule">View sample schedule`));
+  assert.doesNotMatch(simulation.text, /Your training block is ready|Start this block/);
+  assert.match((await html(a, samplePath + '/schedule')).text, /Back to sample plan/);
+  const snapshot = await html(a, samplePath + '/setup');
+  assert.match(snapshot.text, /Original plan details/);
+  assert.match(snapshot.text, /read-only snapshot/);
+  assert.doesNotMatch(snapshot.text, /Save draft|Generate sample plan/);
   assert.ok((await call(a, '/api/training?blockId=' + guided.id)).data.workouts.length > 0);
   assert.deepEqual((await call(b, '/api/blocks')).data.blocks, []); selected((await html(b)).text, 'All blocks');
   console.log('PASS: native onboarding Home states, explicit filters/search, saved ready overview/Keep, activation before future workout without data changes, Home return, account isolation, active/stale conflicts, historical return, and saved unstartable simulation.');
