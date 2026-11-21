@@ -19,11 +19,12 @@ export default function TodayWorkout({ data, featured, savedRunId, saving, perio
 }) {
   const copyRef = useRef<HTMLDivElement>(null);
   const artRef = useRef<HTMLImageElement>(null);
-  const pendingMotion = useRef<{ direction: number; outgoing: HTMLElement; height: number } | null>(null);
+  const pendingMotion = useRef<{ direction: number; outgoing: HTMLElement; artwork: HTMLElement | null; height: number } | null>(null);
   const cleanupMotion = useRef<() => void>(() => {});
   function browse(id: string | null, direction: number) {
     cleanupMotion.current();
     pendingMotion.current?.outgoing.remove();
+    pendingMotion.current?.artwork?.remove();
     pendingMotion.current = null;
     const copy = copyRef.current;
     const targetId = id ?? todayWorkout(data.workouts, data.today)?.id;
@@ -34,7 +35,16 @@ export default function TodayWorkout({ data, featured, savedRunId, saving, perio
       outgoing.inert = true;
       outgoing.style.cssText = `position:absolute;top:${copy.offsetTop}px;left:${copy.offsetLeft}px;width:${copy.offsetWidth}px;pointer-events:none;`;
       copy.parentElement!.appendChild(outgoing);
-      pendingMotion.current = { direction, outgoing, height: copy.parentElement!.offsetHeight };
+      const art = artRef.current;
+      const artwork = art ? art.cloneNode(true) as HTMLElement : null;
+      if (artwork && art) {
+        artwork.style.cssText = `position:absolute;top:${art.offsetTop}px;left:${art.offsetLeft}px;width:${art.offsetWidth}px;height:${art.offsetHeight}px;pointer-events:none;`;
+        copy.parentElement!.appendChild(artwork);
+      }
+      pendingMotion.current = { direction, outgoing, artwork, height: copy.parentElement!.offsetHeight };
+      // Also clean up if a navigation guard declines the requested selection.
+      const fallback = window.setTimeout(() => { outgoing.remove(); artwork?.remove(); }, 300);
+      cleanupMotion.current = () => { window.clearTimeout(fallback); outgoing.remove(); artwork?.remove(); };
     }
     onSelectWorkout(id);
   }
@@ -43,19 +53,21 @@ export default function TodayWorkout({ data, featured, savedRunId, saving, perio
     pendingMotion.current = null;
     if (!motion || !copyRef.current) return;
     const copy = copyRef.current, card = copy.parentElement!;
-    card.style.minHeight = `${motion.height}px`;
+    const targetHeight = card.offsetHeight;
     const options = { duration: 220, easing: 'cubic-bezier(.2,.7,.3,1)' };
     const animations = [
+      card.animate([{ height: `${motion.height}px` }, { height: `${targetHeight}px` }], options),
       motion.outgoing.animate([{ opacity: 1, transform: 'translateX(0)' }, { opacity: 0, transform: `translateX(${-motion.direction * 16}px)` }], options),
       copy.animate([{ opacity: 0, transform: `translateX(${motion.direction * 16}px)` }, { opacity: 1, transform: 'translateX(0)' }], options),
     ];
-    if (artRef.current) animations.push(artRef.current.animate([{ opacity: .65 }, { opacity: 1 }], options));
-    const cleanup = () => { animations.forEach(animation => animation.cancel()); motion.outgoing.remove(); card.style.minHeight = ''; };
+    if (artRef.current) animations.push(artRef.current.animate([{ opacity: 0 }, { opacity: 1 }], options));
+    if (motion.artwork) animations.push(motion.artwork.animate([{ opacity: 1 }, { opacity: 0 }], options));
+    const cleanup = () => { animations.forEach(animation => animation.cancel()); motion.outgoing.remove(); motion.artwork?.remove(); };
     cleanupMotion.current = cleanup;
     void Promise.all(animations.map(animation => animation.finished)).then(cleanup, () => {});
     return cleanup;
   }, [featured?.id]);
-  useEffect(() => () => { cleanupMotion.current(); pendingMotion.current?.outgoing.remove(); }, []);
+  useEffect(() => () => { cleanupMotion.current(); pendingMotion.current?.outgoing.remove(); pendingMotion.current?.artwork?.remove(); }, []);
   const date = featured?.date ?? data.today;
   const isToday = date === data.today;
   const restDay = !featured && data.restDays.some(day => day.date === date);
