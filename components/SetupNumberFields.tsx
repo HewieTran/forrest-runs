@@ -3,6 +3,7 @@ import type { ClipboardEvent } from 'react';
 import { durationSeconds } from '../lib/setup';
 import { finishTimeParts, type FinishTimeParts, type HeightParts } from '../lib/setup-number-entry';
 import { formatDuration } from '../lib/workout-form';
+import TimePartsInput from './TimePartsInput';
 
 type GroupProps = { id: string; label: string; error?: string };
 
@@ -19,19 +20,7 @@ export function FinishTimeField({ id, label, error, parts, onChange }: GroupProp
   }
   return <fieldset className="setup-number-field setup-span-two" onPaste={pasteTime}>
     <legend>{label}<span className="setup-required"> Required</span></legend>
-    <div className="setup-number-parts setup-time-parts">
-      {(['Hours', 'Minutes', 'Seconds'] as const).map((part, index) => (
-        <label key={part}>{part}
-          <input id={index === 1 ? id : `${id}-${part.toLowerCase()}`} type="text" inputMode="numeric"
-            value={parts[index]} aria-invalid={!!error} aria-describedby={feedbackId}
-            onChange={event => {
-              const next: FinishTimeParts = [...parts];
-              next[index] = event.target.value.trim();
-              onChange(next);
-            }} />
-        </label>
-      ))}
-    </div>
+    <TimePartsInput id={id} label={label} parts={parts.map(part => part === '' ? '' : String(Number(part)))} maxHours={24} invalid={!!error} describedBy={feedbackId} onChange={parts => onChange(parts as FinishTimeParts)} />
     <small id={feedbackId} className={error ? 'setup-field-error' : undefined}>
       {error || 'Leave any unused box blank.'}
     </small>

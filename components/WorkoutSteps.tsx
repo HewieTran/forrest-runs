@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import TimePartsInput from './TimePartsInput';
+import { workoutTimeText } from '../lib/workout-form';
 import { formatDuration, formatPace, parseInput, type DistanceUnit } from '../lib/workout-form';
 import { editWorkoutStep, readableDuration, stepPace, type WorkoutStructure } from '../lib/workout-structure';
 
@@ -31,7 +33,7 @@ export default function WorkoutSteps({ structure, unit, onChange, onValidity }: 
       const invalidPace = editablePace && parseInput(values[index].pace, 'pace', unit) === null;
       return <li key={index} className="workout-step-row">
         <div className="step-name"><span className="step-number" aria-hidden="true">{index + 1}</span><div><strong>{step.label}</strong><small>{step.effort === 'race' ? 'Race effort' : `${step.effort[0].toUpperCase()}${step.effort.slice(1)} effort`}</small></div></div>
-        {editing ? <label className="step-value"><span>Duration · h:mm:ss</span><input aria-label={`Step ${index + 1} duration`} inputMode="numeric" value={values[index].duration} maxLength={12} aria-invalid={invalidDuration} onChange={event => edit(index, 'duration', event.target.value)} />{invalidDuration && <small className="is-error">Use h:mm:ss, greater than zero, up to 24:00:00.</small>}</label>
+        {editing ? <div className="step-value"><span>Duration</span><TimePartsInput id={`step-duration-${index}`} label={`Step ${index + 1} duration`} maxHours={24} parts={values[index].duration ? values[index].duration.split(':').map(n => n === '' ? '' : String(Number(n))) : ['', '', '']} invalid={invalidDuration} onChange={parts => edit(index, 'duration', workoutTimeText(parts))} />{invalidDuration && <small className="is-error">Choose a duration greater than zero, up to 24 hours.</small>}</div>
           : <div className="step-value"><span>Duration</span><strong>{readableDuration(step.durationSeconds)}</strong></div>}
         {editing && editablePace ? <label className="step-value"><span>Pace · /{unit}</span><input aria-label={`Step ${index + 1} pace /${unit}`} inputMode="numeric" value={values[index].pace} maxLength={8} aria-invalid={invalidPace} onChange={event => edit(index, 'pace', event.target.value)} />{invalidPace && <small className="is-error">Use mm:ss, greater than zero.</small>}</label>
           : <div className="step-value"><span>Pace</span><strong>{stepPace(step, unit)}</strong>{editing && step.kind === 'race' && <small>Calculated from race distance</small>}</div>}

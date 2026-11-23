@@ -7,12 +7,15 @@ import { calendarIndex } from '../lib/progress';
 import { monthDates, scheduleTarget, shiftMonth, shortWorkoutTitle } from '../lib/workout-schedule';
 import { formatWorkoutTitle } from './TodayWorkout';
 import './workout-schedule.css';
+import { useBlockUnits } from './BlockUnits';
 
 export default function WorkoutSchedule({ data, date, month, canEdit, disabled, onDate, onMonth, onOpen, onAdd, onOpenWorkout, onAddDate, onSelectDate }: {
   data: AppData; date: string; month: string; canEdit: boolean; disabled: boolean;
   onDate: (date: string) => void; onMonth: (month: string) => void; onOpen: (date: string) => void;
   onAdd: () => void; onOpenWorkout: (id: string) => void; onAddDate: (date: string) => void; onSelectDate: (date: string) => void;
 }) {
+  const { unit } = useBlockUnits();
+  const target = (row: Parameters<typeof scheduleTarget>[0]) => scheduleTarget(row, unit);
   const index = calendarIndex({ ...data, workouts: orderedWorkouts(data.workouts) });
   const rows = index.workouts.get(date) ?? [], isRest = index.rest.has(date);
   const previous = shiftMonth(month, -1), next = shiftMonth(month, 1);
@@ -34,7 +37,7 @@ export default function WorkoutSchedule({ data, date, month, canEdit, disabled, 
       <div className="schedule-weekdays" aria-hidden="true">{['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => <span key={day}>{day}</span>)}</div>
       <div className="schedule-days">{monthDates(month).map(day => {
         const workouts = index.workouts.get(day) ?? [], rest = index.rest.has(day), today = day === data.today;
-        const summary = rest ? 'Rest day' : workouts.length ? workouts.map(row => `${formatWorkoutTitle(row.type)}, ${scheduleTarget(row)}, ${row.done ? 'completed' : 'scheduled'}`).join('; ') : 'No workout scheduled';
+        const summary = rest ? 'Rest day' : workouts.length ? workouts.map(row => `${formatWorkoutTitle(row.type)}, ${target(row)}, ${row.done ? 'completed' : 'scheduled'}`).join('; ') : 'No workout scheduled';
         const unavailable = disabled || !validDate(day);
         return <div key={day} className={`schedule-day${day.slice(0, 7) !== month.slice(0, 7) ? ' outside-month' : ''}${day === date ? ' selected' : ''}${today ? ' today' : ''}${unavailable ? ' unavailable' : ''}`}
           onClick={() => { if (!unavailable) onSelectDate(day); }} onDoubleClick={() => {
@@ -47,11 +50,11 @@ export default function WorkoutSchedule({ data, date, month, canEdit, disabled, 
             onClick={event => { event.stopPropagation(); onSelectDate(day); }}><span>{Number(day.slice(-2))}</span>{today && <small>Today</small>}</button>
           {rest && <span className="schedule-rest">Rest</span>}
           {workouts.slice(0, 2).map(row => <button type="button" className={`schedule-session${row.done ? ' completed' : ''}`} key={row.id} disabled={unavailable}
-            aria-label={`Select ${formatWorkoutTitle(row.type)}, ${scheduleTarget(row)}, ${row.done ? 'completed' : 'scheduled'}, ${day}`}
+            aria-label={`Select ${formatWorkoutTitle(row.type)}, ${target(row)}, ${row.done ? 'completed' : 'scheduled'}, ${day}`}
             onClick={event => { event.stopPropagation(); onSelectDate(day); }}
             onDoubleClick={event => { event.stopPropagation(); if (canEdit && window.matchMedia('(pointer: fine)').matches) onOpenWorkout(row.id); }}>
             <span className="schedule-session-title">{row.done && <Check size={12} aria-hidden="true" />}<span className="schedule-full-title">{formatWorkoutTitle(row.type)}</span><span className="schedule-short-title">{shortWorkoutTitle(row)}</span></span>
-            <span className="schedule-session-target">{scheduleTarget(row)}</span></button>)}
+            <span className="schedule-session-target">{target(row)}</span></button>)}
           {workouts.length > 2 && <span className="schedule-overflow">+{workouts.length - 2} more</span>}
         </div>;
       })}</div>
@@ -60,7 +63,7 @@ export default function WorkoutSchedule({ data, date, month, canEdit, disabled, 
     <section className="schedule-selected-day" aria-labelledby="schedule-selected-title"><div><h2 id="schedule-selected-title">{formatDate(date, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</h2>
       <p>{date === data.today ? 'Today · Selected date' : 'Selected date'}</p></div><div className="schedule-selected-list">
         {isRest ? <div className="schedule-selected-row"><div><h3>Rest day</h3><p>A little recovery goes a long way.</p></div><button className="button" onClick={() => onOpen(date)}>View rest day</button></div>
-          : rows.length ? rows.map(row => <div className="schedule-selected-row" key={row.id}><div><h3>{formatWorkoutTitle(row.type)}</h3><p>{scheduleTarget(row)} planned · {row.done ? 'Completed' : 'Scheduled'}</p></div><button className="button" disabled={disabled || !canEdit} aria-label={`Edit ${formatWorkoutTitle(row.type)} on ${date}`} onClick={() => onOpenWorkout(row.id)}>{row.done ? 'Edit' : 'Log / edit'}</button></div>)
+          : rows.length ? rows.map(row => <div className="schedule-selected-row" key={row.id}><div><h3>{formatWorkoutTitle(row.type)}</h3><p>{target(row)} planned · {row.done ? 'Completed' : 'Scheduled'}</p></div><button className="button" disabled={disabled || !canEdit} aria-label={`Edit ${formatWorkoutTitle(row.type)} on ${date}`} onClick={() => onOpenWorkout(row.id)}>{row.done ? 'Edit' : 'Log / edit'}</button></div>)
           : <div className="schedule-selected-row"><div><h3>No workout scheduled</h3><p>This date is empty.</p></div><button className="button" disabled={disabled || !canEdit} onClick={onAdd}>Add workout</button></div>}
       </div></section>
   </>;

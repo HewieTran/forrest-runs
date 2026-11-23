@@ -29,8 +29,8 @@ export function initialScheduleDate(data: AppData, requested?: string) {
 }
 
 const number = new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 });
-export function scheduleTarget(workout: Workout) {
-  if (isRun(workout)) return workout.plannedDistance === null ? 'Distance not set' : `${number.format(workout.plannedDistance)} mi`;
+export function scheduleTarget(workout: Workout, unit: 'mi' | 'km' = 'mi') {
+  if (isRun(workout)) return workout.plannedDistance === null ? 'Distance not set' : `${number.format(workout.plannedDistance * (unit === 'km' ? 1.609344 : 1))} ${unit}`;
   return workout.plannedDurationSeconds === null ? 'Duration not set' : readableDuration(workout.plannedDurationSeconds);
 }
 export function shortWorkoutTitle(workout: Workout) {

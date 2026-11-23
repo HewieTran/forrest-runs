@@ -242,7 +242,7 @@ export function setupIssues(setup: BlockSetup): SetupIssue[] {
 export function convertSetupUnits<T extends BlockSetup>(setup: T, units: 'mi' | 'km'): T {
   if (setup.units === units) return setup;
   const fromMiles = units === 'km';
-  const convert = (value: number | null, factor: number) => value === null ? null : Math.round(value * factor * 10000) / 10000;
+  const convert = (value: number | null, factor: number) => value === null ? null : value * factor;
   return { ...setup, units,
     runner: { ...setup.runner, weight: convert(setup.runner.weight, fromMiles ? 0.45359237 : 1 / 0.45359237), height: convert(setup.runner.height, fromMiles ? 2.54 : 1 / 2.54) },
     baseline: { ...setup.baseline, weeklyDistance: convert(setup.baseline.weeklyDistance, fromMiles ? KM_PER_MILE : 1 / KM_PER_MILE), longestRun: convert(setup.baseline.longestRun, fromMiles ? KM_PER_MILE : 1 / KM_PER_MILE) },

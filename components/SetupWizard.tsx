@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { ArrowLeft, ArrowRight, CheckCircle2, Flag, Save } from 'lucide-react';
 import AppHeader from './AppHeader';
 import PlanAdjustment from './PlanAdjustment';
@@ -15,11 +15,12 @@ import { finishTimeFromParts, finishTimeParts, heightFromParts, heightParts } fr
 import { GENERATION_COOLDOWN_MS } from '../lib/planner-policy';
 import { trainingWindowIssue } from '../lib/training-window';
 import type { RecentBaseline } from '../lib/recent-baseline';
+import { measurementIn } from '../lib/runner-measurements';
 
 function fieldsFor(value: IntakeSetup) {
-  const number = (value: number | null) => value === null ? '' : String(value);
+  const number = (value: number | null) => value === null ? '' : String(Number(value.toFixed(1)));
   return { name: value.goal.name, goalKind: String(value.goal.distanceKm ?? ''), targetTime: finishTimeParts(setupTargetTime(value)), startDate: value.goal.startDate, targetDate: value.goal.targetDate,
-    age: number(value.runner.age), height: number(value.runner.height), imperialHeight: heightParts(value.units === 'mi' ? value.runner.height : null), weight: number(value.runner.weight), experience: value.runner.experience ?? '',
+    age: number(value.runner.age), height: number(value.runner.height), imperialHeight: heightParts(value.units === 'mi' && value.runner.height !== null ? Number(value.runner.height.toFixed(1)) : null), weight: number(value.runner.weight), experience: value.runner.experience ?? '',
     benchmarkDistance: value.benchmark?.distance ?? '', benchmarkTime: finishTimeParts(formatDuration(value.benchmark?.durationSeconds ?? null)),
     benchmarkDate: value.benchmark?.date ?? '', benchmarkEffort: value.benchmark?.effortConfirmed ? 'yes' : '' };
 }
@@ -31,6 +32,7 @@ export default function SetupWizard({ initial = null, displayName, today, readOn
   initialEdit?: AssessmentAction; initial?: Plan | null; displayName: string; today: string; readOnly?: boolean; preview?: boolean; recentBaseline?: RecentBaseline | null;
 }) {
   const original = simpleSetup(initial?.setup ?? undefined, initial?.raceName, initial?.raceDate, today);
+  const exactRunner = useRef({ height: { value: original.runner.height, units: original.units }, weight: { value: original.runner.weight, units: original.units } });
   const [block, setBlock] = useState(initial), [fields, setFields] = useState(() => fieldsFor(original));
   const [step, setStep] = useState(initialEdit ? assessmentStep(initialEdit) : original.step), [units, setUnits] = useState(original.units), [days, setDays] = useState(original.availability.days);
   const [saveAction, setSaveAction] = useState<'draft' | 'generation' | null>(null);
@@ -59,6 +61,11 @@ export default function SetupWizard({ initial = null, displayName, today, readOn
   const library = preview ? '/preview?view=blocks' : '/blocks';
   useEffect(() => { if (!dirty) return; const handler = (event: BeforeUnloadEvent) => event.preventDefault(); window.addEventListener('beforeunload', handler); return () => window.removeEventListener('beforeunload', handler); }, [dirty]);
   function update<K extends keyof SetupFields>(name: K, value: SetupFields[K]) {
+    if (name === 'height' || name === 'imperialHeight') {
+      const entered = name === 'imperialHeight' ? heightFromParts(value as SetupFields['imperialHeight']) : value === '' ? null : Number(value);
+      exactRunner.current.height = { value: entered, units };
+    }
+    if (name === 'weight') exactRunner.current.weight = { value: value === '' ? null : Number(value), units };
     setApplied(null);setGenerationError('');setClarification(null);setFields(current => ({ ...current, [name]: value }));setDirty(true);setMessage('');
     const field = name === 'imperialHeight' ? 'height' : name;
     setErrors(current => current.filter(issue => issue.field !== field));
@@ -116,8 +123,9 @@ export default function SetupWizard({ initial = null, displayName, today, readOn
     const number = (key: TextField) => fields[key].trim() === '' ? null : Number(fields[key]);
     value.step = step; value.units = units;
     value.goal = { ...value.goal, name: fields.name, distanceKm: number('goalKind'), startDate: fields.startDate, targetDate: fields.targetDate, targetDurationSeconds: Number.isNaN(targetSeconds) ? null : targetSeconds };
-    const height = units === 'mi' ? imperialInches : number('height');
-    value.runner = { ...value.runner, age: number('age'), height: Number.isNaN(height) ? null : height, weight: number('weight'), experience: (fields.experience || null) as IntakeSetup['runner']['experience'] };
+    const height = measurementIn(exactRunner.current.height, units, 'height');
+    const weight = measurementIn(exactRunner.current.weight, units, 'weight');
+    value.runner = { ...value.runner, age: number('age'), height: Number.isNaN(height) ? null : height, weight, experience: (fields.experience || null) as IntakeSetup['runner']['experience'] };
     value.benchmark = { distance: (fields.benchmarkDistance || null) as ResultDistance | null,
       durationSeconds: Number.isNaN(benchmarkSeconds) ? null : benchmarkSeconds,
       date: fields.benchmarkDate, effortConfirmed: fields.benchmarkEffort === 'yes' };
@@ -275,8 +283,8 @@ export default function SetupWizard({ initial = null, displayName, today, readOn
 
 export function SetupReview({ setup }: { setup: BlockSetup }) {
   const value = simpleSetup(setup), benchmark = setup.schemaVersion === 4 ? (setup as IntakeSetup).benchmark : null;
-  const display = (v: number | null, unit: string) => v === null ? 'Not provided' : `${v} ${unit}`;
-  const imperialHeight = heightParts(value.runner.height);
+  const display = (v: number | null, unit: string) => v === null ? 'Not provided' : `${Number(v.toFixed(1))} ${unit}`;
+  const imperialHeight = heightParts(value.runner.height === null ? null : Number(value.runner.height.toFixed(1)));
   const height = value.units === 'mi' && value.runner.height !== null
     ? `${imperialHeight[0]} ft ${imperialHeight[1]} in` : display(value.runner.height, 'cm');
   return <dl className="setup-review"><div><dt>Goal</dt><dd>{value.goal.name || suggestedBlockName(value)} · {raceDistanceLabel(value.goal.distanceKm)} · {setupTargetTime(value) || 'Target time not set'}</dd></div><div><dt>Training window</dt><dd>{value.goal.startDate || 'Not set'} → {value.goal.targetDate || 'Not set'}</dd></div><div><dt>Runner</dt><dd>{value.runner.experience || 'Experience not provided'} · {display(value.runner.age, 'years')} · {display(value.runner.weight, value.units === 'mi' ? 'lb' : 'kg')} · {height}</dd></div>{setup.schemaVersion === 4 && <div><dt>Benchmark</dt><dd>{benchmark?.distance ? RESULT_LABELS[benchmark.distance] : 'Distance not set'} · {formatDuration(benchmark?.durationSeconds ?? null) || 'Time not set'} · {benchmark?.date || 'Date not set'} · {benchmark?.effortConfirmed ? 'Race or best-effort time trial confirmed' : 'Effort not confirmed'}</dd></div>}<div><dt>Training days</dt><dd>{value.availability.days.map(day => DAY_NAMES[day]).join(', ') || 'Not selected'}</dd></div><div><dt>Workout pace</dt><dd>{setup.schemaVersion === 4 ? 'Benchmark-informed estimates' : setup.schemaVersion === 3 ? 'Estimated numeric pace' : 'Original guidance preserved in the saved snapshot'}</dd></div></dl>;

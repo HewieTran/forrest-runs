@@ -21,11 +21,16 @@ import WorkoutSchedule from './WorkoutSchedule';
 import { initialScheduleDate, monthStart, scheduleTarget } from '../lib/workout-schedule';
 import { orderedWorkouts } from '../lib/block-overview';
 import './block-overview.css';
+import { BlockUnitsProvider, UnitsControl, useBlockUnits } from './BlockUnits';
 
-export default function Tracker({ initial, preview = false, activeBlock = null, view = 'overview', initialDate }: {
+export default function Tracker(props: Parameters<typeof TrackerContent>[0]) {
+  return <BlockUnitsProvider accountKey={props.initial.plan.id}><TrackerContent {...props} /></BlockUnitsProvider>;
+}
+function TrackerContent({ initial, preview = false, activeBlock = null, view = 'overview', initialDate }: {
   initial: AppData; preview?: boolean; view?: 'overview' | 'schedule'; initialDate?: string; activeBlock?: Pick<Plan, 'id' | 'raceName'> | null;
 }) {
   const [data, setData] = useState(initial);
+  const { unit } = useBlockUnits();
   const readyToStart = blockReady({ ...data.plan, workoutCount: data.workouts.length }) && !simulatedBlock(data.plan);
   const firstWorkoutDate = data.workouts.reduce<string | null>((first, workout) => first === null || workout.date < first ? workout.date : first, null);
   const schedule = view === 'schedule';
@@ -231,6 +236,7 @@ export default function Tracker({ initial, preview = false, activeBlock = null, 
     <AppHeader displayName={data.displayName} preview={preview} />
     <main className={`main-content ${schedule ? 'workout-schedule-page' : 'training-block-overview'}`}>
       {schedule ? <>
+        <UnitsControl />
         <a className="block-breadcrumb" href={preview ? '/preview?view=overview' : `/blocks/${encodeURIComponent(data.plan.id)}`}><ChevronLeft size={15} /> Training Block Overview</a>
         <WorkoutSchedule data={data} date={selectedDate} month={visibleMonth} canEdit={canEdit} disabled={saving}
           onDate={date => chooseDate(date)} onMonth={setVisibleMonth} onOpen={date => chooseDate(date, true)} onAdd={addWorkout} onOpenWorkout={openTodayWorkout} onAddDate={date => chooseDate(date, true, true)} onSelectDate={selectCalendarDate} />
@@ -238,6 +244,7 @@ export default function Tracker({ initial, preview = false, activeBlock = null, 
       <a className="block-breadcrumb" href={preview ? '/preview?view=blocks' : '/blocks'}><ChevronLeft size={15} /> All training blocks</a>
       <section className="page-heading block-detail-heading"><div>
         <div className="block-title-row"><h1 id="block-overview-title" tabIndex={-1}>{data.plan.raceName}</h1><div className="block-header-controls" role="group" aria-label="Block management">
+          <UnitsControl />
           <a className="icon-button" aria-label="Training block settings" href={preview ? '/preview?view=settings' : `/blocks/${encodeURIComponent(data.plan.id)}/settings`}><Settings2 size={19} /></a>
         </div></div>
         <div className="block-header-details"><BlockActions pill plan={data.plan} activeBlock={currentActive} preview={preview} disabled={saving || hasUnsavedChanges} ready={blockReady({ ...data.plan, workoutCount: data.workouts.length })} onChanged={block => {
@@ -279,7 +286,7 @@ export default function Tracker({ initial, preview = false, activeBlock = null, 
       date={(editing ?? newWorkout).date} saving={saving} onClose={closeEditor} returnFocusId={schedule ? 'schedule-selected-date' : 'featured-workout-action'}>
       {schedule && data.workouts.some(row => row.date === selectedDate) && <div className="schedule-workout-selector"><label>Workout on this date<select value={expandedWorkoutId ?? ''} disabled={saving} onChange={event => event.target.value === 'new' ? addWorkout() : openTodayWorkout(event.target.value)}>
         {expandedWorkoutId === 'new' && <option value="new">New workout</option>}
-        {orderedWorkouts(data.workouts).filter(row => row.date === selectedDate).map(row => <option key={row.id} value={row.id}>{row.type} · {scheduleTarget(row)}{row.done ? ' · Completed' : ''}</option>)}
+        {orderedWorkouts(data.workouts).filter(row => row.date === selectedDate).map(row => <option key={row.id} value={row.id}>{row.type} · {scheduleTarget(row, unit)}{row.done ? ' · Completed' : ''}</option>)}
       </select></label><button className="button" disabled={saving || expandedWorkoutId === 'new'} onClick={addWorkout}><Plus size={16} /> Add another</button></div>}
       <WorkoutEditor key={`${expandedWorkoutId}:${editing?.version ?? 1}`} workout={editing ?? newWorkout} saving={saving} saveBlocked={saveConflict} error={error}
         initialPeriod={previewPeriod ?? localPeriod} onPeriodChange={setPreviewPeriod}
