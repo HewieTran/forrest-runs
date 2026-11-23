@@ -87,7 +87,7 @@ export async function testPlanner(db, dispatch, mock) {
   assert.deepEqual(data.plan.generation.output, output);
   const originalPlanPage = await dispatch('http://localhost/blocks/' + encodeURIComponent(block.id) + '/plan', { headers: auth });
   assert.equal(originalPlanPage.status, 200);
-  assert.match(await originalPlanPage.text(), /Generated schedule/);
+  assert.match(await originalPlanPage.text(), /Original generated schedule/);
   assert.equal((await call(workoutPath, 'PATCH', { ...changedWorkout, confirmPlanChange: true })).status, 409);
   assert.equal((await call('/api/workouts' + scope, 'POST', { ...saved.data.workout, date: '2027-12-01', version: 1 })).status, 409);
   assert.equal((await call('/api/workouts' + scope, 'POST', { ...saved.data.workout, date: '2027-12-01', version: 1, confirmPlanChange: true })).status, 201);
