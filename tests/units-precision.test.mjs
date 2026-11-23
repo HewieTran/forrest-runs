@@ -12,6 +12,7 @@ test('presentation precision and repeated conversions retain original canonical 
     assert.equal(measurementIn(height, 'mi', 'height'), height.value / 2.54);
   }
   assert.equal(formatDistance(3.141592653, 'mi'), '3.14');
+  assert.equal(formatDistance(.001, 'mi'), '0.001');
   const original = initialLinkedPlan({ ...EMPTY_WORKOUT_MEASUREMENTS, plannedDistance: 3.141592653, plannedPaceSecondsPerMile: 721.3456, plannedDurationSeconds: 2266 });
   let plan = original;
   for (let i = 0; i < 100; i++) plan = changePlanUnit(changePlanUnit(plan, 'km'), 'mi');

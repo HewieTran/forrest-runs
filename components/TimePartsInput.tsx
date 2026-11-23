@@ -1,4 +1,5 @@
 'use client';
+import './units-time.css';
 export default function TimePartsInput({ id, label, parts, onChange, maxHours = 168, pace = false, invalid = false, describedBy, name }: {
   id: string; label: string; parts: string[]; onChange: (parts: string[]) => void; maxHours?: number; pace?: boolean; invalid?: boolean; describedBy?: string; name?: string;
 }) {

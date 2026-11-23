@@ -1,4 +1,5 @@
 'use client';
+import './units-time.css';
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { type DistanceUnit } from '../lib/workout-form';
 const Context = createContext<{ unit: DistanceUnit; setUnit: (unit: DistanceUnit) => void }>({ unit: 'mi', setUnit: () => {} });
