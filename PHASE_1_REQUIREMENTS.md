@@ -19,7 +19,7 @@ Product owner: Hieu. Agreed UI and behavior baseline, 2026-10-27.
 
 | Required | Optional | Deferred |
 | --- | --- | --- |
-| Experience: novice, intermediate or advanced; age; height; weight; units | Block name, suggested if blank | Mileage, longest run, frequency, VO2, interruptions, long-run preference, session limits, other activities |
+| Experience: novice, intermediate or advanced; height; weight; units | Age; block name, suggested if blank | Mileage, longest run, frequency, VO2, interruptions, long-run preference, session limits, other activities |
 | Supported race distance; target finish time; start date; race date; selected weekdays | | |
 | One benchmark: 5K, 10K, half marathon or full marathon; achieved finish time; date achieved; confirmation it was a race or best-effort time trial | | |
 

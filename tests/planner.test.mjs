@@ -54,6 +54,14 @@ test('current generation enforces the training window and adult scope', () => {
   assert.equal(input.goal.targetDurationSeconds, null);
   assert.equal(input.runner.age, null);
 });
+test('guided generation accepts a blank age and keeps a supplied adult age as context', () => {
+  const today = '2026-10-24';
+  const { setup } = currentPlannerFixture(today);
+  setup.runner.age = null;
+  assert.equal(preparePlanner(setup, today).runner.age, null);
+  setup.runner.age = 35;
+  assert.equal(preparePlanner(setup, today).runner.age, 35);
+});
 test('clarifications cannot carry a schedule; result logging is not a prescription edit', () => {
   const clarification = { ...output, outcome: 'needs_clarification', sessions: [], questions: ['Can you clarify your other training?'] };
   assert.doesNotThrow(() => validatePlanOutput(clarification, input));

@@ -207,7 +207,6 @@ export function setupIssues(setup: BlockSetup): SetupIssue[] {
     need(!value.goal.startDate, 0, 'startDate', 'Choose a training start date.');
     need(!value.goal.targetDate, 0, 'targetDate', 'Choose a race date.');
     need(!value.runner.experience, 1, 'experience', 'Choose your running experience.');
-    need(value.runner.age === null, 1, 'age', 'Add your age.');
     need(value.runner.height === null, 1, 'height', 'Add your height.');
     need(value.runner.weight === null, 1, 'weight', 'Add your weight.');
     if (value.schemaVersion === 4) {
