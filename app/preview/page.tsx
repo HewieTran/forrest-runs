@@ -1,4 +1,5 @@
 import { overviewPreview } from '../../lib/block-overview-preview';
+import GenerationProgress from '../../components/GenerationProgress';
 import { planValidationMessage, LEGACY_VALIDATION_MESSAGE } from '../../lib/plan-validation';
 import { simpleSetup } from '../../lib/setup';
 import { preparePlanner, PLANNER_VERSION, workoutForSession } from '../../lib/planner';
@@ -17,6 +18,7 @@ export const dynamic='force-dynamic';
 export default async function Preview({searchParams}:{searchParams:Promise<Record<string,string|undefined>>}){
  if(process.env.NODE_ENV!=='development')notFound();
  const query=await searchParams;
+ if(query.view==='generation-loading')return <main className="main-content"><GenerationProgress sample={query.scenario==='sample'} resumed={query.scenario==='resumed'}/></main>;
  if(query.view==='blocks-mobile'||query.view==='ready-mobile'){
   const target=new URLSearchParams({view:query.view==='blocks-mobile'?'blocks':'overview',scenario:query.scenario??(query.view==='ready-mobile'?'ready':'empty')});
   const status=libraryFilter(query.status);if(status)target.set('status',status);

@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import AppHeader from './AppHeader';
 import PlanAdjustment from './PlanAdjustment';
+import GenerationProgress from './GenerationProgress';
 import { displayGenerationError } from '../lib/plan-validation';
 import { SetupReview } from './SetupWizard';
 import { raceForKilometers } from '../lib/race-distance';
@@ -50,13 +51,13 @@ export default function PlanGeneration({ initial, displayName, configured, mode,
     {!configured && editable && <p className="block-callout">Plan generation isn’t connected yet. Your intake is saved.</p>}
     {staleDate && editable && <p className="block-callout">The start date is in the past. Update your intake before generating a plan.</p>}
     {(error || generation?.error) && <p role="alert" className="form-error">{displayGenerationError(error || generation?.error || '')}</p>}
-    {(busy || inFlight) && <p role="status" className="block-callout">{busy ? simulation ? 'Preparing the example schedule…' : 'Working on your plan. This can take up to two minutes…' : 'A generation request is in progress. Reload in a moment to see the result.'}</p>}
+    {(busy || inFlight) && <GenerationProgress sample={simulation} resumed={!busy} />}
     {generation?.status === 'generating' && !inFlight && !busy && <p className="block-callout">The previous request did not finish. You can generate a fresh draft.</p>}
     {output && <section className="plan-proposal" aria-labelledby="proposal-title">
-      <h2 id="proposal-title">{output.outcome === 'plan' ? accepted ? 'Original generated schedule' : 'Generated schedule' : 'A few things to clarify'}</h2>
+      <h2 id="proposal-title">{output.outcome === 'plan' ? accepted ? 'Original generated schedule' : 'Generated schedule' : 'Review one detail before generating'}</h2>
       {accepted && <p className="block-callout">{generation?.alteredAt ? 'This block has been altered since generation. The original schedule below is preserved; open the block to see your current schedule.' : 'This is the schedule originally generated. Your current workout results are in the block.'}</p>}
-      <p>{output.summary}</p><h3>Your race goal</h3><p>{output.goalAssessment}</p>
-      {!!output.assumptions.length && <><h3>Assumptions to review</h3><ul>{output.assumptions.map((text, i) => <li key={i}>{text}</li>)}</ul></>}
+      {output.outcome === 'plan' && <><p>{output.summary}</p><h3>Your race goal</h3><p>{output.goalAssessment}</p>
+      {!!output.assumptions.length && <><h3>Assumptions to review</h3><ul>{output.assumptions.map((text, i) => <li key={i}>{text}</li>)}</ul></>}</>}
       {output.outcome === 'needs_clarification' && <PlanAdjustment output={output} base={base} />}
       {output.outcome === 'plan' && <><p className="setup-footnote">Full-session times include all steps. Race-step time is an estimate. Days marked rest are explicit parts of this proposed schedule.</p><div className="plan-weeks">{weeks.map((week, i) => {
         const days = manifest.filter(day => weekStart(day.date) === week);
@@ -74,7 +75,7 @@ export default function PlanGeneration({ initial, displayName, configured, mode,
     </section>}
     <div className="setup-form-actions">
       {editable && <a className="button" aria-disabled={busy} href={busy ? undefined : `${base}/setup`}>{needsResultReview ? 'Review setup to generate' : 'Edit intake'}</a>}
-      <div>{editable && !needsResultReview && <button className="button primary" disabled={busy || inFlight || output?.outcome === 'needs_clarification' || (cooldown > 0 && generation?.status !== 'review') || !configured || staleDate} onClick={() => void generate()}>{generation?.status === 'review' ? 'Finish saving plan' : simulation ? 'Generate sample plan' : 'Generate plan'}</button>}</div>
+      <div>{editable && !needsResultReview && output?.outcome !== 'needs_clarification' && <button className="button primary" disabled={busy || inFlight || (cooldown > 0 && generation?.status !== 'review') || !configured || staleDate} onClick={() => void generate()}>{generation?.status === 'review' ? 'Finish saving plan' : simulation ? 'Generate sample plan' : 'Generate plan'}</button>}</div>
     </div>
     {generation && <p className="setup-footnote">Generated {new Date(generation.startedAt).toLocaleString()} · {generation.model} · {generation.promptVersion} / {generation.validatorVersion}</p>}
   </main></>;

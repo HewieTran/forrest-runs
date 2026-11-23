@@ -1,4 +1,5 @@
 'use client';
+import GenerationProgress from './GenerationProgress';
 import { useEffect, useState, type FormEvent } from 'react';
 import { ArrowLeft, ArrowRight, CheckCircle2, Flag, Save } from 'lucide-react';
 import AppHeader from './AppHeader';
@@ -272,6 +273,7 @@ export default function SetupWizard({ initial = null, displayName, today, readOn
       {step === 2 && <><h2>Choose your training days</h2><p className="setup-description">Select the days you want a running workout. Race day is included even if it falls on another weekday.</p><div id="setup-trainingDays" tabIndex={-1} className="setup-days" role="group" aria-label="Selected training days">{DAY_NAMES.map((name, day) => <button type="button" key={name} aria-pressed={days.includes(day)} onClick={() => { setApplied(null);setClarification(null);setDays(current => current.includes(day) ? current.filter(value => value !== day) : [...current, day].sort());setDirty(true);setErrors([]); }}>{name.slice(0,3)}<span>{days.includes(day) ? 'Run' : '—'}</span></button>)}</div></>}
       {step === 3 && <><h2 id="setup-review-title" tabIndex={-1}>Your plan details</h2><SetupReview setup={snapshot} sample={sample} />{windowIssue && <div className="setup-errors" role="status"><p>{windowIssue.message}</p><button className="button" type="button" onClick={() => { setStep(0); setFocusTarget(`setup-${windowIssue.field}`); }}>Edit training dates</button></div>}<p className="setup-footnote">{sample ? 'Generate a sample to explore a schedule with example paces. The sample saves automatically for you to revisit.' : generationAvailable ? 'Your recent result helps estimate workout paces. Your plan saves automatically so you can review it before you start.' : 'Plan generation is currently unavailable. Save your draft to return to it later.'}</p></>}
       </fieldset>
+      {saveAction === 'generation' && <GenerationProgress sample={sample} />}
       {step === 3 && waitingToRetry && !clarification && <p className="setup-footnote" role="status">You can generate again one minute after your last request.</p>}
       <div className="setup-form-actions">
         <button className="button" type="button" disabled={saving || step === 0} onClick={() => { setStep(current => current - 1);setErrors([]); }}><ArrowLeft size={15} />Back</button>
@@ -280,7 +282,7 @@ export default function SetupWizard({ initial = null, displayName, today, readOn
             <Save size={15} />{saveAction === 'draft' ? 'Saving draft…' : 'Save draft'}
           </button>
           {step < 3 ? <button className="button primary" type="submit" disabled={saving}>Continue<ArrowRight size={15} /></button>
-            : generationAvailable && <button className="button primary" type="submit" disabled={saving || waitingToRetry || !!clarification || !!windowIssue}>
+            : generationAvailable && !clarification && <button className="button primary" type="submit" disabled={saving || waitingToRetry || !!windowIssue}>
               {saveAction === 'generation' ? 'Generating and saving…' : sample ? 'Generate sample plan' : 'Generate plan'}
             </button>}
         </div>
