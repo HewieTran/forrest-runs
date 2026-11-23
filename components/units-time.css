@@ -2,5 +2,11 @@
 .measurement-time-input label { flex: 1; min-width: 54px; display: grid; gap: 4px; }
 .measurement-time-input select { min-width: 0; width: 100%; font-size: 16px; padding: 8px 5px; }
 .time-clear { background: none; border: 0; color: var(--green); padding: 8px 4px; min-height: 40px; }
-.block-units-control { display: inline-flex; gap: 7px; align-items: center; font-size: 14px; }
-.block-units-control select { font-size: 16px; min-height: 40px; padding: 6px; }
+.block-units-control { display: inline-flex; flex-direction: row; gap: 7px; align-items: center; width: auto; min-height: 40px; margin: 0; white-space: nowrap; font-size: 14px; }
+.block-units-control select { width: auto; min-width: 64px; height: 40px; min-height: 40px; margin: 0; padding: 6px 8px; font-size: 16px; }
+.training-block-overview .block-header-controls { align-items: center; min-height: 40px; }
+.training-block-overview .block-header-controls .icon-button { width: 40px; height: 40px; min-height: 40px; }
+@media (max-width: 640px) {
+  .training-block-overview .block-title-row { align-items: flex-start; row-gap: 12px; }
+  .training-block-overview .block-header-controls { max-width: 100%; }
+}
