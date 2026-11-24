@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { assessmentContext, goalSuggestions } from '../lib/plan-assessment.ts';
-import { validatePlanOutput, validateGeneration, PROMPT_VERSION, PLANNER_VERSION } from '../lib/planner.ts';
+import { validatePlanOutput, validateGeneration, PROMPT_VERSION, PLANNER_VERSION, canRetryBenchmarkWithCurrentPolicy, requiresAssessment } from '../lib/planner.ts';
 import { requestOpenAIPlan } from '../lib/openai-plan.ts';
 import { currentPlannerFixture, responseFixture } from './planner-fixture.mjs';
 import { addDays } from '../lib/domain.ts';
@@ -9,6 +9,16 @@ import { trainingWindowIssue } from '../lib/training-window.ts';
 const today = '2026-10-31';
 const config = { apiKey: 'synthetic-key', model: 'gpt-6-luna', asOfDate: today };
 const fixture = currentPlannerFixture(today);
+test('older benchmark clarification can be explicitly retried once under a newer policy', () => {
+  const generation = { status:'clarification', promptVersion:'race-coach-v9-benchmarks', output:blocked('refresh_benchmark',['benchmark']) };
+  assert.equal(canRetryBenchmarkWithCurrentPolicy(generation), true);
+  assert.equal(canRetryBenchmarkWithCurrentPolicy({...generation,promptVersion:PROMPT_VERSION}), false);
+  assert.equal(canRetryBenchmarkWithCurrentPolicy({...generation,promptVersion:'unknown-future-policy'}), false);
+  assert.equal(canRetryBenchmarkWithCurrentPolicy({...generation,output:blocked('adjust_goal',['target_time'])}), false);
+  assert.equal(canRetryBenchmarkWithCurrentPolicy({...generation,status:'accepted'}), false);
+  assert.equal(requiresAssessment('race-coach-v9-benchmarks'), true);
+  assert.equal(requiresAssessment(PROMPT_VERSION), true);
+});
 function blocked(decision = 'adjust_goal', actions = ['target_time', 'race_date']) {
   return { ...fixture.output, outcome: 'needs_clarification', sessions: [], questions: ['Would you review the target time or race date?'],
     assessment: { decision, reason: 'Synthetic goal needs adjustment; no performance prediction is made.', actions } };
@@ -72,6 +82,8 @@ test('saved generation validates assessment context and retains it in offline ba
     input: fixture.input, setupSnapshot: fixture.setup, output: blocked(), error: null, responseId: null,
     usage: { inputTokens: 1000, outputTokens: 2000 }, assessmentContext: assessmentContext(fixture.input, today) };
   assert.deepEqual(validateGeneration(generation), generation);
+  const previous = {...generation,promptVersion:'race-coach-v9-benchmarks'};
+  assert.deepEqual(validateGeneration(previous),previous,'Previously saved assessment snapshots stay valid and unchanged');
   assert.throws(() => validateGeneration({ ...generation, assessmentContext: { ...generation.assessmentContext, benchmarkAgeDays: 999 } }));
   assert.throws(() => validateGeneration({ ...generation, output: { ...blocked(), assessment: undefined } }));
 });

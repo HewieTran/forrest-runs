@@ -15,7 +15,7 @@ export const formatWorkoutTitle = (type: string) => type === 'Race' ? 'Race day'
 
 export default function TodayWorkout({ data, featured, savedRunId, saving, period, onOpenWorkout, onSelectWorkout, scheduleHref }: {
   data: AppData; featured: Workout | null; savedRunId: string | null; saving: boolean; period: WorkoutPeriod;
-  scheduleHref: string;
+  scheduleHref?: string;
   onOpenWorkout: (id: string) => void; onSelectWorkout: (id: string | null) => void;
 }) {
   const { unit } = useBlockUnits();
@@ -96,7 +96,7 @@ export default function TodayWorkout({ data, featured, savedRunId, saving, perio
       {targets.length > 0 && <dl className="today-workout-targets">{targets.map(target => <div key={target.label}><dt>{target.label}</dt><dd>{target.value}{target.unit && <> <small>{target.unit}</small></>}</dd></div>)}</dl>}
       {featured?.done && <div className="today-workout-celebration"><Sparkles size={22} className={savedRunId === featured.id ? 'today-workout-spark' : undefined} aria-hidden="true" /><div><strong>{savedRunId === featured.id && isRun(featured) ? 'Good miles today.' : 'Workout completed'}</strong>{results && <p>{results}</p>}</div></div>}
       <div className="today-workout-actions">{featured && <button id="featured-workout-action" type="button" className={featured.done ? 'today-workout-link' : 'today-workout-log'} disabled={saving} aria-label={`${featured.done ? 'Edit' : 'Log'} ${formatWorkoutTitle(featured.type)} workout`} onClick={() => onOpenWorkout(featured.id)}>{featured.done ? 'Edit logged workout' : 'Log workout'}{featured.done && <Pencil size={16} aria-hidden="true" />}</button>}
-        <a className="today-workout-schedule" href={scheduleHref} aria-disabled={saving} onClick={event => { if (saving) event.preventDefault(); }}>View schedule <CalendarDays size={16} aria-hidden="true" /></a></div>
+        {scheduleHref && <a className="today-workout-schedule" href={scheduleHref} aria-disabled={saving} onClick={event => { if (saving) event.preventDefault(); }}>View schedule <CalendarDays size={16} aria-hidden="true" /></a>}</div>
       {others.length > 0 && <ul className="today-workout-others" aria-label={`Other workouts ${isToday ? 'today' : 'on this date'}`}>{others.map(row => <li key={row.id}><span>{isToday ? 'Also today' : 'Same day'} · {formatWorkoutTitle(row.type)}</span><button type="button" className="today-workout-link" aria-label={`${row.done ? 'Edit' : 'Log'} ${formatWorkoutTitle(row.type)} workout`} disabled={saving} onClick={() => onOpenWorkout(row.id)}>{row.done ? 'Edit' : 'Log'}<span className="sr-only"> {formatWorkoutTitle(row.type)} workout</span></button></li>)}</ul>}
     </div>
     {/* eslint-disable-next-line @next/next/no-img-element */}

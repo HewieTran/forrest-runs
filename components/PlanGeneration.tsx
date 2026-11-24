@@ -1,12 +1,13 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import AppHeader from './AppHeader';
 import PlanAdjustment from './PlanAdjustment';
+import GenerationProgress from './GenerationProgress';
 import { displayGenerationError } from '../lib/plan-validation';
 import { SetupReview } from './SetupWizard';
 import { raceForKilometers } from '../lib/race-distance';
 import { DAY_NAMES } from '../lib/setup';
-import { acceptedPlan, simulatedBlock, scheduleDays, sessionSeconds } from '../lib/planner';
+import { acceptedPlan, simulatedBlock, scheduleDays, sessionSeconds, canRetryBenchmarkWithCurrentPolicy } from '../lib/planner';
 import { formatDate, weekStart, type Plan } from '../lib/domain';
 import { formatDuration } from '../lib/workout-form';
 import { GENERATION_COOLDOWN_MS } from '../lib/planner-policy';
@@ -14,13 +15,16 @@ import { GENERATION_COOLDOWN_MS } from '../lib/planner-policy';
 export default function PlanGeneration({ initial, displayName, configured, mode, today }: { initial: Plan; displayName: string; configured: boolean; mode: 'disabled' | 'simulation' | 'openai'; today: string }) {
   const [block, setBlock] = useState(initial), [busy, setBusy] = useState(false), [error, setError] = useState('');
   const [clock, setClock] = useState(Date.now());
+  const requestInFlight = useRef(false);
   useEffect(() => { const timer = setInterval(() => setClock(Date.now()), 10000); return () => clearInterval(timer); }, []);
   const generation = block.generation, output = generation?.output;
   const race = raceForKilometers((generation?.setupSnapshot ?? block.setup)?.goal.distanceKm ?? null)?.label ?? 'race';
-  const simulation = generation ? simulatedBlock(block) : mode === 'simulation';
+  const accepted = acceptedPlan(block), editable = block.status === 'draft' && !accepted;
+  const simulation = accepted ? simulatedBlock(block) : mode === 'simulation';
   const inFlight = generation?.status === 'generating' && clock - Date.parse(generation.startedAt) < 180000;
   const cooldown = generation ? Math.max(0, Math.ceil((GENERATION_COOLDOWN_MS - clock + Date.parse(generation.startedAt)) / 1000)) : 0;
-  const accepted = acceptedPlan(block), editable = block.status === 'draft' && !accepted;
+  const needsResultReview = editable && generation?.status !== 'review' &&
+    (block.setup?.schemaVersion !== 4 || !block.setup.benchmark?.effortConfirmed);
   const base = `/blocks/${encodeURIComponent(block.id)}`;
   const input = generation?.input;
   const manifest = input ? scheduleDays(input) : [];
@@ -29,6 +33,8 @@ export default function PlanGeneration({ initial, displayName, configured, mode,
   const raceExtra = block.setup && !block.setup.availability.days.includes(raceDay);
   const staleDate = Boolean(block.setup && block.setup.goal.startDate < today);
   async function generate() {
+    if (requestInFlight.current || busy || inFlight || (cooldown > 0 && generation?.status !== 'review') || !configured || staleDate) return;
+    requestInFlight.current = true;
     setBusy(true); setError('');
     try {
       const response = await fetch(`/api${base}/generation`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ version: block.version, consent: true, saveImmediately: true }) });
@@ -36,26 +42,28 @@ export default function PlanGeneration({ initial, displayName, configured, mode,
       if (result.block) { setBlock(result.block); if (acceptedPlan(result.block)) { window.location.assign(base); return; } }
       if (!response.ok && !result.block) throw new Error(result.error || 'Generation could not finish. Reload to check its status.');
     } catch (error) { setError(error instanceof Error ? error.message : 'Generation could not finish. Reload to check its status.'); }
-    finally { setBusy(false); setClock(Date.now()); }
+    finally { requestInFlight.current = false;setBusy(false); setClock(Date.now()); }
   }
   return <><AppHeader displayName={displayName} /><main className="main-content plan-generation">
     <a className="text-link" href={accepted ? base : '/blocks'}>← {accepted ? 'Back to this block' : 'Training blocks'}</a>
-    <section className="page-heading"><h1>{simulation ? `Try a simulated ${race} plan` : accepted ? 'Original training plan' : `Build your ${race} plan`}</h1><p className="blocks-intro">{block.raceName} · {formatDate(block.raceDate, { month: 'long', day: 'numeric', year: 'numeric' })}</p></section>
-    {simulation && <p className="block-callout" role="status"><strong>SIMULATION · No AI calls or API charges.</strong> This example uses your dates, selected days and experience to demonstrate numeric targets. It is not a personalized training recommendation. You can save it as a demonstration draft; it cannot become your active training block.</p>}
-    <details className="plan-intake"><summary>{accepted ? 'Starting intake' : 'Review saved intake'}</summary>{block.setup && <SetupReview setup={generation?.setupSnapshot ?? block.setup} />}</details>
+    <section className="page-heading"><h1>{accepted ? simulation ? 'Original sample schedule' : 'Original training plan' : simulation ? `Try a sample ${race} plan` : `Build your ${race} plan`}</h1><p className="blocks-intro">{block.raceName} · {formatDate(block.raceDate, { month: 'long', day: 'numeric', year: 'numeric' })}</p></section>
+    {simulation && <p className="block-callout" role="status"><strong>SIMULATION · No AI calls or API charges.</strong> This example uses your dates, selected days and experience to demonstrate numeric targets. It is not a personalized training recommendation. Generate a sample to explore the schedule. It saves automatically for you to revisit.</p>}
+    <details className="plan-intake"><summary>{accepted ? 'Original plan details' : 'Review saved intake'}</summary>{block.setup && <SetupReview setup={generation?.setupSnapshot ?? block.setup} sample={simulation} />}</details>
     {raceExtra && <p className="block-callout">Race day is {DAY_NAMES[raceDay]}, outside your selected running days. The plan includes the race on that date; the race stays on its actual date.</p>}
-    {!accepted && !simulation && <p className="setup-footnote">Generate with OpenAI sends this block’s confirmed benchmark, runner details, race goal and selected training days to OpenAI. It does not include your name, email, other blocks or raw run history. The validated schedule is saved directly to your block. Training suitability and goal achievement are not guaranteed.</p>}
+    {!accepted && !simulation && <p className="setup-footnote">Generate with OpenAI sends this block’s recent race or hard run result, runner details, race goal and selected training days to OpenAI. It does not include your name, email, other blocks or raw run history. The validated schedule is saved directly to your block. Training suitability and goal achievement are not guaranteed.</p>}
     {!configured && editable && <p className="block-callout">Plan generation isn’t connected yet. Your intake is saved.</p>}
     {staleDate && editable && <p className="block-callout">The start date is in the past. Update your intake before generating a plan.</p>}
     {(error || generation?.error) && <p role="alert" className="form-error">{displayGenerationError(error || generation?.error || '')}</p>}
-    {(busy || inFlight) && <p role="status" className="block-callout">{busy ? simulation ? 'Preparing the example schedule…' : 'Working on your plan. This can take up to two minutes…' : 'A generation request is in progress. Reload in a moment to see the result.'}</p>}
+    {(busy || inFlight) && <GenerationProgress sample={simulation} resumed={!busy} />}
     {generation?.status === 'generating' && !inFlight && !busy && <p className="block-callout">The previous request did not finish. You can generate a fresh draft.</p>}
     {output && <section className="plan-proposal" aria-labelledby="proposal-title">
-      <h2 id="proposal-title">{output.outcome === 'plan' ? accepted ? 'Original generated schedule' : 'Generated schedule' : 'A few things to clarify'}</h2>
+      <h2 id="proposal-title">{output.outcome === 'plan' ? accepted ? 'Original generated schedule' : 'Generated schedule' : 'Review one detail before generating'}</h2>
       {accepted && <p className="block-callout">{generation?.alteredAt ? 'This block has been altered since generation. The original schedule below is preserved; open the block to see your current schedule.' : 'This is the schedule originally generated. Your current workout results are in the block.'}</p>}
-      <p>{output.summary}</p><h3>Your race goal</h3><p>{output.goalAssessment}</p>
-      {!!output.assumptions.length && <><h3>Assumptions to review</h3><ul>{output.assumptions.map((text, i) => <li key={i}>{text}</li>)}</ul></>}
-      {output.outcome === 'needs_clarification' && <PlanAdjustment output={output} base={base} />}
+      {output.outcome === 'plan' && <><p>{output.summary}</p><h3>Your race goal</h3><p>{output.goalAssessment}</p>
+      {!!output.assumptions.length && <><h3>Assumptions to review</h3><ul>{output.assumptions.map((text, i) => <li key={i}>{text}</li>)}</ul></>}</>}
+      {output.outcome === 'needs_clarification' && <PlanAdjustment output={output} base={base}
+        onGenerateUsingResult={editable && canRetryBenchmarkWithCurrentPolicy(generation) ? () => void generate() : undefined}
+        disabled={busy || !!inFlight} retryDisabled={cooldown > 0 || !configured || staleDate} />}
       {output.outcome === 'plan' && <><p className="setup-footnote">Full-session times include all steps. Race-step time is an estimate. Days marked rest are explicit parts of this proposed schedule.</p><div className="plan-weeks">{weeks.map((week, i) => {
         const days = manifest.filter(day => weekStart(day.date) === week);
         const sessions = output.sessions.filter(session => weekStart(session.date) === week);
@@ -71,8 +79,8 @@ export default function PlanGeneration({ initial, displayName, configured, mode,
       })}</div></>}
     </section>}
     <div className="setup-form-actions">
-      {editable && <a className="button" aria-disabled={busy} href={busy ? undefined : `${base}/setup`}>Edit intake</a>}
-      <div>{editable && <button className="button primary" disabled={busy || inFlight || output?.outcome === 'needs_clarification' || (cooldown > 0 && generation?.status !== 'review') || !configured || staleDate} onClick={() => void generate()}>{generation?.status === 'review' ? 'Finish saving plan' : 'Generate plan'}</button>}</div>
+      {editable && <a className="button" aria-disabled={busy} href={busy ? undefined : `${base}/setup`}>{needsResultReview ? 'Review setup to generate' : 'Edit intake'}</a>}
+      <div>{editable && !needsResultReview && output?.outcome !== 'needs_clarification' && <button className="button primary" disabled={busy || inFlight || (cooldown > 0 && generation?.status !== 'review') || !configured || staleDate} onClick={() => void generate()}>{generation?.status === 'review' ? 'Finish saving plan' : simulation ? 'Generate sample plan' : 'Generate plan'}</button>}</div>
     </div>
     {generation && <p className="setup-footnote">Generated {new Date(generation.startedAt).toLocaleString()} · {generation.model} · {generation.promptVersion} / {generation.validatorVersion}</p>}
   </main></>;

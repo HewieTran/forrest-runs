@@ -1,4 +1,5 @@
 import { overviewPreview } from '../../lib/block-overview-preview';
+import GenerationProgress from '../../components/GenerationProgress';
 import { planValidationMessage, LEGACY_VALIDATION_MESSAGE } from '../../lib/plan-validation';
 import { simpleSetup } from '../../lib/setup';
 import { preparePlanner, PLANNER_VERSION, workoutForSession } from '../../lib/planner';
@@ -17,6 +18,8 @@ export const dynamic='force-dynamic';
 export default async function Preview({searchParams}:{searchParams:Promise<Record<string,string|undefined>>}){
  if(process.env.NODE_ENV!=='development')notFound();
  const query=await searchParams;
+ if(query.view==='generation-loading-mobile')return <iframe title="Mobile generation progress preview" src={`/preview?view=generation-loading&scenario=${['sample','resumed'].includes(query.scenario??'')?query.scenario:''}`} style={{display:'block',width:390,maxWidth:'100%',height:850,border:0,margin:'20px auto'}}/>;
+ if(query.view==='generation-loading')return <main className="main-content"><GenerationProgress sample={query.scenario==='sample'} resumed={query.scenario==='resumed'}/></main>;
  if(query.view==='blocks-mobile'||query.view==='ready-mobile'){
   const target=new URLSearchParams({view:query.view==='blocks-mobile'?'blocks':'overview',scenario:query.scenario??(query.view==='ready-mobile'?'ready':'empty')});
   const status=libraryFilter(query.status);if(status)target.set('status',status);
@@ -57,11 +60,12 @@ export default async function Preview({searchParams}:{searchParams:Promise<Recor
     setup.benchmark.durationSeconds = 1680;
    }
    const refresh=query.scenario==='benchmark-refresh';
+   if(refresh){setup.goal.targetDurationSeconds=2400;setup.benchmark.date=addDays(today,-450);}
    const plan:AppData['plan']={id:'assessment-example',raceName:setup.goal.name,raceDate:setup.goal.targetDate,status:'draft',paceGuide:[],sourceName:null,version:1,createdAt:stamp,updatedAt:stamp,setup,
-    generation:{schemaVersion:1,id:'example-clarification',provider:'simulation',status:'clarification',startedAt:stamp,finishedAt:stamp,acceptedAt:null,alteredAt:null,model:'simulation',promptVersion:'preview-only',validatorVersion:PLANNER_VERSION,input:preparePlanner(setup,today),setupSnapshot:setup,responseId:null,usage:null,error:null,
+    generation:{schemaVersion:1,id:'example-clarification',provider:'simulation',status:'clarification',startedAt:stamp,finishedAt:stamp,acceptedAt:null,alteredAt:null,model:'simulation',promptVersion:refresh?'race-coach-v9-benchmarks':'preview-only',validatorVersion:PLANNER_VERSION,input:preparePlanner(setup,today),setupSnapshot:setup,responseId:null,usage:null,error:null,
      output:{outcome:'needs_clarification',summary:'Example clarification for UI testing only.',goalAssessment:'Synthetic assessment, not a training recommendation.',assumptions:[],sessions:[],
-      questions:[refresh?'Do you have a current race or best-effort time-trial result?':'Would you review the target finish time or race date?'],
-      assessment:{decision:refresh?'refresh_benchmark':'adjust_goal',reason:refresh?'Example only: an unrepresentative result needs updating before estimating paces.':crossDistance ? 'Example only: the 5K time helps estimate pace, and the longer distance adds uncertainty.' : scheduleExample ? 'Example only: a 30-minute goal needs an adjustment with the current training window.' : 'Example only: a 15-minute goal is unsupported by this novice runner’s 35-minute benchmark and 12-week window. A later date alone does not guarantee it.',actions:refresh?['benchmark']:['target_time','race_date'],
+      questions:[refresh?'Would you like to use the result you have or update it?':'Would you review the target finish time or race date?'],
+      assessment:{decision:refresh?'refresh_benchmark':'adjust_goal',reason:refresh?'Example of an earlier-policy request: this result is more than a year old and current training is unknown. The dated result can still inform a conservative starting plan, with uncertainty explained.':crossDistance ? 'Example only: the 5K time helps estimate pace, and the longer distance adds uncertainty.' : scheduleExample ? 'Example only: a 30-minute goal needs an adjustment with the current training window.' : 'Example only: a 15-minute goal is unsupported by this novice runner’s 35-minute benchmark and 12-week window. A later date alone does not guarantee it.',actions:refresh?['benchmark']:['target_time','race_date'],
        suggestions: refresh ? null : {
         finishTime: { durationSeconds: crossDistance ? 7800 : 2040, reason: 'This example target is closer to the confirmed benchmark.' },
         schedule: scheduleExample ? { additionalDays: 21, trainingDays: null, reason: 'The example adds three weeks for a more gradual build.' } : null,

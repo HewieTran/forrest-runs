@@ -1,0 +1,8 @@
+.generation-progress { display:flex; align-items:center; gap:18px; padding:18px; margin:18px 0; border:1px solid var(--line); border-radius:12px; background:var(--sage, #edf2e8); color:var(--ink); scroll-margin:90px 0 24px; }
+.generation-progress strong { display:block; font-size:1rem; }
+.generation-progress p { margin:5px 0 0; font-size:.875rem; line-height:1.5; color:var(--muted); }
+.generation-progress-track { flex:0 0 88px; height:70px; display:grid; align-items:center; border-bottom:2px solid var(--green); }
+.generation-progress-track img { width:64px; height:64px; object-fit:contain; }
+@media (prefers-reduced-motion:no-preference) { .generation-progress-track img { animation:generation-running .65s ease-in-out infinite alternate; } }
+@keyframes generation-running { from { transform:translate(0,0) rotate(-2deg); } to { transform:translate(12px,-4px) rotate(2deg); } }
+@media(max-width:480px) { .generation-progress { gap:12px; padding:14px; } .generation-progress-track { flex-basis:64px; } .generation-progress-track img { width:52px; height:52px; } }

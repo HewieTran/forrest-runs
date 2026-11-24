@@ -37,7 +37,7 @@ test('malformed, future, unsupported, zero and unconfirmed-type benchmarks fail 
 });
 test('older drafts cannot bypass the benchmark requirement; historical generation remains readable',()=>{
   const {setup,input,output}=plannerFixture(today);
-  assert.throws(()=>preparePlanner(setup,today),/benchmark/);
+  assert.throws(()=>preparePlanner(setup,today),/recent race or hard run/);
   const view=simpleSetup(setup);assert.equal(view.benchmark.effortConfirmed,false);assert.equal(view.benchmark.distance,null);
   const stamp='2026-10-31T12:00:00.000Z';
   const generation={schemaVersion:1,id:'historical-test',status:'accepted',startedAt:stamp,finishedAt:stamp,acceptedAt:stamp,alteredAt:null,model:'old-model',promptVersion:'old',validatorVersion:'old',input,setupSnapshot:setup,output,error:null,responseId:null,usage:null};

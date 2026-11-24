@@ -196,3 +196,14 @@
 .setup-height-parts input{padding-right:29px}
 .setup-height-unit{position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--muted);pointer-events:none}
 .setup-number-field small{display:block;margin-top:5px}
+
+.setup-guidance {
+  background: var(--sage);
+  border-inline-start: 3px solid var(--green);
+  border-radius: 8px;
+  color: var(--ink);
+  font-size: .9375rem;
+  line-height: 1.55;
+  padding: 12px 16px;
+}
+.setup-guidance p + p { margin-top: 6px; }

@@ -9,8 +9,8 @@ import { workoutStructure } from './workout-structure.ts';
 import { trainingWindowIssue } from './training-window.ts';
 
 export const PLANNER_VERSION = 'race-v7-calculated';
-export const PROMPT_VERSION = 'race-coach-v9-benchmarks';
-export function requiresAssessment(version: string) { return ['5k-coach-v5-assessment', '5k-coach-v6-calculated', 'race-coach-v7-calculated', 'race-coach-v8-suggestions', PROMPT_VERSION].includes(version); }
+export const PROMPT_VERSION = 'race-coach-v10-best-available-result';
+export function requiresAssessment(version: string) { return ['5k-coach-v5-assessment', '5k-coach-v6-calculated', 'race-coach-v7-calculated', 'race-coach-v8-suggestions', 'race-coach-v9-benchmarks', PROMPT_VERSION].includes(version); }
 export type PlannerIntake = ReturnType<typeof plannerIntake>;
 const number = z.number().finite().positive();
 const Step = z.object({
@@ -44,7 +44,7 @@ export type ScheduleDay = { date: string; kind: 'run' | 'race' | 'rest'; limitSe
 
 // Scope gates, not a medical or training-readiness assessment.
 export function preparePlanner(setup: BlockSetup, today: string): PlannerIntake {
-  if (setup.schemaVersion !== 4) throw new Error('Open your Runner setup and add a confirmed performance benchmark before generating a new plan.');
+  if (setup.schemaVersion !== 4) throw new Error('Open your Runner setup and add a recent race or hard run result before generating a new plan.');
   const input = plannerIntake(validateSetup(setup, today));
   const windowIssue = trainingWindowIssue(input.goal.startDate, input.goal.raceDate, today);
   if (windowIssue) throw new Error(windowIssue.message);
@@ -141,6 +141,9 @@ export type Generation = {
 };
 export function simulatedBlock(plan: { generation?: Generation | null }) { return plan.generation?.provider === 'simulation'; }
 export function acceptedPlan(plan: { generation?: Generation | null }) { return plan.generation?.status === 'accepted'; }
+export function canRetryBenchmarkWithCurrentPolicy(generation: Generation | null | undefined) {
+  return generation?.status === 'clarification' && generation.output?.assessment?.decision === 'refresh_benchmark' && generation.promptVersion !== PROMPT_VERSION && requiresAssessment(generation.promptVersion);
+}
 
 // Backup validation is offline; it does not confer authority or accept a plan.
 export function validateGeneration(value: unknown): Generation {

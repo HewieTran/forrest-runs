@@ -14,6 +14,7 @@ import {
 } from '../lib/workout-form';
 import '../app/workout-editor.css';
 import WorkoutSteps from './WorkoutSteps';
+import { changesPrescription } from '../lib/planner';
 import { workoutStructure, structureMeasurements, sessionDuration, readableDuration, readableDistance, type WorkoutStructure } from '../lib/workout-structure';
 
 type ResultField = 'actualDistance' | 'actualDuration' | 'actualPace' | 'effort';
@@ -34,9 +35,9 @@ function WorkoutTimeInput({ id, name, value, unit, invalid, onChange, onBlur }: 
   </div>;
 }
 
-export default function WorkoutEditor({ workout, saving, error, onSave, onCancel, onDirty, initialPeriod, onPeriodChange, saveBlocked = false }: {
+export default function WorkoutEditor({ workout, saving, error, onSave, onCancel, onDirty, initialPeriod, onPeriodChange, saveBlocked = false, generatedSchedule = false }: {
   initialPeriod?: WorkoutPeriod; onPeriodChange?: (period: WorkoutPeriod) => void;
-  workout: Workout; saving: boolean; error: string; saveBlocked?: boolean;
+  workout: Workout; saving: boolean; error: string; saveBlocked?: boolean; generatedSchedule?: boolean;
   onSave: (value: WorkoutInput) => void; onCancel: () => void; onDirty: (dirty: boolean) => void;
 }) {
   const id = useId(), form = useRef<HTMLFormElement>(null);
@@ -149,6 +150,25 @@ export default function WorkoutEditor({ workout, saving, error, onSave, onCancel
   const painOptions = ['', 'None', 'Mild', 'Moderate', 'Severe'];
   if (!painOptions.includes(draft.pain)) painOptions.push(draft.pain);
 
+  function candidateInput() {
+    const measurements: Partial<WorkoutInput> = {};
+    if (planChanged) {
+      const distance = plan.exact.distance, duration = plan.exact.duration;
+      const metric = plan.targetMetric === 'distance' && distance !== null ? 'distance' : plan.targetMetric === 'duration' && duration !== null ? 'duration' : distance !== null ? 'distance' : duration !== null ? 'duration' : null;
+      Object.assign(measurements, { plannedDistance: distance, plannedDurationSeconds: duration, plannedPaceSecondsPerMile: plan.exact.pace, targetMetric: metric });
+    }
+    if (changedResults.has('actualDuration')) measurements.actualDurationSeconds = exactResults.actualDuration;
+    if (changedResults.has('actualPace')) measurements.actualPaceSecondsPerMile = exactResults.actualPace;
+    const description = structureChanged && structure ? structure.title : draft.plannedWorkout.trim() || `${draft.type}${plan.exact.distance !== null ? ` · ${formatDistance(plan.exact.distance, 'mi')} mi` : plan.exact.duration !== null ? ` · ${formatDuration(plan.exact.duration)}` : ''}`;
+    return { ...measurements, date: draft.date, phase: draft.phase, type: draft.type,
+        ...(structureChanged || structure && draft.type !== workout.type ? { planStructure: structure } : {}),
+        manualResultFields: [...changedResults].filter(key => key !== 'effort').map(key => key === 'actualDuration' ? 'actualDurationSeconds' : key === 'actualPace' ? 'actualPaceSecondsPerMile' : key),
+        plannedWorkout: description, targetPace: draft.targetPace, actualPace: draft.actualPace,
+        timeOfDay: period, done: draft.done, actualDistance: changedResults.has('actualDistance') ? actualDistance : workout.actualDistance,
+        effort: results.effort === '' ? null : Number(results.effort), pain: draft.pain, notes: draft.notes, version: workout.version,
+      };
+  }
+  const scheduleChanges = generatedSchedule && (workout.id === 'new' || changesPrescription(workout, candidateInput()));
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setSubmitted(true);
     if (!stepsValid) { setLocalError('Review the highlighted workout steps before saving.'); return; }
@@ -159,23 +179,8 @@ export default function WorkoutEditor({ workout, saving, error, onSave, onCancel
       if (input instanceof HTMLElement) { const details = input.closest('details'); if (details) details.open = true; input.focus(); }
       return;
     }
-    const measurements: Partial<WorkoutInput> = {};
-    if (planChanged) {
-      const distance = plan.exact.distance, duration = plan.exact.duration;
-      const metric = plan.targetMetric === 'distance' && distance !== null ? 'distance' : plan.targetMetric === 'duration' && duration !== null ? 'duration' : distance !== null ? 'distance' : duration !== null ? 'duration' : null;
-      Object.assign(measurements, { plannedDistance: distance, plannedDurationSeconds: duration, plannedPaceSecondsPerMile: plan.exact.pace, targetMetric: metric });
-    }
-    if (changedResults.has('actualDuration')) measurements.actualDurationSeconds = exactResults.actualDuration;
-    if (changedResults.has('actualPace')) measurements.actualPaceSecondsPerMile = exactResults.actualPace;
-    const description = structureChanged && structure ? structure.title : draft.plannedWorkout.trim() || `${draft.type}${plan.exact.distance !== null ? ` · ${formatDistance(plan.exact.distance, 'mi')} mi` : plan.exact.duration !== null ? ` · ${formatDuration(plan.exact.duration)}` : ''}`;
     try {
-      onSave(validateWorkout({ ...measurements, date: draft.date, phase: draft.phase, type: draft.type,
-        ...(structureChanged || structure && draft.type !== workout.type ? { planStructure: structure } : {}),
-        manualResultFields: [...changedResults].filter(key => key !== 'effort').map(key => key === 'actualDuration' ? 'actualDurationSeconds' : key === 'actualPace' ? 'actualPaceSecondsPerMile' : key),
-        plannedWorkout: description, targetPace: draft.targetPace, actualPace: draft.actualPace,
-        timeOfDay: period, done: draft.done, actualDistance: changedResults.has('actualDistance') ? actualDistance : workout.actualDistance,
-        effort: results.effort === '' ? null : Number(results.effort), pain: draft.pain, notes: draft.notes, version: workout.version,
-      }));
+      onSave(validateWorkout(candidateInput()));
     } catch (caught) { setLocalError(caught instanceof Error ? caught.message : 'Check your workout values.'); }
   }
   return <form ref={form} className="workout-form structured-workout-editor" onSubmit={submit} noValidate>
@@ -224,6 +229,7 @@ export default function WorkoutEditor({ workout, saving, error, onSave, onCancel
       </div></details>
     </fieldset>
     {(localError || error) && <div className="form-error" role="alert">{localError || error}</div>}
+    {scheduleChanges && <p className="linked-measurement-hint" role="status">This updates your training schedule. You can still view the original plan.</p>}
     <div className="editor-footer"><label className="checkbox-label"><input type="checkbox" checked={draft.done} disabled={saving} onChange={event => toggleCompleted(event.target.checked)} />Workout completed</label><div className="button-group"><button type="button" className="button quiet" disabled={saving} onClick={onCancel}>Cancel</button><button type="submit" className="button primary" disabled={saving || saveBlocked}>{saving ? <LoaderCircle className="spin" size={16} /> : <Check size={16} />}{saving ? 'Saving…' : 'Save workout'}</button></div></div>
   </form>;
 }
