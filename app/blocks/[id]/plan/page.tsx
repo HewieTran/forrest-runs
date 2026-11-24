@@ -16,5 +16,5 @@ export default async function PlanPage({ params }: { params: Promise<{ id: strin
   try { const { ownerId: _ownerId, ...owned } = await userPlan(user, id); block = owned; }
   catch (error) { if (error instanceof TrainingRequestError && error.status === 404) notFound(); throw error; }
   if (!block.setup) redirect(`/blocks/${encodeURIComponent(id)}`);
-  return <PlanGeneration initial={block} displayName={user.fullName?.split(' ')[0] ?? 'Runner'} mode={plannerMode()} configured={plannerConfigured()} today={centralToday()} />;
+  return <PlanGeneration initial={block} displayName={user.fullName?.split(' ')[0] ?? 'Runner'} mode={plannerMode(user)} configured={plannerConfigured(user)} today={centralToday()} />;
 }

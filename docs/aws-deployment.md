@@ -12,7 +12,9 @@ and on the server. A successful upload alone does not count as deployment: the
 receiver checks startup, the package's build identity, sign-in redirect and the
 running revision, then GitHub checks the public HTTPS page. Real Google sign-in
 and desktop/physical-phone UX remain human acceptance checks after relevant
-changes. The runtime continues using simulated AI generation.
+changes. The runtime defaults to simulated AI generation. The separate
+[generator pilot runbook](aws-generator.md) covers explicit live activation,
+its budget controls and the hosted timeout gate.
 
 The destination is the existing shared beta/live instance at `3.132.106.53`.
 There is one live AWS database. The pipeline does not create a production
