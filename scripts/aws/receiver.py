@@ -90,7 +90,11 @@ def healthy(port, release):
             opener.open(base + '/auth/sign-in', timeout=3)
         except urllib.error.HTTPError as redirect:
             location = redirect.headers.get('Location', '')
-            if redirect.code != 303 or not location.startswith('https://us-east-2stmkwiiad.auth.us-east-2.amazoncognito.com/oauth2/authorize?'):
+            # Both are approved Cognito entry points; the custom domain is now
+            # configured on beta. Keep exact origins and authorization paths.
+            approved = ('https://auth.beta.forrestruns.com/oauth2/authorize?',
+                        'https://us-east-2stmkwiiad.auth.us-east-2.amazoncognito.com/oauth2/authorize?')
+            if redirect.code != 303 or not location.startswith(approved):
                 return False
         else:
             return False
