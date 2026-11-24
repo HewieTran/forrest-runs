@@ -13,6 +13,7 @@ test('older benchmark clarification can be explicitly retried once under a newer
   const generation = { status:'clarification', promptVersion:'race-coach-v9-benchmarks', output:blocked('refresh_benchmark',['benchmark']) };
   assert.equal(canRetryBenchmarkWithCurrentPolicy(generation), true);
   assert.equal(canRetryBenchmarkWithCurrentPolicy({...generation,promptVersion:PROMPT_VERSION}), false);
+  assert.equal(canRetryBenchmarkWithCurrentPolicy({...generation,promptVersion:'unknown-future-policy'}), false);
   assert.equal(canRetryBenchmarkWithCurrentPolicy({...generation,output:blocked('adjust_goal',['target_time'])}), false);
   assert.equal(canRetryBenchmarkWithCurrentPolicy({...generation,status:'accepted'}), false);
   assert.equal(requiresAssessment('race-coach-v9-benchmarks'), true);

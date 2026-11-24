@@ -142,7 +142,7 @@ export type Generation = {
 export function simulatedBlock(plan: { generation?: Generation | null }) { return plan.generation?.provider === 'simulation'; }
 export function acceptedPlan(plan: { generation?: Generation | null }) { return plan.generation?.status === 'accepted'; }
 export function canRetryBenchmarkWithCurrentPolicy(generation: Generation | null | undefined) {
-  return generation?.status === 'clarification' && generation.output?.assessment?.decision === 'refresh_benchmark' && generation.promptVersion !== PROMPT_VERSION;
+  return generation?.status === 'clarification' && generation.output?.assessment?.decision === 'refresh_benchmark' && generation.promptVersion !== PROMPT_VERSION && requiresAssessment(generation.promptVersion);
 }
 
 // Backup validation is offline; it does not confer authority or accept a plan.
