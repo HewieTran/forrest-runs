@@ -25,9 +25,9 @@ export default function StartBlockButton({ plan, activeBlock, disabled = false, 
     } catch (caught) { setError(caught instanceof Error ? caught.message : 'Your block could not be started. Please try again.'); }
     finally { inFlight.current = false; setBusy(false); onBusyChange?.(false); }
   }
+  if (blocked) return <p className="start-block-message">{activeBlock.raceName} is already in progress. Complete or archive it first. <a href={`/blocks/${encodeURIComponent(activeBlock.id)}`}>Open current block</a></p>;
   return <div className="start-block-control">
-    <button type="button" className="button primary" disabled={disabled || busy || !!blocked} onClick={start} aria-describedby={blocked || error ? errorId : undefined}><Play size={16} aria-hidden="true" />{busy ? 'Starting…' : 'Start this block'}</button>
-    {blocked && <p id={errorId} className="start-block-message">{activeBlock.raceName} is already in progress. Complete or archive it first. <a href={`/blocks/${encodeURIComponent(activeBlock.id)}`}>Open current block</a></p>}
+    <button type="button" className="button primary" disabled={disabled || busy} onClick={start} aria-describedby={error ? errorId : undefined}><Play size={16} aria-hidden="true" />{busy ? 'Starting…' : 'Start this block'}</button>
     {error && <p id={errorId} className="start-block-message form-error" role="alert">{error} <a href="">Reload latest status</a></p>}
   </div>;
 }

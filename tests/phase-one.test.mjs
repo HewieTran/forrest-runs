@@ -13,7 +13,7 @@ export function phaseOneSetup(today = '2026-10-27') {
 }
 test('benchmark intake supports all experience levels without deferred workload inputs',()=>{
  for(const experience of ['novice','intermediate','advanced']){
-  const setup=phaseOneSetup();setup.runner.experience=experience;
+  const setup=phaseOneSetup();setup.runner.experience=experience;setup.runner.age=null;
   assert.deepEqual(setupIssues(validateSetup(setup)),[]);
   const input=preparePlanner(setup,'2026-10-27');
   assert.equal(input.goal.targetDurationSeconds,1801);assert.equal(setupTargetTime(setup),'0:30:01');
@@ -23,7 +23,7 @@ test('benchmark intake supports all experience levels without deferred workload 
   const invalid=structuredClone(output);invalid.sessions[0].steps[0].paceSecondsPerMile=null;
   assert.throws(()=>validatePlanOutput(invalid,input));
  }
- for(const field of ['experience','age','height','weight']) {const setup=phaseOneSetup();setup.runner[field]=null;assert.ok(setupIssues(setup).some(issue=>issue.field===field));}
+ for(const field of ['experience','height','weight']) {const setup=phaseOneSetup();setup.runner[field]=null;assert.ok(setupIssues(setup).some(issue=>issue.field===field));}
  const bad=phaseOneSetup();bad.goal.distanceKm=15;assert.ok(setupIssues(bad).length);
 });
 test('editing legacy intake preserves historical answers but defers them in new generation',()=>{

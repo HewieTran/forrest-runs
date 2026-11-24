@@ -26,7 +26,10 @@ export default function Tracker({ initial, preview = false, activeBlock = null, 
   initial: AppData; preview?: boolean; view?: 'overview' | 'schedule'; initialDate?: string; activeBlock?: Pick<Plan, 'id' | 'raceName'> | null;
 }) {
   const [data, setData] = useState(initial);
-  const readyToStart = blockReady({ ...data.plan, workoutCount: data.workouts.length }) && !simulatedBlock(data.plan);
+  const simulation = simulatedBlock(data.plan);
+  const sample = simulation && acceptedPlan(data.plan);
+  const readyToStart = blockReady({ ...data.plan, workoutCount: data.workouts.length }) && !simulation;
+  const setupIsReadOnly = data.plan.status !== 'draft' || !!acceptedPlan(data.plan) || data.workouts.length > 0 || data.restDays.length > 0;
   const firstWorkoutDate = data.workouts.reduce<string | null>((first, workout) => first === null || workout.date < first ? workout.date : first, null);
   const schedule = view === 'schedule';
   const [selectedDate, setSelectedDate] = useState(() => initialScheduleDate(initial, initialDate));
@@ -47,6 +50,8 @@ export default function Tracker({ initial, preview = false, activeBlock = null, 
   const [localPeriod, setLocalPeriod] = useState<WorkoutPeriod>('morning');
   const [previewPeriod, setPreviewPeriod] = useState<WorkoutPeriod | null>(null);
   const featured = data.workouts.find(row => row.id === featuredId) ?? todayWorkout(data.workouts, data.today);
+  const blockHref = `/blocks/${encodeURIComponent(data.plan.id)}`;
+  const scheduleHref = preview ? `/preview?view=schedule&date=${featured?.date ?? data.today}` : `${blockHref}/schedule?date=${featured?.date ?? data.today}`;
   const editing = data.workouts.find(row => row.id === expandedWorkoutId);
   const newWorkout: Workout = { ...EMPTY_WORKOUT_MEASUREMENTS, id: 'new', planId: data.plan.id,
     date: schedule ? selectedDate : featured?.date ?? data.today, phase: featured?.phase ?? 'Not applicable', type: 'Easy Run', plannedWorkout: '', targetPace: '',
@@ -231,7 +236,7 @@ export default function Tracker({ initial, preview = false, activeBlock = null, 
     <AppHeader displayName={data.displayName} preview={preview} />
     <main className={`main-content ${schedule ? 'workout-schedule-page' : 'training-block-overview'}`}>
       {schedule ? <>
-        <a className="block-breadcrumb" href={preview ? '/preview?view=overview' : `/blocks/${encodeURIComponent(data.plan.id)}`}><ChevronLeft size={15} /> Training Block Overview</a>
+        <a className="block-breadcrumb" href={preview ? '/preview?view=overview' : blockHref}><ChevronLeft size={15} /> {sample ? 'Back to sample plan' : 'Training Block Overview'}</a>
         <WorkoutSchedule data={data} date={selectedDate} month={visibleMonth} canEdit={canEdit} disabled={saving}
           onDate={date => chooseDate(date)} onMonth={setVisibleMonth} onOpen={date => chooseDate(date, true)} onAdd={addWorkout} onOpenWorkout={openTodayWorkout} onAddDate={date => chooseDate(date, true, true)} onSelectDate={selectCalendarDate} />
       </> : <>
@@ -248,7 +253,11 @@ export default function Tracker({ initial, preview = false, activeBlock = null, 
           }} /><span>Race · {formatDate(data.plan.raceDate, { month: 'long', day: 'numeric', year: 'numeric' })}</span></div>
       </div></section>
       {preview && <div className="preview-notice"><Info size={16} /> Internal preview with example workouts. Changes here are not saved.</div>}
-      {simulatedBlock(data.plan) && <p className="block-callout"><strong>Simulation mode.</strong> This example schedule demonstrates the app flow. It is not a personalized running plan and cannot be activated.</p>}
+      {sample && <section className="block-ready-panel" aria-labelledby="sample-plan-title">
+        <h2 id="sample-plan-title">Sample plan</h2>
+        <p>Explore example workouts and rest days. This plan is for preview and cannot be activated.</p>
+        <a className="button primary sample-schedule-link" href={preview ? scheduleHref : `${blockHref}/schedule`}>View sample schedule</a>
+      </section>}
       {readyToStart && <section className="block-ready-panel" aria-labelledby="block-ready-title">
         <h2 id="block-ready-title">Your training block is ready</h2>
         <p>Make this your current training block.</p>
@@ -263,11 +272,11 @@ export default function Tracker({ initial, preview = false, activeBlock = null, 
       </section>}
       {data.plan.status === 'active' && firstWorkoutDate && firstWorkoutDate >= data.today && <div className="current-block-start"><BlockStartDate date={firstWorkoutDate} today={data.today} /></div>}
       <TodayWorkout data={data} featured={featured} savedRunId={savedRunId} saving={saving}
-        scheduleHref={preview ? `/preview?view=schedule&date=${featured?.date ?? data.today}` : `/blocks/${encodeURIComponent(data.plan.id)}/schedule?date=${featured?.date ?? data.today}`}
+        scheduleHref={sample ? undefined : scheduleHref}
         period={previewPeriod ?? featured?.timeOfDay ?? localPeriod} onOpenWorkout={openTodayWorkout} onSelectWorkout={selectWorkout} />
-      {data.plan.setup && <section className="block-callout overview-setup"><Flag size={21} /><div><strong>Your starting setup</strong><p>{raceDistanceLabel(data.plan.setup.goal.distanceKm)} · Target {setupTargetTime(data.plan.setup) || 'time not set'} · {data.plan.setup.availability.days.length} available running days</p>
+      {data.plan.setup && <section className="block-callout overview-setup"><Flag size={21} /><div><strong>{setupIsReadOnly ? 'Original plan details' : 'Your plan setup'}</strong>{setupIsReadOnly && <p>A read-only snapshot of the details saved during setup.</p>}<p>{raceDistanceLabel(data.plan.setup.goal.distanceKm)} · Target {setupTargetTime(data.plan.setup) || 'time not set'} · {data.plan.setup.availability.days.length} available running days</p>
         {acceptedPlan(data.plan) && <p>{data.plan.generation?.alteredAt ? 'Altered since acceptance. Your original generated plan is preserved.' : 'Your generated plan is saved.'} <a href={`/blocks/${encodeURIComponent(data.plan.id)}/plan`}>View original plan</a></p>}
-        <a className="button" href={preview ? '/preview?view=setup' : `/blocks/${encodeURIComponent(data.plan.id)}/setup`}>{data.plan.status === 'draft' && !acceptedPlan(data.plan) ? 'Continue setup' : 'View starting setup'}</a></div></section>}
+        <a className="button" href={preview ? '/preview?view=setup' : `/blocks/${encodeURIComponent(data.plan.id)}/setup`}>{setupIsReadOnly ? 'View original plan details' : 'Continue setup'}</a></div></section>}
       <BlockProgress data={data} />
       <div className="overview-manage"><button type="button" className="button" disabled={saving || (!!data.plan.setup && !acceptedPlan(data.plan))} onClick={addWorkout}><Plus size={16} /> Add workout</button>{!data.workouts.length && !data.plan.setup && <a className="button" href={preview ? '/preview?view=setup' : `/blocks/${encodeURIComponent(data.plan.id)}/setup`}>Start guided setup</a>}</div>
       </>}
@@ -287,7 +296,7 @@ export default function Tracker({ initial, preview = false, activeBlock = null, 
       {error && !preview && <div className="workout-recovery"><p>{saveConflict ? 'This workout or block changed elsewhere. Reload the latest data before trying again; reloading will discard these edits.' : 'You can retry saving with your edits above, or reload the latest saved data.'}</p><button className="button" disabled={saving} onClick={reloadLatest}>Reload latest data</button></div>}
     </WorkoutDialog>}
     {readOnlyDate && <WorkoutDialog title={data.restDays.some(day => day.date === readOnlyDate) ? 'Rest day' : 'Scheduled workouts'} date={readOnlyDate} saving={false} onClose={closeEditor} returnFocusId="schedule-selected-date">
-      <div className="schedule-rest-detail">{data.restDays.some(day => day.date === readOnlyDate) ? <><p>A little recovery goes a long way.</p><p>This date is marked for rest. There is no workout to log.</p></> : <><p>Finish your starting setup and save a plan before editing workouts.</p>{data.workouts.filter(row => row.date === readOnlyDate).map(row => <p key={row.id}><strong>{row.type}</strong><br />{row.plannedWorkout}</p>)}</>}<button className="button" disabled>Add workout</button></div>
+      <div className="schedule-rest-detail">{data.restDays.some(day => day.date === readOnlyDate) ? <><p>A little recovery goes a long way.</p><p>This date is marked for rest. There is no workout to log.</p></> : <><p>Finish setup and save a plan before editing workouts.</p>{data.workouts.filter(row => row.date === readOnlyDate).map(row => <p key={row.id}><strong>{row.type}</strong><br />{row.plannedWorkout}</p>)}</>}<button className="button" disabled>Add workout</button></div>
     </WorkoutDialog>}
     {toast && <div className="toast" role="status"><CheckCircle2 size={18} /><span>{toast}</span><button onClick={() => setToast('')} aria-label="Dismiss notification"><X size={16} /></button></div>}
   </div>;
