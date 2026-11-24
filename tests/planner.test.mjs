@@ -69,6 +69,12 @@ test('clarifications cannot carry a schedule; result logging is not a prescripti
   const before = workoutForSession(output.sessions[0]);
   assert.equal(changesPrescription(before, { ...before, done: true, notes: 'Recorded', actualDistance: 3 }), false);
   assert.equal(changesPrescription(before, { ...before, plannedDurationSeconds: 1900 }), true);
+  for (const result of [{ done: true }, { notes: 'How it felt', actualDistance: 3 }, { actualDurationSeconds: 1800, actualPaceSecondsPerMile: 600 }, { pain: 'Mild', effort: 4, timeOfDay: 'evening' }]) {
+    assert.equal(changesPrescription(before, { ...before, ...result }), false, 'Logging results alone keeps the schedule');
+  }
+  for (const edit of [{ date: '2099-01-01' }, { phase: 'Taper' }, { type: 'Strength' }, { plannedWorkout: 'Updated instructions' }, { targetPace: 'Updated effort' }]) {
+    assert.equal(changesPrescription(before, { ...before, ...edit }), true, 'Schedule edits remain visible even while logging');
+  }
 });
 test('v5 backups preserve accepted generation provenance and reject damaged snapshots', () => {
   const timestamp = '2026-10-24T12:00:00.000Z';

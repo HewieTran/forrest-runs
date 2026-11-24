@@ -83,7 +83,11 @@ export async function testPlanner(db, dispatch, mock) {
   assert.equal(saved.status, 200);
   data = (await call('/api/training' + scope)).data;
   assert.ok(data.plan.generation.alteredAt);
+  assert.deepEqual(data.workouts.find(row => row.id === workout.id).planStructure, planStructure, 'Edited schedule survives reload');
   assert.deepEqual(data.plan.generation.output, output);
+  const originalPlanPage = await dispatch('http://localhost/blocks/' + encodeURIComponent(block.id) + '/plan', { headers: auth });
+  assert.equal(originalPlanPage.status, 200);
+  assert.match(await originalPlanPage.text(), /Original generated schedule/);
   assert.equal((await call(workoutPath, 'PATCH', { ...changedWorkout, confirmPlanChange: true })).status, 409);
   assert.equal((await call('/api/workouts' + scope, 'POST', { ...saved.data.workout, date: '2027-12-01', version: 1 })).status, 409);
   assert.equal((await call('/api/workouts' + scope, 'POST', { ...saved.data.workout, date: '2027-12-01', version: 1, confirmPlanChange: true })).status, 201);

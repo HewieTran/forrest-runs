@@ -140,7 +140,6 @@ export default function Tracker({ initial, preview = false, activeBlock = null, 
     if (saveInFlight.current || saving || saveConflict) return;
     const existing = data.workouts.find(workout => workout.id === id);
     const confirmPlanChange = acceptedPlan(data.plan) && (id === 'new' || !!existing && changesPrescription(existing, input));
-    if (confirmPlanChange && !window.confirm('Changing prescribed workouts will mark this generated block as altered. The original plan will be kept. Save these changes?')) return;
     saveInFlight.current = true;
     setSaving(true);
     setError('');
@@ -291,6 +290,7 @@ export default function Tracker({ initial, preview = false, activeBlock = null, 
         {orderedWorkouts(data.workouts).filter(row => row.date === selectedDate).map(row => <option key={row.id} value={row.id}>{row.type} · {scheduleTarget(row)}{row.done ? ' · Completed' : ''}</option>)}
       </select></label><button className="button" disabled={saving || expandedWorkoutId === 'new'} onClick={addWorkout}><Plus size={16} /> Add another</button></div>}
       <WorkoutEditor key={`${expandedWorkoutId}:${editing?.version ?? 1}`} workout={editing ?? newWorkout} saving={saving} saveBlocked={saveConflict} error={error}
+        generatedSchedule={acceptedPlan(data.plan)}
         initialPeriod={previewPeriod ?? localPeriod} onPeriodChange={setPreviewPeriod}
         onSave={input => saveWorkout(expandedWorkoutId!, input)} onCancel={closeEditor} onDirty={setHasUnsavedChanges} />
       {error && !preview && <div className="workout-recovery"><p>{saveConflict ? 'This workout or block changed elsewhere. Reload the latest data before trying again; reloading will discard these edits.' : 'You can retry saving with your edits above, or reload the latest saved data.'}</p><button className="button" disabled={saving} onClick={reloadLatest}>Reload latest data</button></div>}
