@@ -1,6 +1,7 @@
 'use client';
 import GenerationProgress from './GenerationProgress';
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { canRetryBenchmarkWithCurrentPolicy } from '../lib/planner';
 import { ArrowLeft, ArrowRight, CheckCircle2, Flag, Save } from 'lucide-react';
 import AppHeader from './AppHeader';
 import PlanAdjustment from './PlanAdjustment';
@@ -39,6 +40,7 @@ export default function SetupWizard({ initial = null, displayName, today, readOn
   const [saveAction, setSaveAction] = useState<'draft' | 'generation' | null>(null);
   const [dirty, setDirty] = useState(false), [message, setMessage] = useState(''), [errors, setErrors] = useState<SetupIssue[]>([]);
   const saving = saveAction !== null;
+  const requestInFlight = useRef(false);
   const [generationError, setGenerationError] = useState(initial?.generation?.status === 'failed' ? displayGenerationError(initial.generation.error ?? 'Generation could not finish. Your draft is saved.') : '');
   const [clarification, setClarification] = useState(initial?.generation?.status === 'clarification' ? initial.generation.output : null);
   const [applied, setApplied] = useState<{
@@ -166,15 +168,15 @@ export default function SetupWizard({ initial = null, displayName, today, readOn
       setErrors([]);setStep(current => Math.min(3, current + 1));
     } catch (error) { setErrors([{ step, field: '', message: error instanceof Error ? error.message : 'Check your entries.' }]); }
   }
-  async function save(complete: boolean) {
-    if (saving || readOnly || (complete && !generationAvailable)) return;
+  async function save(complete: boolean, useSavedResult = false) {
+    if (requestInFlight.current || saving || readOnly || (complete && !generationAvailable)) return;
     if (complete && windowIssue) {
       setStep(0);
       setFocusTarget(`setup-${windowIssue.field}`);
       return;
     }
     if (complete && waitingToRetry) return;
-    if (complete && clarification) { setMessage('Edit the relevant inputs before generating again.');return; }
+    if (complete && clarification && !(useSavedResult && canRetryBenchmarkWithCurrentPolicy(block?.generation))) { setMessage('Edit the relevant inputs before generating again.');return; }
     setMessage('');setGenerationError('');
     if (!checkNumberEntries()) return;
     setErrors([]);
@@ -185,6 +187,7 @@ export default function SetupWizard({ initial = null, displayName, today, readOn
       const issues = complete ? setupIssues(setup) : [];
       if (issues.length) { setErrors(issues);setStep(issues[0].step);return; }
     } catch (error) { setErrors([{ step, field: '', message: error instanceof Error ? error.message : 'Check your entries.' }]);return; }
+    requestInFlight.current = true;
     setSaveAction(complete ? 'generation' : 'draft');
     let generating = false;
     try {
@@ -217,7 +220,7 @@ export default function SetupWizard({ initial = null, displayName, today, readOn
       if (generating) setGenerationError(displayGenerationError(text));
       else setErrors([{ step, field: '', message: text }]);
     }
-    finally { setSaveAction(null); }
+    finally { requestInFlight.current = false;setSaveAction(null); }
   }
   function input(name: TextField, label: string, type = 'text', required = true, hint?: string) {
     const error = issueFor(name, type), id = `setup-${name}`;
@@ -243,6 +246,7 @@ export default function SetupWizard({ initial = null, displayName, today, readOn
       {!!errors.length && <div className="setup-errors" role="alert"><strong>Check these details</strong><ul>{errors.map((issue, index) => <li key={index}><button type="button" onClick={() => setStep(issue.step)}>{issue.message}</button></li>)}</ul></div>}
       {generationError && <div className="setup-errors" role="alert"><strong>Plan generation couldn’t finish</strong><p>{generationError}</p></div>}
       {clarification && <PlanAdjustment output={clarification} onEdit={editAssessment} disabled={disabled}
+        onGenerateUsingResult={canRetryBenchmarkWithCurrentPolicy(block?.generation) ? () => void save(true, true) : undefined} retryDisabled={waitingToRetry || !!windowIssue || !generationAvailable}
         input={step === 3 ? block?.generation?.input : undefined} today={today} onApply={applySuggestion} />}
       <fieldset disabled={disabled}>
       {step === 0 && <><h2>What are you working toward?</h2><div className="setup-fields"><label className="setup-span-two" htmlFor="setup-goalKind"><span className="setup-field-title">Race distance<span className="setup-required"> Required</span></span>
@@ -258,7 +262,7 @@ export default function SetupWizard({ initial = null, displayName, today, readOn
         : input('height', 'Height (cm)', 'number')}</div>
         <section className="setup-benchmark" aria-labelledby="benchmark-heading">
           <h3 id="benchmark-heading">Recent race or hard run</h3>
-          <div className="setup-guidance"><p><strong>A recent result is required to generate a plan.</strong> Pick a race or a run where you pushed hard over a known distance. Your result helps estimate paces for a personalized plan.</p><p>You can save a draft and add your result later.</p></div>
+          <div className="setup-guidance"><p><strong>Add a race or hard run result.</strong> Pick a run where you pushed hard over a known distance. Use the best result you have; a recent one gives a clearer picture. Older results can still inform conservative pace estimates, with uncertainty explained.</p><p>You can save a draft and add your result later.</p></div>
           <div className="setup-fields">
             <label htmlFor="setup-benchmarkDistance"><span className="setup-field-title">Result distance<span className="setup-required"> Required</span></span>
               <select id="setup-benchmarkDistance" value={fields.benchmarkDistance} onChange={event => update('benchmarkDistance', event.target.value)} aria-required="true" aria-invalid={!!issueFor('benchmarkDistance')} aria-describedby="benchmark-distance-feedback">

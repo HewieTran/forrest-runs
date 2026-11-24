@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import AppHeader from './AppHeader';
 import PlanAdjustment from './PlanAdjustment';
 import GenerationProgress from './GenerationProgress';
@@ -7,7 +7,7 @@ import { displayGenerationError } from '../lib/plan-validation';
 import { SetupReview } from './SetupWizard';
 import { raceForKilometers } from '../lib/race-distance';
 import { DAY_NAMES } from '../lib/setup';
-import { acceptedPlan, simulatedBlock, scheduleDays, sessionSeconds } from '../lib/planner';
+import { acceptedPlan, simulatedBlock, scheduleDays, sessionSeconds, canRetryBenchmarkWithCurrentPolicy } from '../lib/planner';
 import { formatDate, weekStart, type Plan } from '../lib/domain';
 import { formatDuration } from '../lib/workout-form';
 import { GENERATION_COOLDOWN_MS } from '../lib/planner-policy';
@@ -15,6 +15,7 @@ import { GENERATION_COOLDOWN_MS } from '../lib/planner-policy';
 export default function PlanGeneration({ initial, displayName, configured, mode, today }: { initial: Plan; displayName: string; configured: boolean; mode: 'disabled' | 'simulation' | 'openai'; today: string }) {
   const [block, setBlock] = useState(initial), [busy, setBusy] = useState(false), [error, setError] = useState('');
   const [clock, setClock] = useState(Date.now());
+  const requestInFlight = useRef(false);
   useEffect(() => { const timer = setInterval(() => setClock(Date.now()), 10000); return () => clearInterval(timer); }, []);
   const generation = block.generation, output = generation?.output;
   const race = raceForKilometers((generation?.setupSnapshot ?? block.setup)?.goal.distanceKm ?? null)?.label ?? 'race';
@@ -32,6 +33,8 @@ export default function PlanGeneration({ initial, displayName, configured, mode,
   const raceExtra = block.setup && !block.setup.availability.days.includes(raceDay);
   const staleDate = Boolean(block.setup && block.setup.goal.startDate < today);
   async function generate() {
+    if (requestInFlight.current || busy || inFlight || (cooldown > 0 && generation?.status !== 'review') || !configured || staleDate) return;
+    requestInFlight.current = true;
     setBusy(true); setError('');
     try {
       const response = await fetch(`/api${base}/generation`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ version: block.version, consent: true, saveImmediately: true }) });
@@ -39,7 +42,7 @@ export default function PlanGeneration({ initial, displayName, configured, mode,
       if (result.block) { setBlock(result.block); if (acceptedPlan(result.block)) { window.location.assign(base); return; } }
       if (!response.ok && !result.block) throw new Error(result.error || 'Generation could not finish. Reload to check its status.');
     } catch (error) { setError(error instanceof Error ? error.message : 'Generation could not finish. Reload to check its status.'); }
-    finally { setBusy(false); setClock(Date.now()); }
+    finally { requestInFlight.current = false;setBusy(false); setClock(Date.now()); }
   }
   return <><AppHeader displayName={displayName} /><main className="main-content plan-generation">
     <a className="text-link" href={accepted ? base : '/blocks'}>← {accepted ? 'Back to this block' : 'Training blocks'}</a>
@@ -58,7 +61,9 @@ export default function PlanGeneration({ initial, displayName, configured, mode,
       {accepted && <p className="block-callout">{generation?.alteredAt ? 'This block has been altered since generation. The original schedule below is preserved; open the block to see your current schedule.' : 'This is the schedule originally generated. Your current workout results are in the block.'}</p>}
       {output.outcome === 'plan' && <><p>{output.summary}</p><h3>Your race goal</h3><p>{output.goalAssessment}</p>
       {!!output.assumptions.length && <><h3>Assumptions to review</h3><ul>{output.assumptions.map((text, i) => <li key={i}>{text}</li>)}</ul></>}</>}
-      {output.outcome === 'needs_clarification' && <PlanAdjustment output={output} base={base} />}
+      {output.outcome === 'needs_clarification' && <PlanAdjustment output={output} base={base}
+        onGenerateUsingResult={editable && canRetryBenchmarkWithCurrentPolicy(generation) ? () => void generate() : undefined}
+        disabled={busy || !!inFlight} retryDisabled={cooldown > 0 || !configured || staleDate} />}
       {output.outcome === 'plan' && <><p className="setup-footnote">Full-session times include all steps. Race-step time is an estimate. Days marked rest are explicit parts of this proposed schedule.</p><div className="plan-weeks">{weeks.map((week, i) => {
         const days = manifest.filter(day => weekStart(day.date) === week);
         const sessions = output.sessions.filter(session => weekStart(session.date) === week);

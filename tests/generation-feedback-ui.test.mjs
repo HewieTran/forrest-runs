@@ -34,13 +34,22 @@ const render = (component, props) => renderToStaticMarkup(React.createElement(co
 const clarification = decision => ({ ...output, outcome: 'needs_clarification', sessions: [], questions: ['Add more context.'], assessment: {
   decision, reason: 'The saved result is older than the proposed training window.', actions: ['benchmark'],
 } });
-test('a stale-result clarification has one clear action and no target comparison', () => {
+test('a contradictory-result clarification has one clear edit action and no target comparison', () => {
   const html = render(PlanAdjustment, { output: clarification('refresh_benchmark'), input, today: '2026-11-23', onEdit() {} });
-  assert.match(html, /Add a more recent result/);
+  assert.match(html, /Review your running result/);
   assert.match(html, /No workouts were created\. Your draft and target are saved\./);
-  assert.equal((html.match(/Update recent result/g) ?? []).length, 1);
+  assert.equal((html.match(/Update result/g) ?? []).length, 1);
   assert.doesNotMatch(html, /Your target|Past race time|faster than|Target time needs adjustment/);
   assert.match(html, /<details[^>]*>[\s\S]*The saved result is older/);
+});
+test('an earlier-policy result clarification offers an explicit saved-result request', () => {
+  const props = { output: clarification('refresh_benchmark'), input, today:'2026-11-23', onEdit() {}, onGenerateUsingResult() {} };
+  const html = render(PlanAdjustment, props);
+  assert.match(html, /Use the result you have/);
+  assert.equal((html.match(/Generate using this result/g) ?? []).length, 1);
+  assert.match(html, /conservative starting plan/);
+  assert.doesNotMatch(html, /Your target|Past race time|faster than/);
+  assert.match(render(PlanAdjustment, { ...props, retryDisabled:true }), /disabled=""[^>]*>Generate using this result/);
 });
 test('a supported goal suggestion still requires an explicit Use target action', () => {
   const result = clarification('adjust_goal');

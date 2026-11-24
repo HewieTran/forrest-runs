@@ -34,9 +34,10 @@ function targetContext(input: PlannerIntake | undefined) {
   };
 }
 
-export default function PlanAdjustment({ output, base, onEdit, input, today, onApply, disabled = false }: {
+export default function PlanAdjustment({ output, base, onEdit, input, today, onApply, onGenerateUsingResult, retryDisabled = false, disabled = false }: {
   output: PlanOutput; base?: string; onEdit?: (action: AssessmentAction) => void; disabled?: boolean;
   input?: PlannerIntake; today?: string; onApply?: (suggestion: GoalSuggestion) => void;
+  onGenerateUsingResult?: () => void; retryDisabled?: boolean;
 }) {
   if (output.outcome !== 'needs_clarification') return null;
   const actions = output.assessment?.actions ?? [];
@@ -48,9 +49,9 @@ export default function PlanAdjustment({ output, base, onEdit, input, today, onA
   const reason = output.assessment?.reason ?? output.goalAssessment;
   const title = finish ? context && !context.sameDistance ? `Review your ${context.raceName} target` : 'Target time needs adjustment'
     : schedule ? 'Training schedule needs adjustment'
-    : refreshResult ? 'Add a more recent result'
+    : refreshResult ? onGenerateUsingResult ? 'Use the result you have' : 'Review your running result'
     : 'Let’s adjust the plan inputs';
-  const summary = refreshResult ? 'Your previous result may no longer reflect your current running. Add a recent race or hard run result so the planner can estimate your training paces.' : finish ? context?.summary ?? reason : reason;
+  const summary = refreshResult && onGenerateUsingResult ? 'Your dated result can still inform a conservative starting plan. The planner will explain the uncertainty rather than assume your fitness is unchanged.' : finish ? context?.summary ?? reason : reason;
   const dateLabel = (date: string) => formatDate(date, { month: 'long', day: 'numeric', year: 'numeric' });
 
   return <section className="plan-adjustment" aria-labelledby="adjustment-title">
@@ -101,9 +102,10 @@ export default function PlanAdjustment({ output, base, onEdit, input, today, onA
 
     {!suggestions.length && <p className="plan-adjustment-next">{refreshResult ? 'No workouts were created. Your draft and target are saved.' : 'No workouts were created. Edit your details to try again.'}</p>}
     <div className="plan-adjustment-actions">
+      {refreshResult && onGenerateUsingResult && <button className="button primary" type="button" disabled={disabled || retryDisabled} onClick={onGenerateUsingResult}>Generate using this result</button>}
       {refreshResult && (onEdit
-        ? <button className="button primary" type="button" disabled={disabled} onClick={() => onEdit('benchmark')}>Update recent result</button>
-        : <a className="button primary" href={`${base}/setup?edit=benchmark`}>Update recent result</a>)}
+        ? <button className={onGenerateUsingResult ? 'plan-adjustment-link' : 'button primary'} type="button" disabled={disabled} onClick={() => onEdit('benchmark')}>Update result</button>
+        : <a className={onGenerateUsingResult ? 'plan-adjustment-link' : 'button primary'} href={`${base}/setup?edit=benchmark`}>Update result</a>)}
       {!refreshResult && actions.filter(action => action !== 'target_time' || !finish).map(action => onEdit
         ? <button className="plan-adjustment-link" type="button" key={action} disabled={disabled} onClick={() => onEdit(action)}>{ASSESSMENT_LABELS[action]}</button>
         : <a className="plan-adjustment-link" key={action} href={`${base}/setup?edit=${action}`}>{ASSESSMENT_LABELS[action]}</a>)}
