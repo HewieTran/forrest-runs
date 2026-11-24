@@ -15,6 +15,36 @@ spec.loader.exec_module(receiver)
 REVISION = 'a' * 40
 
 
+class HealthTests(unittest.TestCase):
+    def test_approved_login_domains_only(self):
+        cases = [
+            ('https://auth.beta.forrestruns.com/oauth2/authorize?client_id=test', 303, True),
+            ('https://us-east-2stmkwiiad.auth.us-east-2.amazoncognito.com/oauth2/authorize?client_id=test', 303, True),
+            ('https://auth.beta.forrestruns.com.evil.test/oauth2/authorize?x=1', 303, False),
+            ('http://auth.beta.forrestruns.com/oauth2/authorize?x=1', 303, False),
+            ('https://auth.beta.forrestruns.com/other?x=1', 303, False),
+            ('https://auth.beta.forrestruns.com/oauth2/authorize?x=1', 302, False),
+        ]
+        for location, status, expected in cases:
+            with self.subTest(location=location, status=status), tempfile.TemporaryDirectory() as tmp:
+                release = Path(tmp)
+                (release / '.next-node-proof').mkdir()
+                (release / '.next-node-proof/BUILD_ID').write_text('test-build')
+                home = Mock()
+                home.__enter__ = Mock(return_value=home)
+                home.__exit__ = Mock(return_value=False)
+                home.read.return_value = b'Sign in with Google'
+                manifest = Mock()
+                manifest.__enter__ = Mock(return_value=manifest)
+                manifest.__exit__ = Mock(return_value=False)
+                manifest.status = 200
+                opener = Mock()
+                opener.open.side_effect = [home, manifest, receiver.urllib.error.HTTPError(
+                    'http://127.0.0.1/auth/sign-in', status, 'redirect', {'Location': location}, None)]
+                with patch.object(receiver.urllib.request, 'build_opener', return_value=opener):
+                    self.assertEqual(receiver.healthy(4181, release), expected)
+
+
 class ArchiveTests(unittest.TestCase):
     def archive(self, root, entries):
         archive = root / 'bundle.tgz'
