@@ -22,8 +22,9 @@ Runner A or Runner B. Each runner starts with an empty library.
 - `FORREST_PROOF_PORT` changes the local port.
 - An ephemeral signing secret is created at startup. Restarting the server
   preserves data and requires signing in again.
-- Plan generation always uses the simulation provider. The Node adapter does
-  not expose an OpenAI credential or spreadsheet import to the app.
+- Local proof generation always uses the simulation provider. AWS beta also
+  defaults to simulation; explicit live pilot settings are documented in the
+  [generator runbook](docs/aws-generator.md). Credentials remain server-side.
 
 ## Verify
 

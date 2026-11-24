@@ -30,7 +30,16 @@ export function getDatabase(): TrainingDatabase {
 
 export function getRuntimeVariables(): Record<string, string | undefined> {
   requireNodeMode();
-  return { TRAINING_PLANNER_MODE: 'simulation' };
+  if (!isAwsBeta()) return { TRAINING_PLANNER_MODE: 'simulation' };
+  return {
+    TRAINING_PLANNER_MODE: process.env.TRAINING_PLANNER_MODE ?? 'simulation',
+    OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+    OPENAI_PLAN_MODEL: process.env.OPENAI_PLAN_MODEL,
+    // Leave response/save overhead below CloudFront's 120-second read limit.
+    OPENAI_PLAN_TIMEOUT_MS: '110000',
+    // An empty pilot list keeps all beta accounts on simulation.
+    FORREST_LIVE_GENERATOR_ALLOWED_EMAILS: process.env.FORREST_LIVE_GENERATOR_ALLOWED_EMAILS ?? '',
+  };
 }
 
 export async function getAuthenticatedUser(): Promise<AppUser | null> {

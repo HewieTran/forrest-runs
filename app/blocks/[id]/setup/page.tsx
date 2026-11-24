@@ -1,5 +1,5 @@
 import { acceptedPlan } from '../../../../lib/planner';
-import { plannerMode } from '../../../../lib/planner-runtime';
+import { plannerConfigured, plannerMode } from '../../../../lib/planner-runtime';
 import { ASSESSMENT_ACTIONS, type AssessmentAction } from '../../../../lib/plan-assessment';
 import { notFound, redirect } from 'next/navigation';
 import SetupWizard from '../../../../components/SetupWizard';
@@ -23,7 +23,7 @@ export default async function SetupPage({ params, searchParams }: { params: Prom
     const today = centralToday();
     const { edit } = await searchParams;
     const initialEdit = ASSESSMENT_ACTIONS.includes(edit as AssessmentAction) ? edit as AssessmentAction : undefined;
-    return <SetupWizard mode={plannerMode()} initialEdit={initialEdit} initial={block} displayName={user.fullName?.split(' ')[0] ?? 'Runner'} today={today} readOnly={block.status !== 'draft' || hasWorkouts || !!acceptedPlan(block)} />;
+    return <SetupWizard mode={plannerConfigured(user) ? plannerMode(user) : 'disabled'} initialEdit={initialEdit} initial={block} displayName={user.fullName?.split(' ')[0] ?? 'Runner'} today={today} readOnly={block.status !== 'draft' || hasWorkouts || !!acceptedPlan(block)} />;
   } catch (error) {
     if (error instanceof TrainingRequestError && error.status === 404) notFound();
     throw error;

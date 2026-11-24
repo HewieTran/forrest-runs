@@ -25,10 +25,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     }
     if (saveImmediately && current.generation?.status === 'review' && current.version === version)
       return json({ block: await acceptGeneratedPlan(user, id, version, current.generation.id) });
-    const mode = plannerMode();
+    const mode = plannerMode(user);
     // Simulation is selected only by the server configuration. There is no
     // provider fallback; API keys are never read or used in this branch.
-    const config = mode === 'simulation' ? null : plannerConfiguration();
+    const config = mode === 'simulation' ? null : plannerConfiguration(user);
     const block = await startPlanGeneration(user, id, version, config?.model ?? SIMULATION_MODEL, mode === 'simulation' ? 'simulation' : 'openai');
     const generation = block.generation!;
     let result;

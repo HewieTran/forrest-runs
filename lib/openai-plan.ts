@@ -91,7 +91,7 @@ export class PlanProviderError extends Error {
   }
   get httpStatus() { return ['budget', 'daily_limit', 'rate_limit'].includes(this.code) ? 429 : ['configuration', 'model_restricted', 'authentication', 'model_access', 'billing'].includes(this.code) ? 503 : 502; }
 }
-export type PlanProviderConfig = { apiKey: string; model: string; asOfDate?: string };
+export type PlanProviderConfig = { apiKey: string; model: string; asOfDate?: string; timeoutMs?: number };
 export type PlanProviderResult = { output: PlanOutput; responseId: string | null; model: string; usage: TokenUsage | null;
   promptVersion: string; validatorVersion: string; calculationVersion?: typeof PLAN_CALCULATION_VERSION; assessmentContext?: PlanningContext };
 export async function requestOpenAIPlan(input: PlannerIntake, config: PlanProviderConfig, fetcher: typeof fetch = fetch): Promise<PlanProviderResult> {
@@ -113,7 +113,7 @@ export async function requestOpenAIPlan(input: PlannerIntake, config: PlanProvid
   try {
     response = await fetcher('https://api.openai.com/v1/responses', {
       method: 'POST', headers: { Authorization: `Bearer ${config.apiKey}`, 'Content-Type': 'application/json' },
-      body: requestBody, signal: AbortSignal.timeout(120000),
+      body: requestBody, signal: AbortSignal.timeout(config.timeoutMs ?? 120000),
     });
   } catch (error) {
     throw new PlanProviderError(error instanceof Error && ['TimeoutError', 'AbortError'].includes(error.name) ? 'timeout' : 'provider');
