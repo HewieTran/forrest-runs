@@ -7,7 +7,10 @@ export const KM_PER_MILE = 1.609344;
 export const PLAN_FIELDS: PlanField[] = ['distance', 'pace', 'duration'];
 
 export function formatDistance(miles: number | null, unit: DistanceUnit) {
-  return miles === null ? '' : String(Number((miles * (unit === 'km' ? KM_PER_MILE : 1)).toFixed(4)));
+  if (miles === null) return '';
+  const value = miles * (unit === 'km' ? KM_PER_MILE : 1);
+  // Do not turn a valid short target into an invalid zero in an editable field.
+  return String(value > 0 && value < .005 ? Number(value.toPrecision(2)) : Number(value.toFixed(2)));
 }
 export function formatDuration(seconds: number | null) {
   if (seconds === null) return '';

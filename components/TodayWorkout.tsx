@@ -5,7 +5,8 @@ import { useEffect, useRef } from 'react';
 import { ChevronLeft, ChevronRight, CalendarDays, Pencil, Sparkles } from 'lucide-react';
 import { formatDate, isRun, type AppData, type Workout } from '../lib/domain';
 import { adjacentWorkouts, todayWorkout, PERIOD_LABELS, periodArtwork, type WorkoutPeriod } from '../lib/block-overview';
-import { formatPace } from '../lib/workout-form';
+import { useBlockUnits } from './BlockUnits';
+import { formatDistance, formatPace } from '../lib/workout-form';
 import { readableDuration, workoutStructure } from '../lib/workout-structure';
 import './today-workout.css';
 
@@ -17,6 +18,7 @@ export default function TodayWorkout({ data, featured, savedRunId, saving, perio
   scheduleHref?: string;
   onOpenWorkout: (id: string) => void; onSelectWorkout: (id: string | null) => void;
 }) {
+  const { unit } = useBlockUnits();
   const copyRef = useRef<HTMLDivElement>(null);
   const artRef = useRef<HTMLImageElement>(null);
   const pendingMotion = useRef<{ direction: number; outgoing: HTMLElement; artwork: HTMLElement | null; height: number } | null>(null);
@@ -76,11 +78,11 @@ export default function TodayWorkout({ data, featured, savedRunId, saving, perio
   const instructions = featured && (workoutStructure(featured)?.title || featured.plannedWorkout.trim().split('\n')[0]);
   const duration = featured?.plannedDurationSeconds;
   const targets = featured ? [
-    { label: 'Distance', value: featured.plannedDistance === null ? '' : number.format(featured.plannedDistance), unit: 'mi' },
-    { label: 'Target pace', value: featured.plannedPaceSecondsPerMile === null ? featured.targetPace : formatPace(featured.plannedPaceSecondsPerMile, 'mi'), unit: featured.plannedPaceSecondsPerMile === null ? '' : '/mi' },
+    { label: 'Distance', value: featured.plannedDistance === null ? '' : formatDistance(featured.plannedDistance, unit), unit },
+    { label: 'Target pace', value: featured.plannedPaceSecondsPerMile === null ? featured.targetPace : formatPace(featured.plannedPaceSecondsPerMile, unit), unit: featured.plannedPaceSecondsPerMile === null ? '' : `/${unit}` },
     { label: 'Target time', value: duration == null ? '' : duration % 60 === 0 ? number.format(duration / 60) : readableDuration(duration), unit: duration != null && duration % 60 === 0 ? 'min' : '' },
   ].filter(target => target.value) : [];
-  const results = featured ? [featured.actualDistance === null ? '' : `${number.format(featured.actualDistance)} mi`,
+  const results = featured ? [featured.actualDistance === null ? '' : `${formatDistance(featured.actualDistance, unit)} ${unit}`,
     featured.actualDurationSeconds === null ? '' : readableDuration(featured.actualDurationSeconds),
     featured.timeOfDay ? PERIOD_LABELS[featured.timeOfDay] : ''].filter(Boolean).join(' · ') : '';
   return <section className="today-workout" aria-labelledby="today-workout-title">
