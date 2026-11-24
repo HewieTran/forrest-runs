@@ -6,6 +6,25 @@ import { simulatedPlan } from '../lib/simulated-plan.ts';
 import { currentPlannerFixture, plannerFixture, responseFixture } from './planner-fixture.mjs';
 const { input, output } = plannerFixture();
 const config = { apiKey: 'synthetic-key', model: 'gpt-6-luna' };
+test('an old valid result remains unchanged evidence in one best-effort provider request', async () => {
+  const {setup} = currentPlannerFixture('2026-11-23');
+  setup.benchmark.date='2024-01-01';
+  const intake=preparePlanner(setup,'2026-11-23'), before=structuredClone(intake);
+  const plan={...simulatedPlan(intake).output,assessment:{decision:'proceed',reason:'Synthetic conservative response with uncertain current fitness.',actions:[]}};
+  let calls=0;
+  const result=await requestOpenAIPlan(intake,{...config,asOfDate:'2026-11-23'},async (_url,init)=>{
+    calls++;
+    const request=JSON.parse(init.body),data=JSON.parse(request.input);
+    assert.deepEqual(data.intake,before);
+    assert.equal(data.intake.baseline.results[0].date,'2024-01-01');
+    assert.match(request.instructions,/older result or unknown current workload alone must NOT trigger/);
+    assert.match(request.instructions,/Do not invent a newer benchmark/);
+    return Response.json(responseFixture(plan));
+  });
+  assert.equal(calls,1);assert.deepEqual(intake,before);
+  assert.equal(result.output.outcome,'plan');
+  assert.equal(result.promptVersion,'race-coach-v10-best-available-result');
+});
 test('Responses request uses strict structured output, minimal intake and no response storage', async () => {
   let body;
   const result = await requestOpenAIPlan(input, config, async (url, init) => {

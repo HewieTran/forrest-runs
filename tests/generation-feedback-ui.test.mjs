@@ -40,7 +40,7 @@ test('a contradictory-result clarification has one clear edit action and no targ
   assert.match(html, /No workouts were created\. Your draft and target are saved\./);
   assert.equal((html.match(/Update result/g) ?? []).length, 1);
   assert.doesNotMatch(html, /Your target|Past race time|faster than|Target time needs adjustment/);
-  assert.match(html, /<details[^>]*>[\s\S]*The saved result is older/);
+  assert.match(html, /<details/);
 });
 test('an earlier-policy result clarification offers an explicit saved-result request', () => {
   const props = { output: clarification('refresh_benchmark'), input, today:'2026-11-23', onEdit() {}, onGenerateUsingResult() {} };
@@ -48,6 +48,7 @@ test('an earlier-policy result clarification offers an explicit saved-result req
   assert.match(html, /Use the result you have/);
   assert.equal((html.match(/Generate using this result/g) ?? []).length, 1);
   assert.match(html, /conservative starting plan/);
+  assert.match(html, /<details[^>]*>[\s\S]*The saved result is older/);
   assert.doesNotMatch(html, /Your target|Past race time|faster than/);
   assert.match(render(PlanAdjustment, { ...props, retryDisabled:true }), /disabled=""[^>]*>Generate using this result/);
 });
