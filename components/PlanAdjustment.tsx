@@ -66,6 +66,12 @@ export default function PlanAdjustment({ output, base, onEdit, input, today, onA
       <div><dt>{context.pastLabel}</dt><dd>{context.pastTime}</dd></div>
     </dl>}
 
+    {!refreshResult && onGenerateUsingResult && <div className="setup-guidance">
+      <p>Your goal is still saved. You can request a provisional plan under the updated assessment guidance.</p>
+      <button className="button primary" type="button" disabled={disabled || retryDisabled} onClick={onGenerateUsingResult}>Try again with my goal</button>
+      <p>This makes a new generation request and may use API credits.</p>
+    </div>}
+
     {finish && <div className="plan-suggestion">
       <div>
         <h3>{context && !context.sameDistance ? `Suggested ${context.raceName} target` : 'Suggested target'}</h3>

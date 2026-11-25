@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { requestOpenAIPlan, PlanProviderError } from '../lib/openai-plan.ts';
+import { addDays } from '../lib/domain.ts';
 import { preparePlanner } from '../lib/planner.ts';
 import { simulatedPlan } from '../lib/simulated-plan.ts';
 import { currentPlannerFixture, plannerFixture, responseFixture } from './planner-fixture.mjs';
@@ -23,7 +24,7 @@ test('an old valid result remains unchanged evidence in one best-effort provider
   });
   assert.equal(calls,1);assert.deepEqual(intake,before);
   assert.equal(result.output.outcome,'plan');
-  assert.equal(result.promptVersion,'race-coach-v10-best-available-result');
+  assert.equal(result.promptVersion,'race-coach-v11-provisional-goals');
 });
 test('Responses request uses strict structured output, minimal intake and no response storage', async () => {
   let body;
@@ -86,4 +87,45 @@ test('one configured model is requested once, with no retries or model fallback 
   let requests = 0;
   await assert.rejects(requestOpenAIPlan(input, { apiKey: 'synthetic-key', model: '' }, async () => { requests++; }), { code: 'configuration' });
   assert.equal(requests, 0);
+});
+
+test('provisional 5K request retains goal and unknown workload with an indirect half-marathon result', async () => {
+  const today = '2026-11-24';
+  const { setup } = currentPlannerFixture(today);
+  setup.goal.targetDate = addDays(today, 91);
+  setup.goal.targetDurationSeconds = 1710;
+  setup.runner.experience = 'intermediate';
+  setup.availability.days = [0, 2, 4];
+  setup.benchmark = { distance: 'half', durationSeconds: 8940, date: addDays(today, -7), effortConfirmed: true };
+  const intake = preparePlanner(setup, today), before = structuredClone(intake);
+  const proposal = {
+    ...simulatedPlan(intake).output,
+    goalAssessment: 'The requested 28:30 remains an aspirational goal. The half-marathon result is indirect evidence.',
+    assumptions: ['Current workload is unknown. Starting sessions use tentative paces and effort cues.'],
+    assessment: { decision: 'proceed', reason: 'A provisional schedule can be proposed with uncertainty.', actions: [] },
+  };
+  // Exercise a race estimate that differs from the requested goal without mutating the intake.
+  const race = proposal.sessions.find(session => session.type === 'Race');
+  race.steps[0].durationSeconds = 2040;
+  race.steps[0].paceSecondsPerMile = 2040 / race.steps[0].distanceMiles;
+  let calls = 0;
+  const result = await requestOpenAIPlan(intake, { ...config, asOfDate: today }, async (_url, init) => {
+    calls++;
+    const body = JSON.parse(init.body), sent = JSON.parse(body.input);
+    assert.deepEqual(sent.intake, before);
+    assert.equal(sent.planningContext.trainingWindowDays, 91);
+    assert.equal(sent.intake.baseline.weeklyDistanceMiles, null);
+    assert.equal(sent.intake.baseline.longestRunMiles, null);
+    assert.match(body.instructions, /Unknown current workload is an uncertainty to disclose/);
+    assert.match(body.instructions, /28:30 5K over 91 days with a recent 2:29 half-marathon/);
+    assert.match(body.instructions, /unless the user explicitly accepts a suggested change/);
+    return Response.json(responseFixture(proposal));
+  });
+  assert.equal(calls, 1);
+  assert.equal(result.output.outcome, 'plan');
+  assert.equal(result.output.assessment.decision, 'proceed');
+  assert.equal(intake.goal.targetDurationSeconds, 1710);
+  assert.deepEqual(intake, before);
+  assert.equal(setup.goal.targetDurationSeconds, 1710);
+  assert.equal(result.output.sessions.find(session => session.type === 'Race').steps[0].durationSeconds, 2040);
 });

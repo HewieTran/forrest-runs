@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { assessmentContext, goalSuggestions } from '../lib/plan-assessment.ts';
-import { validatePlanOutput, validateGeneration, PROMPT_VERSION, PLANNER_VERSION, canRetryBenchmarkWithCurrentPolicy, requiresAssessment } from '../lib/planner.ts';
+import { validatePlanOutput, validateGeneration, PROMPT_VERSION, PLANNER_VERSION, canRetryAssessmentWithCurrentPolicy, requiresAssessment } from '../lib/planner.ts';
 import { requestOpenAIPlan } from '../lib/openai-plan.ts';
 import { currentPlannerFixture, responseFixture } from './planner-fixture.mjs';
 import { addDays } from '../lib/domain.ts';
@@ -9,15 +9,17 @@ import { trainingWindowIssue } from '../lib/training-window.ts';
 const today = '2026-10-31';
 const config = { apiKey: 'synthetic-key', model: 'gpt-6-luna', asOfDate: today };
 const fixture = currentPlannerFixture(today);
-test('older benchmark clarification can be explicitly retried once under a newer policy', () => {
+test('older benchmark and goal clarifications can be explicitly retried under a newer policy', () => {
   const generation = { status:'clarification', promptVersion:'race-coach-v9-benchmarks', output:blocked('refresh_benchmark',['benchmark']) };
-  assert.equal(canRetryBenchmarkWithCurrentPolicy(generation), true);
-  assert.equal(canRetryBenchmarkWithCurrentPolicy({...generation,promptVersion:PROMPT_VERSION}), false);
-  assert.equal(canRetryBenchmarkWithCurrentPolicy({...generation,promptVersion:'unknown-future-policy'}), false);
-  assert.equal(canRetryBenchmarkWithCurrentPolicy({...generation,output:blocked('adjust_goal',['target_time'])}), false);
-  assert.equal(canRetryBenchmarkWithCurrentPolicy({...generation,status:'accepted'}), false);
+  assert.equal(canRetryAssessmentWithCurrentPolicy(generation), true);
+  assert.equal(canRetryAssessmentWithCurrentPolicy({...generation,promptVersion:PROMPT_VERSION}), false);
+  assert.equal(canRetryAssessmentWithCurrentPolicy({...generation,promptVersion:'unknown-future-policy'}), false);
+  assert.equal(canRetryAssessmentWithCurrentPolicy({...generation,output:blocked('adjust_goal',['target_time'])}), true);
+  assert.equal(canRetryAssessmentWithCurrentPolicy({...generation,status:'accepted'}), false);
   assert.equal(requiresAssessment('race-coach-v9-benchmarks'), true);
   assert.equal(requiresAssessment(PROMPT_VERSION), true);
+  assert.equal(requiresAssessment('race-coach-v10-best-available-result'), true);
+  assert.equal(canRetryAssessmentWithCurrentPolicy({...generation,output:blocked('clarify',['training_days'])}), false);
 });
 function blocked(decision = 'adjust_goal', actions = ['target_time', 'race_date']) {
   return { ...fixture.output, outcome: 'needs_clarification', sessions: [], questions: ['Would you review the target time or race date?'],
