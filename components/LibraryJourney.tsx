@@ -28,6 +28,6 @@ export default function LibraryJourney({ data }: { data: LibraryHero }) {
   if (!data.route) return <p className="library-journey-fallback">Journey dates not available.</p>;
   return <div className="library-journey"><Road data={data} /><Road data={data} compact />
     <p className="sr-only">Week {data.route.week} of {data.route.totalWeeks}. Journey follows the current date, not workout completion.</p>
-    <ol className="library-phase-list">{data.phases.map((phase, i) => <li key={`${phase.name}-${phase.start}`}><span className="library-phase-number">{i + 1}</span><div><strong>{phase.name}</strong><small>Weeks {phase.startWeek}–{phase.endWeek}{data.phase === phase.name ? ' · You are here' : ''}</small></div></li>)}<li className="library-finish"><strong>Finish</strong><small>{data.route.end}</small></li></ol>
+    <ol className="library-phase-list">{data.phases.map((phase, i) => <li key={`${phase.name}-${phase.start}`}><span className="library-phase-number">{i + 1}</span><div><strong>{phase.name}</strong><small>Weeks {phase.startWeek}–{phase.endWeek}{data.phaseStart === phase.start ? ' · You are here' : ''}</small></div></li>)}<li className="library-finish"><strong>Finish</strong><small>{data.route.end}</small></li></ol>
   </div>;
 }

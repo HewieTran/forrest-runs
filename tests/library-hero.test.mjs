@@ -10,12 +10,13 @@ test('hero uses saved start and race across years; weekly running sums preserve 
  assert.equal(hero.route.week,4);assert.equal(hero.route.totalWeeks,6);assert.equal(hero.daysToRace,17);assert.equal(hero.weekly.recorded,0);assert.equal(hero.weekly.planned,11);assert.equal(hero.phase,'Peak');assert.equal(hero.next.date,'2027-01-02');
  assert.equal(libraryHero(data([])).weekly.recorded,null);
 });
-test('only saved phase timings become markers; missing/overlapping phases stay unspecified',()=>{
+test('only saved phase timings become markers; repeated phases retain segment identity and conflicting dates stay unspecified',()=>{
  const hero=libraryHero(data([row('a','2026-12-07'),row('b','2026-12-20'),row('c','2026-12-21',{phase:'Peak'}),row('d','2027-01-03',{phase:'Peak'}),row('e','2027-01-04',{phase:'Taper'}),row('f','2027-01-16',{phase:'Taper'})]));
  assert.deepEqual(hero.phases.map(p=>[p.name,p.startWeek,p.endWeek]),[['Base Build',1,2],['Peak',3,4],['Taper',5,6]]);assert.equal(hero.phase,'Peak');assert.equal(hero.phases[1].percent,14/41*100);
  assert.equal(libraryHero(data([row('a','2026-12-31',{phase:''})])).phases.length,0);
- const mixed=libraryHero(data([row('a','2026-12-07'),row('b','2027-01-04'),row('c','2026-12-21',{phase:'Peak'}),row('d','2027-01-03',{phase:'Peak'})]));assert.equal(mixed.phase,'Peak');assert.deepEqual(mixed.phases.map(p=>p.name),['Base Build','Peak','Base Build']);
+ const mixed=libraryHero(data([row('a','2026-12-07'),row('b','2027-01-04'),row('c','2026-12-21',{phase:'Peak'}),row('d','2027-01-03',{phase:'Peak'})]));assert.equal(mixed.phase,'Peak');assert.equal(mixed.phaseStart,'2026-12-21');assert.deepEqual(mixed.phases.map(p=>p.name),['Base Build','Peak','Base Build']);
  const conflict=libraryHero(data([row('a','2026-12-31'),row('b','2026-12-31',{phase:'Peak'})]));assert.equal(conflict.phase,null);assert.equal(conflict.phases.length,0);
+ const returning={...data([row('a','2026-12-07'),row('b','2026-12-21',{phase:'Peak'}),row('c','2026-12-28'),row('d','2027-01-05')])};const repeated=libraryHero(returning);assert.equal(repeated.phase,'Base Build');assert.equal(repeated.phaseStart,'2026-12-28');
 });
 test('missing/reversed routes do not fabricate markers; same-day and out-of-block dates clamp',()=>{
  const d={...data([]),plan:{...plan,setup:null}};assert.equal(libraryHero(d).route,null);assert.deepEqual(libraryHero(d).phases,[]);

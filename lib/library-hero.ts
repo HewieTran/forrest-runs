@@ -30,6 +30,7 @@ export function libraryHero(data: AppData) {
   const next = rows.find(row => !row.done && row.date >= data.today) ?? null;
   return { id: data.plan.id, route, phases: timedPhases,
     phase: !sameDayAmbiguous && current.length === 1 ? current[0].name : null,
+    phaseStart: !sameDayAmbiguous && current.length === 1 ? current[0].start : null,
     daysToRace: validDate(data.plan.raceDate) && validDate(data.today) ? dateDiff(data.plan.raceDate, data.today) : null,
     weekly: stats.weekly, weekStart: stats.start, weekEnd: stats.end,
     next: next ? { date: next.date, type: next.type, distance: next.plannedDistance, duration: next.plannedDurationSeconds } : null,
