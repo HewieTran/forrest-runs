@@ -79,7 +79,7 @@ export async function testBlocks(db, dispatch) {
 
   const all = await call('/api/export');
   assert.equal(all.status, 200);
-  assert.equal(all.data.schemaVersion, 7);
+  assert.equal(all.data.schemaVersion, 8);
   assert.equal(all.data.blocks.length, 4);
   assert.equal(all.data.workouts.length, 159);
   assert.ok(!JSON.stringify(all.data).includes(foreignId));

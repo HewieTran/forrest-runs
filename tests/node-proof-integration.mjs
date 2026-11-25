@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { testProfile } from './profile-integration.mjs';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { randomBytes } from 'node:crypto';
@@ -76,6 +77,7 @@ try {
   assert.equal((await call(a + 'x', '/api/blocks')).status, 401);
   assert.deepEqual((await call(a, '/api/blocks')).data.blocks, []);
   assert.deepEqual((await call(b, '/api/blocks')).data.blocks, []);
+  const profile = await testProfile((url, init) => fetch(base + new URL(url).pathname + new URL(url).search, init), { Cookie: a }, { Cookie: b });
   const day = centralToday();
   const created = await call(a, '/api/blocks', 'POST', { raceName: 'Native Node training', raceDate: addDays(day, 60) });
   assert.equal(created.status, 201);
@@ -126,7 +128,7 @@ try {
   const persistedFuture = (await call(a, '/api/training' + scope)).data.workouts.find(row => row.id === future.data.workout.id);
   assert.equal(persistedFuture.plannedDistance, 5.5);
   assert.equal(persistedFuture.actualDistance, null);
-  assert.match(await blockPage(), /10.5/);
+  assert.match(await blockPage(), /Workout completion<\/dt><dd>0 <small>\/ 2<\/small>/); // Both dates count toward block completion; mileage is charted by week.
   const mobility = await call(a, '/api/workouts' + scope, 'POST', {
     ...workout, type: 'Mobility', plannedWorkout: 'Synthetic mobility',
     plannedDistance: null, plannedDurationSeconds: null, plannedPaceSecondsPerMile: null, targetMetric: null,
@@ -219,6 +221,8 @@ try {
   assert.deepEqual((await call(a, '/api/training' + scope)).data, saved);
   assert.deepEqual((await call(a, '/api/training?blockId=' + guidedId)).data, generatedSaved);
   assert.deepEqual((await call(b, '/api/blocks')).data.blocks, []);
+  assert.deepEqual((await call(a, '/api/profile')).data.account, profile);
+  console.log('PASS: profile preferences survive a full Node restart.');
   console.log('PASS: training data survives a full Node server restart in the standalone SQLite file.');
 } catch (error) {
   console.error(log);

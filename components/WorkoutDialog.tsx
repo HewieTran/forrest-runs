@@ -1,12 +1,15 @@
 'use client';
 
 import { useEffect, useId, useRef, type ReactNode } from 'react';
+import './dialog.css';
 import { X } from 'lucide-react';
 import { formatDate } from '../lib/domain';
 
-export default function WorkoutDialog({ title, date, saving, onClose, children, returnFocusId }: {
+export default function WorkoutDialog({ title, date, saving, onClose, children, returnFocusId, closeLabel = 'Close workout', className = '' }: {
   title: string;
-  date: string;
+  className?: string;
+  closeLabel?: string;
+  date?: string;
   saving: boolean;
   onClose: () => boolean;
   children: ReactNode;
@@ -17,8 +20,7 @@ export default function WorkoutDialog({ title, date, saving, onClose, children, 
   const titleRef = useRef<HTMLHeadingElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef(onClose), savingRef = useRef(saving);
-  closeRef.current = onClose;
-  savingRef.current = saving;
+  useEffect(() => { closeRef.current = onClose; savingRef.current = saving; }, [onClose, saving]);
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -82,7 +84,7 @@ export default function WorkoutDialog({ title, date, saving, onClose, children, 
     };
   }, [returnFocusId, titleId]);
 
-  return <dialog ref={dialogRef} className="workout-dialog" aria-labelledby={titleId}
+  return <dialog ref={dialogRef} className={`workout-dialog ${className}`} aria-labelledby={titleId}
     onCancel={event => {
       event.preventDefault();
       if (!saving) onClose();
@@ -93,8 +95,8 @@ export default function WorkoutDialog({ title, date, saving, onClose, children, 
       if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) onClose();
     }}>
     <header className="workout-dialog-heading">
-      <div><h2 ref={titleRef} id={titleId} tabIndex={-1}>{title}</h2><p>{formatDate(date, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</p></div>
-      <button type="button" className="icon-button" aria-label="Close workout" disabled={saving} onClick={onClose}><X size={21} aria-hidden="true" /></button>
+      <div><h2 ref={titleRef} id={titleId} tabIndex={-1}>{title}</h2>{date && <p>{formatDate(date, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</p>}</div>
+      <button type="button" className="icon-button" aria-label={closeLabel} disabled={saving} onClick={onClose}><X size={21} aria-hidden="true" /></button>
     </header>
     <div ref={contentRef} className="workout-dialog-content">{children}</div>
   </dialog>;

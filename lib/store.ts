@@ -1,8 +1,9 @@
+import type { Profile, ProfileInput } from './profile';
 import { raceDistanceLabel } from './race-distance';
 import { verifyCalculatedMeasurements } from './planner-math';
 import { and, asc, desc, eq, ne, sql } from 'drizzle-orm';
 import { getDb } from '../db';
-import { plans, workouts, restDays, accountState, aiUsage } from '../db/schema';
+import { plans, workouts, restDays, accountState, aiUsage, profiles } from '../db/schema';
 import {
   addDays,
   centralToday,
@@ -14,7 +15,7 @@ import {
 } from './domain';
 import type { AppUser } from './user';
 import { insertInitialTraining, loadOwnerSeed } from '../db/initial-training';
-import type { TrainingBackupV7 } from './backups';
+import type { TrainingBackupV7, TrainingBackupV8 } from './backups';
 import { TrainingRequestError } from './training-errors';
 import { canChangeBlockStatus, type NewBlockInput, type BlockStatusInput, type BlockSummary, type BlockDeletionPreview, type DeleteBlockInput } from './blocks';
 import type { BlockSetup } from './setup';
@@ -250,7 +251,7 @@ export async function activeBlock(user: AppUser): Promise<Pick<Plan, 'id' | 'rac
     .where(and(eq(plans.ownerId, user.userId), eq(plans.status, 'active'))).get() ?? null;
 }
 
-export async function exportTraining(user: AppUser, blockId?: string): Promise<TrainingBackupV7> {
+export async function exportTraining(user: AppUser, blockId?: string): Promise<TrainingBackupV7 | TrainingBackupV8> {
   if (blockId === undefined) await ensureUserInitialized(user);
   else await userPlan(user, blockId);
   const database = getDb();
@@ -267,13 +268,14 @@ export async function exportTraining(user: AppUser, blockId?: string): Promise<T
       .innerJoin(plans, eq(restDays.planId, plans.id)).where(scope)
       .orderBy(asc(restDays.planId), asc(restDays.date), asc(restDays.id)),
   ]);
-  return {
+  const backup: TrainingBackupV7 = {
     schemaVersion: 7,
     exportedAt: new Date().toISOString(),
     blocks: ownedBlocks.map(({ ownerId: _ownerId, ...block }) => block),
     workouts: ownedWorkouts.map(({ workout }) => workout),
     restDays: ownedRestDays.map(({ restDay }) => restDay),
   };
+  return blockId === undefined ? { ...backup, schemaVersion: 8, profile: await loadProfile(user) } : backup;
 }
 export async function saveWorkout(
   user: AppUser,
@@ -570,4 +572,21 @@ export async function deleteBlock(user: AppUser, blockId: string, input: DeleteB
   if (!(result[0] as { id: string }[]).length || !(result[4] as { id: string }[]).length)
     throw new TrainingRequestError('This block changed in another tab. Close and reopen the deletion details before continuing.', 409);
   return { deleted: true, id: blockId };
+}
+
+export async function loadProfile(user: AppUser): Promise<Profile | null> {
+  const saved = await getDb().select().from(profiles).where(eq(profiles.ownerId, user.userId)).get();
+  if (!saved) return null;
+  const { ownerId: _ownerId, ...profile } = saved;
+  return profile;
+}
+export async function saveProfile(user: AppUser, input: ProfileInput): Promise<Profile> {
+  const timestamp = new Date().toISOString();
+  const values = { firstName: input.firstName, lastName: input.lastName, avatarColor: input.avatarColor, version: input.version + 1, updatedAt: timestamp };
+  const saved = input.version === 0
+    ? await getDb().insert(profiles).values({ ownerId: user.userId, ...values }).onConflictDoNothing().returning().get()
+    : await getDb().update(profiles).set(values).where(and(eq(profiles.ownerId, user.userId), eq(profiles.version, input.version))).returning().get();
+  if (!saved) throw new TrainingRequestError('Your profile changed in another tab. Reload the latest profile before saving again.', 409);
+  const { ownerId: _ownerId, ...profile } = saved;
+  return profile;
 }

@@ -67,21 +67,6 @@
 .training-block-overview .block-status-dot { position: absolute; left: 11px; width: 5px; height: 5px; border-radius: 50%; background: currentColor; pointer-events: none; }
 .training-block-overview .block-status-pill > svg { position: absolute; right: 10px; pointer-events: none; }
 .training-block-overview .block-status-pill:focus-within { outline: 2px solid #396c48; outline-offset: 3px; }
-.workout-dialog { width: min(960px, calc(100% - 48px)); max-width: none; max-height: calc(100dvh - 48px); padding: 0; border: 1px solid #d8d5c9; border-radius: 18px; margin: auto; color: #26332a; background: #fffdf7; box-shadow: 0 20px 90px #14281d40; overflow: hidden; }
-.workout-dialog[open] { display: flex; flex-direction: column; }
-.workout-dialog::backdrop { background: #19271f80; }
-.workout-dialog-heading { display: flex; align-items: flex-start; justify-content: space-between; flex: none; gap: 16px; padding: 22px 24px 18px; border-bottom: 1px solid #dcd9cc; }
-.workout-dialog-heading h2 { margin: 0; color: #26332a; font-size: 23px; font-weight: 500; }
-.workout-dialog-heading h2:focus { outline: none; }
-.workout-dialog-heading p { margin-top: 5px; font-size: 14px; color: #5b6258; }
-.workout-dialog-heading .icon-button { width: 44px; height: 44px; flex: none; }
-.workout-dialog-content { overflow-y: auto; min-height: 0; overscroll-behavior: contain; scrollbar-gutter: stable; }
-.workout-dialog .workout-form { padding-top: 22px; }
-.workout-dialog .workout-form::before { display: none; }
 @media(max-width:640px) {
-  .workout-dialog { width: 100%; height: 100dvh; max-height: 100dvh; margin: 0; border: 0; border-radius: 0; }
-  .workout-dialog-heading { padding: 16px 18px; }
-  .workout-dialog-heading h2 { font-size: 22px; }
-  .workout-dialog .workout-form { padding-top: 18px; padding-bottom: max(20px, env(safe-area-inset-bottom)); }
   .training-block-overview .block-status-pill select { min-height: 44px; }
 }

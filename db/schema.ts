@@ -112,3 +112,10 @@ export const aiUsage = sqliteTable('training_ai_usage', {
   outcome: text('outcome'),
 }, table => [index('training_ai_usage_period_idx').on(table.period, table.status),
   index('training_ai_usage_owner_started_idx').on(table.ownerId, table.startedAt)]);
+
+// Optional account preferences; provider identity and training records stay unchanged.
+export const profiles = sqliteTable('training_profiles', {
+  ownerId: text('owner_id').primaryKey(),
+  firstName: text('first_name'), lastName: text('last_name'), avatarColor: integer('avatar_color'),
+  version: integer('version').notNull().default(1), updatedAt: text('updated_at').notNull(),
+});

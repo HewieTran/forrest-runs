@@ -1,6 +1,7 @@
 import { readdir, access } from 'node:fs/promises';
 import path from 'node:path';
 import { Miniflare, applyAllMigrations, createFetchMock } from './d1-helpers.mjs';
+import { testProfile } from './profile-integration.mjs';
 import { testPhaseOne } from './phase-one-integration.mjs';
 // No workbook, runtime secrets or live provider requests. Production handlers,
 // isolated D1, synthetic identities and denied outbound networking throughout.
@@ -11,6 +12,7 @@ const options={modules,fetchMock,compatibilityDate:'2026-05-15',compatibilityFla
 const worker=new Miniflare({...options,bindings:{TRAINING_PLANNER_MODE:'simulation'}});
 try{
  const db=await worker.getD1Database('DB');await applyAllMigrations(db);const dispatch=(input,init)=>worker.dispatchFetch(input,init);
+ await testProfile(dispatch, { 'oai-authenticated-user-id': 'profile-a', 'oai-authenticated-user-email': 'profile-a@example.test' }, { 'oai-authenticated-user-id': 'profile-b', 'oai-authenticated-user-email': 'profile-b@example.test' });
  await testPhaseOne(db,dispatch);
  for(const [file,name] of [['benchmark','testBenchmark'],['lifecycle','testLifecycle'],['setup','testSetup'],['workout-contract','testWorkoutContract'],['progress','testProgress'],['pace','testPaces'],['delete-blocks','testDeleteBlocks']]){
   const suite=await import('./'+file+'-integration.mjs');await suite[name](db,dispatch,...(name==='testLifecycle'?[0]:[]));

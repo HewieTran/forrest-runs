@@ -108,7 +108,7 @@ export async function testWorkoutContract(db, dispatch) {
 
   for (const path of ['/api/export', '/api/export' + scope]) {
     const exported = await call(path);
-    assert.equal(exported.status, 200); assert.equal(exported.data.schemaVersion, 7);
+    assert.equal(exported.status, 200); assert.equal(exported.data.schemaVersion, path === '/api/export' ? 8 : 7);
     assert.ok(exported.data.restDays.some(r => r.id === rest.id));
     assert.ok(exported.data.workouts.some(w => w.id === saved.id && w.plannedDistance === 5 && w.actualDurationSeconds === 0));
     if (path.includes('?')) assert.equal(exported.data.blocks.length, 1);
