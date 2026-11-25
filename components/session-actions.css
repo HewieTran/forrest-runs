@@ -4,7 +4,7 @@
 .session-menu-panel { position: absolute; z-index: 5; top: calc(100% + 8px); right: 0; min-width: 155px; padding: 6px; border: 1px solid var(--line); border-radius: 10px; background: #fff; box-shadow: 0 8px 24px #243a2e18; }
 .session-menu-panel .button { width: 100%; justify-content: flex-start; }
 .profile-save-notice { color: #285d46; font-size: .85rem; }
-.profile-dialog { width: min(560px, calc(100% - 48px)); }
+.workout-dialog.profile-dialog { width: min(560px, calc(100% - 48px)); }
 .profile-editor { padding: 4px 24px 24px; color: #243a2e; }
 .profile-help { color: #536157; font-size: .9rem; line-height: 1.5; }
 .profile-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; border: 0; padding: 12px 0 0; margin: 0; }
@@ -26,5 +26,5 @@
 .profile-buttons { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; margin-top: 22px; }
 .profile-error, .profile-discard { padding: 12px 16px; margin-top: 20px; border: 1px solid #a04e35; border-radius: 8px; color: #713b29; background: #fff7ee; }
 .profile-error p, .profile-discard p { margin: 0 0 10px; }
-@media (max-width: 640px) { .profile-dialog { width: 100%; } .profile-editor { padding: 4px 18px max(24px, env(safe-area-inset-bottom)); } }
+@media (max-width: 640px) { .workout-dialog.profile-dialog { width: 100%; } .profile-editor { padding: 4px 18px max(24px, env(safe-area-inset-bottom)); } }
 @media (max-width: 500px) { .profile-fields { grid-template-columns: 1fr; } .profile-save-notice { position: absolute; top: 64px; right: 16px; padding: 8px; background: #fff; z-index: 5; } }
