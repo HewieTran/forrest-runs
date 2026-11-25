@@ -1,3 +1,4 @@
+import { normalizeProfileBackup, type Profile } from './profile.ts';
 import { BLOCK_STATUSES, validDate, validateWorkout, type Plan, type Workout } from './domain.ts';
 import { validateGeneration } from './planner.ts';
 import { validateSetup } from './setup.ts';
@@ -11,6 +12,8 @@ export type TrainingBackupV7 = {
   workouts: Workout[];
   restDays: RestDay[];
 };
+
+export type TrainingBackupV8 = Omit<TrainingBackupV7, 'schemaVersion'> & { schemaVersion: 8; profile: Profile | null };
 
 function record(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value))
@@ -40,9 +43,9 @@ function version(value: unknown): number {
 
 // Validate and normalize offline only. This does not grant ownership or write to storage.
 // IDs, source data, null distances, and optimistic-lock versions survive unchanged.
-export function normalizeTrainingBackup(value: unknown): TrainingBackupV7 {
+export function normalizeTrainingBackup(value: unknown): TrainingBackupV7 | TrainingBackupV8 {
   const input = record(value);
-  if (![1, 2, 3, 4, 5, 6, 7].includes(input.schemaVersion as number))
+  if (![1, 2, 3, 4, 5, 6, 7, 8].includes(input.schemaVersion as number))
     throw new Error('Unsupported backup version.');
   const sourceBlocks = input.schemaVersion === 1 ? [input.plan] : input.blocks;
   if (!Array.isArray(sourceBlocks) || !Array.isArray(input.workouts))
@@ -106,5 +109,6 @@ export function normalizeTrainingBackup(value: unknown): TrainingBackupV7 {
     restIds.add(restId); restDates.add(key);
     return { id: restId, planId, date: rest.date, version: version(rest.version), updatedAt: timestamp(rest.updatedAt) };
   });
-  return { schemaVersion: 7, exportedAt: timestamp(input.exportedAt), blocks, workouts, restDays };
+  const training: TrainingBackupV7 = { schemaVersion: 7, exportedAt: timestamp(input.exportedAt), blocks, workouts, restDays };
+  return input.schemaVersion === 8 ? { ...training, schemaVersion: 8, profile: normalizeProfileBackup(input.profile) } : training;
 }

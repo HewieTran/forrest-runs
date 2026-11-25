@@ -1,4 +1,4 @@
-import { Download, Layers3, LockKeyhole } from 'lucide-react';
+import { Layers3, LockKeyhole } from 'lucide-react';
 import { AccountAvatar } from './SessionActions';
 import BrandIcon from './BrandIcon';
 
@@ -10,7 +10,6 @@ export default function AppHeader({ displayName, preview = false }: { displayNam
       <a className="header-library-link" aria-label="Training blocks" href={library}><Layers3 size={16} /><span>Training blocks</span></a>
       {preview && <span className="preview-tag">Design preview</span>}
       <span className="private-label"><LockKeyhole size={13} /> Private training log</span>
-      <a className="button quiet export-button" href={preview ? undefined : '/api/export'} aria-disabled={preview}><Download size={16} /><span>Export backup</span></a>
       <AccountAvatar displayName={displayName} preview={preview} />
     </div>
   </div></header>;

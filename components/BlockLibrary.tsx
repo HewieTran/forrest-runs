@@ -63,7 +63,7 @@ export default function BlockLibrary({ initial, displayName, preview = false, in
   const label = (status: LibraryFilter) => status === 'all' ? 'All blocks' : status === 'ready' ? 'Not started' : STATUS_LABELS[status];
   return <div className="app-shell"><AppHeader displayName={displayName} preview={preview} />
     <main className="main-content blocks-main onboarding-library">
-      <section className="page-heading blocks-page-heading"><div><div className="overline">Your training blocks</div><LibraryGreeting name={displayName} /></div>
+      <section className="page-heading blocks-page-heading"><div><div className="overline">Your training blocks</div><LibraryGreeting name={displayName} useProfile={!preview} /></div>
         <div className="block-create-options"><a id="create-training-block" className="button primary" href={createHref}><Plus size={17} />Create training block</a>
           {emptyAccount && (guidanceKey || preview) && <EmptyAccountGuidance sessionKey={guidanceKey ?? GUIDANCE_PREFIX + 'preview-empty'} />}
         </div>

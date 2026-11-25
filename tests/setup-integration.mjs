@@ -81,7 +81,7 @@ export async function testSetup(db, dispatch) {
   assert.equal(newPage.status, 200);
   assert.ok((await newPage.text()).includes('Setup steps'));
   const setupPage = await dispatch('http://localhost/blocks/' + encodeURIComponent(block.id) + '/setup', { headers: auth });
-  assert.ok((await setupPage.text()).includes('Saved snapshot'));
+  assert.ok((await setupPage.text()).includes('Original plan details'));
   const forbiddenPage = await dispatch('http://localhost/blocks/' + encodeURIComponent(block.id) + '/setup', { headers: other });
   assert.ok(!(await forbiddenPage.text()).includes('class="setup-panel"'));
   const encodedId = 'setup:legacy%3A-id';

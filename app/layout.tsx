@@ -1,3 +1,6 @@
+import { getCurrentUser } from '../lib/auth';
+import { loadProfile } from '../lib/store';
+import { profileView } from '../lib/profile';
 import type { Metadata } from "next";
 import { signOutPath } from '@forrest/platform';
 import { SessionActions } from '../components/SessionActions';
@@ -17,15 +20,17 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const user = await getCurrentUser();
+  const account = user ? profileView(await loadProfile(user), user.userId, user.fullName) : null;
   return (
     <html lang="en">
       <head><link rel="preload" href="/branding/manrope-medium-latin.ttf" as="font" type="font/ttf" crossOrigin="anonymous" /></head>
-      <body className="antialiased"><SessionActions signOutPath={signOutPath()}>{children}</SessionActions></body>
+      <body className="antialiased"><SessionActions key={user?.userId || 'signed-out'} signOutPath={signOutPath()} account={account}>{children}</SessionActions></body>
     </html>
   );
 }
