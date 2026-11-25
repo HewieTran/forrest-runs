@@ -1,7 +1,7 @@
 'use client';
 import GenerationProgress from './GenerationProgress';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { canRetryBenchmarkWithCurrentPolicy } from '../lib/planner';
+import { canRetryAssessmentWithCurrentPolicy } from '../lib/planner';
 import { ArrowLeft, ArrowRight, CheckCircle2, Flag, Save } from 'lucide-react';
 import AppHeader from './AppHeader';
 import PlanAdjustment from './PlanAdjustment';
@@ -184,7 +184,7 @@ export default function SetupWizard({ initial = null, displayName, today, readOn
       return;
     }
     if (complete && waitingToRetry) return;
-    if (complete && clarification && !(useSavedResult && canRetryBenchmarkWithCurrentPolicy(block?.generation))) { setMessage('Edit the relevant inputs before generating again.');return; }
+    if (complete && clarification && !(useSavedResult && canRetryAssessmentWithCurrentPolicy(block?.generation))) { setMessage('Edit the relevant inputs before generating again.');return; }
     setMessage('');setGenerationError('');
     if (!checkNumberEntries()) return;
     setErrors([]);
@@ -254,7 +254,7 @@ export default function SetupWizard({ initial = null, displayName, today, readOn
       {!!errors.length && <div className="setup-errors" role="alert"><strong>Check these details</strong><ul>{errors.map((issue, index) => <li key={index}><button type="button" onClick={() => setStep(issue.step)}>{issue.message}</button></li>)}</ul></div>}
       {generationError && <div className="setup-errors" role="alert"><strong>Plan generation couldn’t finish</strong><p>{generationError}</p></div>}
       {clarification && <PlanAdjustment output={clarification} onEdit={editAssessment} disabled={disabled}
-        onGenerateUsingResult={canRetryBenchmarkWithCurrentPolicy(block?.generation) ? () => void save(true, true) : undefined} retryDisabled={waitingToRetry || !!windowIssue || !generationAvailable}
+        onGenerateUsingResult={canRetryAssessmentWithCurrentPolicy(block?.generation) ? () => void save(true, true) : undefined} retryDisabled={waitingToRetry || !!windowIssue || !generationAvailable}
         input={step === 3 ? block?.generation?.input : undefined} today={today} onApply={applySuggestion} />}
       <fieldset disabled={disabled}>
       {step === 0 && <><h2>What are you working toward?</h2><div className="setup-fields"><label className="setup-span-two" htmlFor="setup-goalKind"><span className="setup-field-title">Race distance<span className="setup-required"> Required</span></span>

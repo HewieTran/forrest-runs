@@ -7,7 +7,7 @@ import { displayGenerationError } from '../lib/plan-validation';
 import { SetupReview } from './SetupWizard';
 import { raceForKilometers } from '../lib/race-distance';
 import { DAY_NAMES } from '../lib/setup';
-import { acceptedPlan, simulatedBlock, scheduleDays, sessionSeconds, canRetryBenchmarkWithCurrentPolicy } from '../lib/planner';
+import { acceptedPlan, simulatedBlock, scheduleDays, sessionSeconds, canRetryAssessmentWithCurrentPolicy } from '../lib/planner';
 import { formatDate, weekStart, type Plan } from '../lib/domain';
 import { formatDuration } from '../lib/workout-form';
 import { GENERATION_COOLDOWN_MS } from '../lib/planner-policy';
@@ -62,7 +62,7 @@ export default function PlanGeneration({ initial, displayName, configured, mode,
       {output.outcome === 'plan' && <><p>{output.summary}</p><h3>Your race goal</h3><p>{output.goalAssessment}</p>
       {!!output.assumptions.length && <><h3>Assumptions to review</h3><ul>{output.assumptions.map((text, i) => <li key={i}>{text}</li>)}</ul></>}</>}
       {output.outcome === 'needs_clarification' && <PlanAdjustment output={output} base={base}
-        onGenerateUsingResult={editable && canRetryBenchmarkWithCurrentPolicy(generation) ? () => void generate() : undefined}
+        onGenerateUsingResult={editable && canRetryAssessmentWithCurrentPolicy(generation) ? () => void generate() : undefined}
         disabled={busy || !!inFlight} retryDisabled={cooldown > 0 || !configured || staleDate} />}
       {output.outcome === 'plan' && <><p className="setup-footnote">Full-session times include all steps. Race-step time is an estimate. Days marked rest are explicit parts of this proposed schedule.</p><div className="plan-weeks">{weeks.map((week, i) => {
         const days = manifest.filter(day => weekStart(day.date) === week);

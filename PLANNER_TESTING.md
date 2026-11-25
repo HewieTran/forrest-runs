@@ -258,3 +258,19 @@ The optional provider field is additive within backup v5; older generation
 snapshots without it remain readable. The 0005 migration adds a nullable plan
 JSON column and alteration triggers without rewriting historical rows. Retain
 this generation-aware reader, backup support and guards in any code rollback.
+
+## Provisional short-distance goals
+
+Prompt v11 distinguishes uncertain goal achievement from the ability to propose
+a provisional 5K/10K plan. Indirect race equivalents and unknown workload alone
+do not require a lower goal. Starting prescriptions use available evidence and
+effort cues; the requested target remains in the intake unless the runner applies
+a suggestion. Concrete incompatible constraints can still require clarification.
+Known older goal-adjustment drafts offer one explicit request under the newer
+policy, using existing cooldown and budget accounting.
+
+The 28:30 5K / 91-day / 2:29 half-marathon regression intercepts the provider with
+a synthetic provisional response. It checks the request, goal preservation and
+acceptance of a different race-step estimate. It does not measure real-model
+decision quality. A live-model quality check remains outstanding and must be
+explicitly authorized because it uses API credits.
