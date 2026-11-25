@@ -1,5 +1,8 @@
 # Forrest Runs
 
+See [Architecture](docs/architecture.md) for AWS service relationships, environment
+boundaries and the update rule for infrastructure-affecting changes.
+
 A private, browser-based running training log. Phase 1 imports the Dashboard and Workout Tracker sheets, supports editing and rescheduling workouts, records actual results, and calculates progress and milestones.
 
 Generated workouts now show concise headers, visible step rows, readable durations
