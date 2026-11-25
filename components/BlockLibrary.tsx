@@ -4,6 +4,8 @@ import { ArrowUpRight, CalendarDays, Flag, Layers3, Plus, Search, Settings2 } fr
 import AppHeader from './AppHeader';
 import LibraryGreeting from './LibraryGreeting';
 import { LIBRARY_SEARCH_ENABLED, librarySearch } from '../lib/library-greeting';
+import ActiveBlockHero from './ActiveBlockHero';
+import type { LibraryHero } from '../lib/library-hero';
 import { BlockStatusBadge } from './BlockActions';
 import BlockStartDate from './BlockStartDate';
 import EmptyAccountGuidance from './EmptyAccountGuidance';
@@ -13,9 +15,9 @@ import { centralToday, formatDate } from '../lib/domain';
 import { GUIDANCE_PREFIX, LIBRARY_FILTERS, landingFilter, libraryFilter, type LibraryFilter } from '../lib/onboarding';
 import './onboarding.css';
 
-export default function BlockLibrary({ initial, displayName, preview = false, initialFilter = landingFilter(initial), initialSearch = '', guidanceKey, today = centralToday() }: {
+export default function BlockLibrary({ initial, displayName, preview = false, initialFilter = landingFilter(initial), initialSearch = '', guidanceKey, activeHero, today = centralToday() }: {
   initial: BlockSummary[]; displayName: string; preview?: boolean; initialFilter?: LibraryFilter;
-  initialSearch?: string; guidanceKey?: string; today?: string;
+  initialSearch?: string; guidanceKey?: string; activeHero?: LibraryHero | null; today?: string;
 }) {
   const [blocks] = useState(initial);
   const [filter, setFilter] = useState(initialFilter), [search, setSearch] = useState(librarySearch(initialSearch));
@@ -85,7 +87,8 @@ export default function BlockLibrary({ initial, displayName, preview = false, in
           const percent = block.workoutCount ? Math.round(block.completedCount / block.workoutCount * 100) : 0;
           const href = preview && ready ? `/preview?view=overview&scenario=${block.isSimulation ? 'simulation-ready' : 'ready'}&start=${block.firstWorkoutDate ?? ''}` : preview ? `/preview?blockId=${encodeURIComponent(block.id)}&name=${encodeURIComponent(block.raceName)}&date=${block.raceDate}&status=${block.status}` : `/blocks/${encodeURIComponent(block.id)}`;
           const setupHref = preview ? '/preview?view=setup' : `/blocks/${encodeURIComponent(block.id)}/setup`;
-          return <article className={`block-card ${block.status === 'active' ? 'active-block-card' : ''}`} key={block.id}>
+          if (block.status === 'active') return <ActiveBlockHero key={block.id} block={block} data={activeHero?.id === block.id ? activeHero : null} href={href} preview={preview} />;
+          return <article className="block-card" key={block.id}>
             <div className="block-card-top"><BlockStatusBadge status={block.status} ready={ready} /><span className="block-source">{sample ? 'Sample plan' : block.hasGeneratedPlan ? 'OpenAI training plan' : block.sourceName ? 'Imported training log' : block.hasSetup ? 'Guided setup' : 'Manual training block'}</span></div>
             <h2><a href={href}>{block.raceName}</a></h2><p className="block-card-date"><CalendarDays size={14} />Target · {formatDate(block.raceDate, { month: 'short', day: 'numeric', year: 'numeric' })}</p>
             {ready && !block.isSimulation && <BlockStartDate date={block.firstWorkoutDate} today={today} />}
@@ -94,8 +97,8 @@ export default function BlockLibrary({ initial, displayName, preview = false, in
             <p className="block-card-note">{sample ? 'Explore example workouts and rest days.' : block.hasGeneratedPlan ? 'Generated schedule saved with its starting intake.' : block.hasSetup ? 'Runner inputs saved with this block. A training schedule has not been generated.' : block.workoutCount === 0 ? 'A fresh page. Add your first workout whenever you’re ready.' : block.status === 'archived' ? 'Workouts and results preserved in your archive.' : block.status === 'completed' ? 'Block completed. Your training history stays with you.' : `${block.workoutCount} scheduled workouts · Your results stay with this block.`}</p>
             <div className="block-card-bottom">
               {canStart && <StartBlockButton plan={block} activeBlock={activeBlock} preview={preview} onStarted={started => window.location.assign(`/blocks/${encodeURIComponent(started.id)}`)} />}
-              <a className={block.status === 'active' ? 'button primary' : 'button'} href={!ready && block.status === 'draft' && block.hasSetup ? setupHref : href}>{block.status === 'active' ? 'Continue training' : !ready && block.status === 'draft' && block.hasSetup ? 'Continue setup' : sample ? 'Open sample plan' : block.status === 'draft' ? 'Open block' : 'View block'}<ArrowUpRight size={15} /></a>
-              {!canStart && <span>{block.status === 'active' ? 'Your current block' : `Created ${formatDate(block.createdAt.slice(0, 10))}`}</span>}
+              <a className="button" href={!ready && block.status === 'draft' && block.hasSetup ? setupHref : href}>{!ready && block.status === 'draft' && block.hasSetup ? 'Continue setup' : sample ? 'Open sample plan' : block.status === 'draft' ? 'Open block' : 'View block'}<ArrowUpRight size={15} /></a>
+              {!canStart && <span>{`Created ${formatDate(block.createdAt.slice(0, 10))}`}</span>}
             </div>
             <div className="block-card-settings"><a className="icon-button" aria-label={`Settings for ${block.raceName}`} href={preview ? '/preview?view=settings' : `/blocks/${encodeURIComponent(block.id)}/settings`}><Settings2 size={17} /></a></div>
           </article>;
