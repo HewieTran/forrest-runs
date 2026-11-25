@@ -2,6 +2,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { ArrowUpRight, CalendarDays, Flag, Layers3, Plus, Search, Settings2 } from 'lucide-react';
 import AppHeader from './AppHeader';
+import LibraryGreeting from './LibraryGreeting';
+import { LIBRARY_SEARCH_ENABLED, librarySearch } from '../lib/library-greeting';
 import ActiveBlockHero from './ActiveBlockHero';
 import type { LibraryHero } from '../lib/library-hero';
 import { BlockStatusBadge } from './BlockActions';
@@ -18,7 +20,7 @@ export default function BlockLibrary({ initial, displayName, preview = false, in
   initialSearch?: string; guidanceKey?: string; activeHero?: LibraryHero | null; today?: string;
 }) {
   const [blocks] = useState(initial);
-  const [filter, setFilter] = useState(initialFilter), [search, setSearch] = useState(initialSearch);
+  const [filter, setFilter] = useState(initialFilter), [search, setSearch] = useState(librarySearch(initialSearch));
   const selectedFilter = useRef<HTMLButtonElement>(null);
   const activeBlock = blocks.find(block => block.status === 'active') ?? null;
   const emptyAccount = blocks.length === 0;
@@ -28,7 +30,7 @@ export default function BlockLibrary({ initial, displayName, preview = false, in
     function restore() {
       const url = new URL(window.location.href);
       setFilter(libraryFilter(url.searchParams.get('status')) ?? landingFilter(blocks));
-      setSearch(url.searchParams.get('q') ?? '');
+      setSearch(librarySearch(url.searchParams.get('q')));
     }
     // A saved draft may have been created while this library was in the browser's
     // back/forward cache. Re-read owned metadata instead of reviving an empty page.
@@ -48,6 +50,7 @@ export default function BlockLibrary({ initial, displayName, preview = false, in
     else if (selected.right > container.right) strip.scrollLeft += selected.right - container.right;
   }, [filter]);
   function select(nextFilter: LibraryFilter, nextSearch = search, push = true) {
+    nextSearch = librarySearch(nextSearch);
     setFilter(nextFilter); setSearch(nextSearch);
     const url = new URL(window.location.href);
     url.searchParams.set('status', nextFilter);
@@ -60,7 +63,7 @@ export default function BlockLibrary({ initial, displayName, preview = false, in
   const label = (status: LibraryFilter) => status === 'all' ? 'All blocks' : status === 'ready' ? 'Not started' : STATUS_LABELS[status];
   return <div className="app-shell"><AppHeader displayName={displayName} preview={preview} />
     <main className="main-content blocks-main onboarding-library">
-      <section className="page-heading blocks-page-heading"><div><div className="overline">Your training blocks</div><h1 className="brand-wordmark">Forrest Runs</h1></div>
+      <section className="page-heading blocks-page-heading"><div><div className="overline">Your training blocks</div><LibraryGreeting name={displayName} /></div>
         <div className="block-create-options"><a id="create-training-block" className="button primary" href={createHref}><Plus size={17} />Create training block</a>
           {emptyAccount && (guidanceKey || preview) && <EmptyAccountGuidance sessionKey={guidanceKey ?? GUIDANCE_PREFIX + 'preview-empty'} />}
         </div>
@@ -73,7 +76,7 @@ export default function BlockLibrary({ initial, displayName, preview = false, in
       {preview && <p className="preview-notice">Example data only. Preview changes reset when you leave this page.</p>}
       <div className="library-toolbar"><div className="block-filters" role="group" aria-label="Filter training blocks">
         {LIBRARY_FILTERS.map(status => <button type="button" key={status} ref={filter === status ? selectedFilter : undefined} aria-pressed={filter === status} onClick={() => select(status)}>{label(status)}<span>{counts(status)}</span></button>)}
-      </div><label className="block-search"><Search size={16} /><span className="sr-only">Search training blocks</span><input type="search" placeholder="Find a block…" value={search} onChange={event => select(filter, event.target.value, false)} /></label></div>
+      </div>{LIBRARY_SEARCH_ENABLED && <label className="block-search"><Search size={16} /><span className="sr-only">Search training blocks</span><input type="search" placeholder="Find a block…" value={search} onChange={event => select(filter, event.target.value, false)} /></label>}</div>
       {!activeBlock && filter === 'draft' && counts('draft') > 0 && <p className="library-guidance">Pick a draft to continue setting up your training block.</p>}
       {!activeBlock && filter === 'ready' && counts('ready') > 0 && <p className="library-guidance">{blocks.some(block => blockReady(block) && !block.isSimulation) ? <><strong>Your schedule is ready to review.</strong> Open a block to review its plan. Choose Start this block when you’re ready to make it your current plan.</> : <><strong>Your sample plan is saved.</strong> Open it to explore the schedule.</>}</p>}
       {historyOnly && <p className="library-guidance">Ready for your next goal? <a href={createHref}>Create a new training block.</a></p>}
