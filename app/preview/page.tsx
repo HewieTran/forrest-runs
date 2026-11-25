@@ -1,3 +1,4 @@
+import { libraryHero } from '../../lib/library-hero';
 import { overviewPreview } from '../../lib/block-overview-preview';
 import GenerationProgress from '../../components/GenerationProgress';
 import { planValidationMessage, LEGACY_VALIDATION_MESSAGE } from '../../lib/plan-validation';
@@ -97,7 +98,11 @@ export default async function Preview({searchParams}:{searchParams:Promise<Recor
   if(query.scenario==='archived')examples=summaries.filter(b=>b.status==='archived');
   if(query.scenario==='simulation')examples=[{...ready,isSimulation:true,hasGeneratedPlan:true}];
   if(query.scenario==='dates')examples=[3,1,0,-2,null].map((offset,i)=>({...ready,id:'date-'+i,raceName:['Future','Tomorrow','Today','Past','Unknown'][i],firstWorkoutDate:offset===null?null:addDays(today,offset)}));
-  return <BlockLibrary initial={examples} initialFilter={libraryFilter(query.status)??landingFilter(examples)} initialSearch={query.q??''} displayName="Runner" today={today} preview/>;
+  const activeExample = overviewPreview(today);
+  activeExample.plan = { ...activeExample.plan, ...initial.plan };
+  const activeHero = libraryHero(activeExample);
+  examples = examples.map(block => block.status === 'active' ? { ...block, workoutCount: activeExample.workouts.length, completedCount: activeExample.workouts.filter(w => w.done).length, recordedMiles: activeExample.workouts.filter(w => w.done && w.type !== 'Strength' && w.type !== 'Mobility').reduce((sum, w) => sum + (w.actualDistance ?? 0), 0) } : block);
+  return <BlockLibrary activeHero={activeHero} initial={examples} initialFilter={libraryFilter(query.status)??landingFilter(examples)} initialSearch={query.q??''} displayName="Runner" today={today} preview/>;
  }
  if(query.blockId){
   const chosen=summaries.find(block=>block.id===query.blockId);
