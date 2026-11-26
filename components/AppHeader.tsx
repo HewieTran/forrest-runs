@@ -1,5 +1,6 @@
 import { Layers3, LockKeyhole } from 'lucide-react';
 import { AccountAvatar } from './SessionActions';
+import { AppearanceButton } from './AppearancePicker';
 import BrandIcon from './BrandIcon';
 
 export default function AppHeader({ displayName, preview = false }: { displayName: string; preview?: boolean }) {
@@ -10,6 +11,7 @@ export default function AppHeader({ displayName, preview = false }: { displayNam
       <a className="header-library-link" aria-label="Training blocks" href={library}><Layers3 size={16} /><span>Training blocks</span></a>
       {preview && <span className="preview-tag">Design preview</span>}
       <span className="private-label"><LockKeyhole size={13} /> Private training log</span>
+      {!preview && <AppearanceButton />}
       <AccountAvatar displayName={displayName} preview={preview} />
     </div>
   </div></header>;

@@ -1,0 +1,46 @@
+.appearance-root { min-height: 100dvh; isolation: isolate; position: relative; }
+.appearance-root:not([data-appearance="plain"]) { --paper:#fffdf8; --muted:#4f6258; }
+.appearance-root:not([data-appearance="plain"])::before { content:""; position:fixed; inset:0; z-index:-1; pointer-events:none; background-color:#e5ebe2; background-size:cover; background-position:center; background-repeat:no-repeat; }
+.appearance-root[data-appearance="forest"]::before { background-image:url('/appearance/forest.webp'); }
+.appearance-root[data-appearance="road"]::before { background-color:#e6edf0; background-image:url('/appearance/road.webp'); }
+.appearance-root[data-appearance="slate"] { --green:#315968; --sage:#e4edef; }
+.appearance-root[data-appearance="slate"]::before { background-color:#e1e8ec; }
+.appearance-root:not([data-appearance="plain"]) .page-heading, .appearance-root:not([data-appearance="plain"]) .library-toolbar, .appearance-root:not([data-appearance="plain"]) .app-footer { background:#fffdf8; border-radius:12px; padding:16px; }
+.appearance-root:not([data-appearance="plain"]) .overline, .appearance-root:not([data-appearance="plain"]) .app-footer, .appearance-root:not([data-appearance="plain"]) .block-filters button { color:#42594b; }
+.appearance-root:not([data-appearance="plain"]) .block-breadcrumb { background:#fffdf8; padding:10px 14px; border-radius:8px; width:fit-content; }
+.appearance-root .library-active-hero { background:#fffdf8; }
+.appearance-trigger { min-height:44px; color:#285d46; }
+.workout-dialog.appearance-dialog { position:fixed; inset:0 0 0 auto; margin:0; width:390px; height:100dvh; max-height:100dvh; border-radius:16px 0 0 16px; background:#fffdf8; }
+.appearance-dialog::backdrop { background:#19271f20; }
+.appearance-picker { padding:20px; display:flex; flex-direction:column; gap:20px; color:#233c31; }
+.appearance-picker fieldset { border:0; padding:0; margin:0; }
+.appearance-picker legend { font-size:16px; font-weight:600; margin-bottom:14px; }
+.appearance-choices { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+.appearance-choice { position:relative; display:flex; flex-direction:column; gap:7px; cursor:pointer; min-width:0; }
+.appearance-choice input { position:absolute; inset:0; opacity:0; width:100%; height:100%; margin:0; cursor:pointer; }
+.appearance-thumbnail { height:96px; border:1px solid #879a90; border-radius:10px; background-size:cover; background-position:center; position:relative; }
+.appearance-thumbnail-slate { background:#e1e8ec; }
+.appearance-thumbnail b { position:absolute; right:7px; top:7px; border-radius:50%; background:#285d46; color:white; width:26px; height:26px; display:grid; place-items:center; }
+.appearance-choice input:checked + .appearance-thumbnail { outline:3px solid #285d46; outline-offset:2px; }
+.appearance-choice input:focus-visible + .appearance-thumbnail { outline:3px solid #233c31; outline-offset:4px; }
+.appearance-choice small { color:#4f6258; line-height:1.5; }
+.appearance-selected { font-size:12px; color:#285d46; font-weight:600; }
+.appearance-hint { color:#4f6258; line-height:1.6; font-size:13px; }
+.appearance-picker-actions { position:sticky; bottom:0; display:flex; justify-content:space-between; gap:12px; background:#fffdf8; padding:16px 0 max(4px, env(safe-area-inset-bottom)); border-top:1px solid #cdd7ce; margin-top:16px; }
+@media(max-width:640px) { .workout-dialog.appearance-dialog { width:100%; border-radius:0; } .appearance-trigger { padding:10px; min-width:44px; } .appearance-trigger > span { display:none; } .appearance-picker { padding:18px; } }
+@media(prefers-reduced-motion:reduce) { .appearance-root *, .appearance-dialog * { transition:none!important; animation:none!important; } }
+.appearance-choice strong { font-size:14px; color:#233c31; }
+.appearance-choice small { font-size:13px; }
+.appearance-root:not([data-appearance="plain"]) .block-empty { background:#fffdf8; border-color:#a9b9aa; color:#233c31; }
+.appearance-dialog .workout-dialog-content { flex:1; display:flex; flex-direction:column; }
+.appearance-picker { flex:1; }
+.appearance-picker-actions { margin-top:auto; }
+/* Detailed training information must never sit directly on wallpaper. */
+.appearance-root:not([data-appearance="plain"]) .block-overview-progress,
+.appearance-root:not([data-appearance="plain"]) .setup-layout,
+.appearance-root:not([data-appearance="plain"]) .setup-stepper,
+.appearance-root:not([data-appearance="plain"]) .workout-schedule-page,
+.appearance-root:not([data-appearance="plain"]) .plan-generation { background:#fffdf8; border-radius:14px; }
+.appearance-root:not([data-appearance="plain"]) .block-overview-progress { padding:20px; }
+@media(max-width:640px) { .appearance-root:not([data-appearance="plain"]) .block-overview-progress { padding:16px; } }
+.appearance-root:not([data-appearance="plain"]) .block-settings-page > .setup-footnote { background:#fffdf8; padding:14px 16px; border-radius:10px; width:fit-content; }

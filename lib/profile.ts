@@ -1,11 +1,12 @@
+import { validAppearance, type AppearancePreset } from './appearance.ts';
 export const AVATAR_COLORS = [
   { name: 'Forest', color: '#285d46' }, { name: 'Blue', color: '#315b78' },
   { name: 'Plum', color: '#6b466f' }, { name: 'Clay', color: '#a04e35' },
   { name: 'Ochre', color: '#7a5a20' }, { name: 'Slate', color: '#4b5c66' },
   { name: 'Teal', color: '#286666' }, { name: 'Berry', color: '#883f54' },
 ] as const;
-export type Profile = { firstName: string | null; lastName: string | null; avatarColor: number | null; version: number; updatedAt: string };
-export type ProfileInput = Omit<Profile, 'updatedAt'>;
+export type Profile = { appearance?: AppearancePreset; firstName: string | null; lastName: string | null; avatarColor: number | null; version: number; updatedAt: string };
+export type ProfileInput = Omit<Profile, 'updatedAt' | 'appearance'>;
 export function automaticAvatarColor(userId: string) {
   let hash = 2166136261;
   for (const c of userId) { hash ^= c.codePointAt(0)!; hash = Math.imul(hash, 16777619); }
@@ -41,5 +42,6 @@ export function normalizeProfileBackup(value: unknown): Profile | null {
   if (typeof input.updatedAt !== 'string' || !/^\d{4}-\d{2}-\d{2}T/.test(input.updatedAt) || !Number.isFinite(Date.parse(input.updatedAt))) throw new Error('Invalid profile timestamp.');
   const saved = validateProfile({ firstName: input.firstName, lastName: input.lastName, avatarColor: input.avatarColor, version: input.version });
   if (saved.version < 1) throw new Error('Invalid saved profile version.');
-  return { ...saved, updatedAt: input.updatedAt };
+  if (input.appearance !== undefined && !validAppearance(input.appearance)) throw new Error('Invalid saved appearance.');
+  return { ...saved, updatedAt: input.updatedAt, ...(input.appearance === undefined ? {} : { appearance: input.appearance }) };
 }

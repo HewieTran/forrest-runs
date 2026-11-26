@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { testAppearance } from './appearance-integration.mjs';
 import { testProfile } from './profile-integration.mjs';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
@@ -77,7 +78,8 @@ try {
   assert.equal((await call(a + 'x', '/api/blocks')).status, 401);
   assert.deepEqual((await call(a, '/api/blocks')).data.blocks, []);
   assert.deepEqual((await call(b, '/api/blocks')).data.blocks, []);
-  const profile = await testProfile((url, init) => fetch(base + new URL(url).pathname + new URL(url).search, init), { Cookie: a }, { Cookie: b });
+  let profile = await testProfile((url, init) => fetch(base + new URL(url).pathname + new URL(url).search, init), { Cookie: a }, { Cookie: b });
+  profile = await testAppearance((url, init) => fetch(base + new URL(url).pathname + new URL(url).search, init), { Cookie: a }, { Cookie: b });
   const day = centralToday();
   const created = await call(a, '/api/blocks', 'POST', { raceName: 'Native Node training', raceDate: addDays(day, 60) });
   assert.equal(created.status, 201);

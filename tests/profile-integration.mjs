@@ -43,7 +43,7 @@ export async function testProfile(dispatch, aHeaders, bHeaders) {
   assert.doesNotMatch(html, /Export backup|href="\/api\/export"/);
   assert.match(html, /Edit profile/);
   const backup = (await call(aHeaders, '/api/export')).data;
-  assert.equal(backup.schemaVersion, 8); assert.deepEqual(backup.profile, saved.profile);
+  assert.equal(backup.schemaVersion, 9); assert.deepEqual(backup.profile, saved.profile);
   assert.deepEqual(normalizeTrainingBackup(backup), backup);
   assert.equal('ownerId' in backup.profile, false);
   assert.notDeepEqual((await call(bHeaders, '/api/export')).data.profile, saved.profile);
