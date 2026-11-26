@@ -104,6 +104,7 @@ export default function TodayWorkout({ data, featured, savedRunId, saving, perio
     </div>
     {/* eslint-disable-next-line @next/next/no-img-element */}
     <img ref={artRef} className="today-workout-art" src={japanese ? JAPANESE_ART.workouts[period] : periodArtwork(period)} alt="" width={1040} height={693} />
+    {japanese && <span className="today-workout-art-label"><span className="sr-only">Artwork: </span>{PERIOD_LABELS[period]}</span>}
     <button type="button" className="workout-browse workout-browse-next" aria-label="Next workout" disabled={saving || !next} onClick={() => browse(next!.id, 1)}><ChevronRight size={24} /></button>
   </section>;
 }

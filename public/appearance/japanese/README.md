@@ -12,3 +12,9 @@ All URLs are defined in `lib/appearance-art.ts`. To replace artwork, add a versi
 Natsuki's individual-workout illustration feedback is deferred; these first images can be swapped independently later.
 
 Initial artwork generated with the built-in image tool: sparse Japanese sumi ink pine, winding trail and gray hills on warm ivory washi paper. Morning: low vermilion sunrise and mist; afternoon: high small sun and clear sky; evening: setting sun and gray dusk; night: ivory moon and charcoal sky. Background: blank ivory with faint lower-left hills. Journey: sparse ink hills/pines without any route or labels.
+
+## Daytime revision 2
+
+The approved night scene is the reference for all three daytime edits: keep the pine, mountain ridgelines, rocks and trail composition consistent; only sky/light/mist changes. Daytime v2 uses soft dawn mist, desaturated clear afternoon, and dusty rose dusk. Night remains unchanged. Compare all four together before approving any replacement to avoid scenery jumping between periods.
+
+Time labels are real text rendered by TodayWorkout from PERIOD_LABELS and the same period that selects the image, including Night. Never bake labels into replacement images. The editor already labels every period. Current daytime/thumbnail URLs are versioned in the central mapping to avoid stale cached assets. Old images are retained for reference.

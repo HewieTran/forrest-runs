@@ -42,3 +42,7 @@
 .appearance-root[data-appearance="japanese"] .journey-track { background:#d1cfc6; }
 .appearance-root[data-appearance="japanese"] .journey-track > span { background:var(--japanese-accent); }
 .appearance-root[data-appearance="japanese"] .workout-period-options label.selected { border-color:var(--japanese-accent); box-shadow:0 0 0 1px var(--japanese-accent); background:#f4e5dc; }
+
+/* Real text stays readable and anchored to the artwork at every viewport. */
+.appearance-root[data-appearance="japanese"] .today-workout-art-label { position:absolute; z-index:1; bottom:24px; left:calc(100% / 2.05 + 26px); max-width:calc(100% * 1.05 / 2.05 - 52px); pointer-events:none; padding:5px 8px; background:#faf6eef2; color:#343733; border-radius:3px; font-size:12px; line-height:1.4; font-weight:600; letter-spacing:.12em; text-transform:uppercase; }
+@media(max-width:640px) { .appearance-root[data-appearance="japanese"] .today-workout-art-label { left:20px; bottom:20px; max-width:calc(100% - 40px); } }
