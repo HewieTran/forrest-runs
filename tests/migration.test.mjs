@@ -64,3 +64,17 @@ test('upgrade preserves existing records, permits multiple blocks, and enforces 
     await worker.dispose();
   }
 });
+
+test('appearance upgrade preserves an existing account profile and applies forest default', async () => {
+ const worker=new Miniflare({modules:true,script:'export default { fetch(){return new Response("test");} };',compatibilityDate:'2026-05-15',cf:false,d1Databases:{DB:'appearance-upgrade'}});
+ try {
+  const database=await worker.getD1Database('DB'); const files=await migrationFiles();
+  for(const file of files.filter(f=>!f.includes('0012_')))await applyMigration(database,file);
+  await database.prepare("INSERT INTO training_profiles (owner_id,first_name,last_name,avatar_color,version,updated_at) VALUES ('owner','Casey','Runner',2,4,'2026-11-25')").run();
+  const before=await database.prepare("SELECT * FROM training_profiles WHERE owner_id='owner'").first();
+  await applyMigration(database,files.find(f=>f.includes('0012_')));
+  const after=await database.prepare("SELECT * FROM training_profiles WHERE owner_id='owner'").first();
+  const {appearance,...unchanged}=after;assert.deepEqual(unchanged,before);assert.equal(appearance,'forest');
+  await assert.rejects(database.prepare("UPDATE training_profiles SET appearance='unapproved' WHERE owner_id='owner'").run(),/CHECK/);
+ } finally {await worker.dispose();}
+});

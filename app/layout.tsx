@@ -6,6 +6,7 @@ import { signOutPath } from '@forrest/platform';
 import { SessionActions } from '../components/SessionActions';
 import '../components/session-actions.css';
 import "./training.css";
+import '../components/appearance.css';
 import '../components/brand.css';
 
 export const metadata: Metadata = {

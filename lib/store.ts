@@ -1,3 +1,4 @@
+import type { AppearancePreset } from './appearance';
 import type { Profile, ProfileInput } from './profile';
 import { raceDistanceLabel } from './race-distance';
 import { verifyCalculatedMeasurements } from './planner-math';
@@ -15,7 +16,7 @@ import {
 } from './domain';
 import type { AppUser } from './user';
 import { insertInitialTraining, loadOwnerSeed } from '../db/initial-training';
-import type { TrainingBackupV7, TrainingBackupV8 } from './backups';
+import type { TrainingBackupV7, TrainingBackupV9 } from './backups';
 import { TrainingRequestError } from './training-errors';
 import { canChangeBlockStatus, type NewBlockInput, type BlockStatusInput, type BlockSummary, type BlockDeletionPreview, type DeleteBlockInput } from './blocks';
 import type { BlockSetup } from './setup';
@@ -251,7 +252,7 @@ export async function activeBlock(user: AppUser): Promise<Pick<Plan, 'id' | 'rac
     .where(and(eq(plans.ownerId, user.userId), eq(plans.status, 'active'))).get() ?? null;
 }
 
-export async function exportTraining(user: AppUser, blockId?: string): Promise<TrainingBackupV7 | TrainingBackupV8> {
+export async function exportTraining(user: AppUser, blockId?: string): Promise<TrainingBackupV7 | TrainingBackupV9> {
   if (blockId === undefined) await ensureUserInitialized(user);
   else await userPlan(user, blockId);
   const database = getDb();
@@ -275,7 +276,7 @@ export async function exportTraining(user: AppUser, blockId?: string): Promise<T
     workouts: ownedWorkouts.map(({ workout }) => workout),
     restDays: ownedRestDays.map(({ restDay }) => restDay),
   };
-  return blockId === undefined ? { ...backup, schemaVersion: 8, profile: await loadProfile(user) } : backup;
+  return blockId === undefined ? { ...backup, schemaVersion: 9, profile: await loadProfile(user) } : backup;
 }
 export async function saveWorkout(
   user: AppUser,
@@ -587,6 +588,17 @@ export async function saveProfile(user: AppUser, input: ProfileInput): Promise<P
     ? await getDb().insert(profiles).values({ ownerId: user.userId, ...values }).onConflictDoNothing().returning().get()
     : await getDb().update(profiles).set(values).where(and(eq(profiles.ownerId, user.userId), eq(profiles.version, input.version))).returning().get();
   if (!saved) throw new TrainingRequestError('Your profile changed in another tab. Reload the latest profile before saving again.', 409);
+  const { ownerId: _ownerId, ...profile } = saved;
+  return profile;
+}
+
+export async function saveAppearance(user: AppUser, input: { preset: AppearancePreset; version: number }): Promise<Profile> {
+  const database = getDb(), updatedAt = new Date().toISOString();
+  const saved = input.version === 0
+    ? await database.insert(profiles).values({ ownerId: user.userId, appearance: input.preset, updatedAt }).onConflictDoNothing().returning().get()
+    : await database.update(profiles).set({ appearance: input.preset, version: input.version + 1, updatedAt })
+      .where(and(eq(profiles.ownerId, user.userId), eq(profiles.version, input.version))).returning().get();
+  if (!saved) throw new TrainingRequestError('Your profile changed in another tab. Reload the latest profile before applying your appearance.', 409);
   const { ownerId: _ownerId, ...profile } = saved;
   return profile;
 }

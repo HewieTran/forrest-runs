@@ -3,16 +3,21 @@
 import { clearGuidanceSession } from '../lib/onboarding';
 import { AVATAR_COLORS, type ProfileView } from '../lib/profile';
 import { createContext, useContext, useState, type ReactNode } from 'react';
+import { resolveAppearance, type AppearancePreset } from '../lib/appearance';
 import ProfileEditor from './ProfileEditor';
 
 const SignOutPath = createContext<string | null>(null);
 const AccountProfile = createContext<ProfileView | null>(null);
 const UpdateProfile = createContext<(account: ProfileView) => void>(() => {});
+const AppearancePreview = createContext<{ preview: AppearancePreset | null; setPreview: (value: AppearancePreset | null) => void }>({ preview: null, setPreview: () => {} });
+export const useAppearancePreview = () => useContext(AppearancePreview);
+export const useUpdateAccountProfile = () => useContext(UpdateProfile);
 export const useAccountProfile = () => useContext(AccountProfile);
 
 export function SessionActions({ signOutPath, account, children }: { signOutPath: string | null; account: ProfileView | null; children: ReactNode }) {
   const [current, setCurrent] = useState(account);
-  return <SignOutPath.Provider value={signOutPath}><AccountProfile.Provider value={current}><UpdateProfile.Provider value={setCurrent}>{children}</UpdateProfile.Provider></AccountProfile.Provider></SignOutPath.Provider>;
+  const [preview, setPreview] = useState<AppearancePreset | null>(null);
+  return <SignOutPath.Provider value={signOutPath}><AccountProfile.Provider value={current}><UpdateProfile.Provider value={setCurrent}><AppearancePreview.Provider value={{ preview, setPreview }}><div className="appearance-root" data-appearance={current ? preview ?? resolveAppearance(current.profile?.appearance) : 'plain'}>{children}</div></AppearancePreview.Provider></UpdateProfile.Provider></AccountProfile.Provider></SignOutPath.Provider>;
 }
 
 export function AccountAvatar({ displayName, preview }: { displayName: string; preview: boolean }) {
