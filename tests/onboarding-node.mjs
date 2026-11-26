@@ -56,7 +56,7 @@ try {
   selected((await html(a)).text, 'Not started');
   const explicit = await html(a, '/blocks?status=draft&q=Unfinished'); selected(explicit.text, 'Draft'); assert.match(explicit.text, /Unfinished onboarding draft/); assert.doesNotMatch(explicit.text, /<h2><a[^>]*>Future onboarding plan/);
   selected((await html(a, '/blocks?status=archived&q=missing')).text, 'Archived');
-  assert.match((await html(a, '/blocks?status=archived&q=missing')).text, /No matching blocks/);
+  assert.match((await html(a, '/blocks?status=archived&q=missing')).text, /No archived blocks/);
   const before = (await call(a, '/api/training' + scope)).data;
   const overview = await html(a, '/blocks/' + plan.id); assert.match(overview.text, /Your training block is ready/); assert.match(overview.text, /Keep for later/); assert.match(overview.text, /href="\/blocks\?status=ready"/);
   assert.equal((await call(a, '/api/training' + scope)).data.plan.status, 'draft');
@@ -87,7 +87,12 @@ try {
   const completedSetup = await call(a, draftPath + '/setup', 'PUT', { setup, complete: true, version: reloadedDraft.data.plan.version });
   assert.equal(completedSetup.status, 200);
   const guided = completedSetup.data.block;
-  const generation = await call(a, '/api/blocks/' + guided.id + '/generation', 'POST', { version: guided.version, consent: true, saveImmediately: true });
+  const reviewed = await call(a, '/api/blocks/' + guided.id + '/goal-review', 'POST', { version: guided.version, consent: true });
+  assert.equal(reviewed.status, 200);
+  const generation = await call(a, '/api/blocks/' + guided.id + '/generation', 'POST', {
+    version: reviewed.data.block.version, consent: true, saveImmediately: true,
+    goalReview: { reviewId: reviewed.data.block.goalReview.id, option: null },
+  });
   assert.equal(generation.status, 200); assert.equal(generation.data.block.generation.provider, 'simulation');
   assert.equal(generation.data.block.generation.input.runner.age, null);
   assert.equal((await call(a, '/api/blocks/' + guided.id, 'PATCH', { status: 'active', version: generation.data.block.version })).status, 409);

@@ -1,3 +1,4 @@
+import { withReviewedFixture } from './goal-review-prerequisite.mjs';
 import assert from 'node:assert/strict';
 import { insertExistingTestBlock } from './d1-helpers.mjs';
 import { centralToday } from '../lib/domain.ts';
@@ -9,12 +10,13 @@ import { testRestore } from './blocks-integration.mjs';
 // Provider traffic is intercepted by Miniflare. These tests never use an API key
 // or send fitness data to OpenAI. All account and workout data is synthetic.
 export async function testPlanner(db, dispatch, mock) {
+  const dispatchReviewed = withReviewedFixture(db, dispatch);
   const auth = { 'oai-authenticated-user-id': 'planner-owner', 'oai-authenticated-user-email': 'planner@example.test' };
   const other = { 'oai-authenticated-user-id': 'planner-other', 'oai-authenticated-user-email': 'other@example.test' };
   const { setup, output } = plannerFixture(centralToday());
   const pool = mock.get('https://api.openai.com');
   async function call(path, method = 'GET', body, headers = auth) {
-    const response = await dispatch('http://localhost' + path, { method, headers: { ...headers, ...(body ? { 'Content-Type': 'application/json' } : {}) }, body: body ? JSON.stringify(body) : undefined });
+    const response = await dispatchReviewed('http://localhost' + path, { method, headers: { ...headers, ...(body ? { 'Content-Type': 'application/json' } : {}) }, body: body ? JSON.stringify(body) : undefined });
     return { status: response.status, data: await response.json() };
   }
   async function create() { const result = await call('/api/blocks', 'POST', { setup, complete: true }); assert.equal(result.status, 201); return result.data.block; }
@@ -96,7 +98,7 @@ export async function testPlanner(db, dispatch, mock) {
   assert.equal((await call(restPath, 'DELETE', { version: 1, confirmPlanChange: true })).status, 200);
   assert.equal((await call('/api/training' + scope, 'PATCH', { raceName: 'Updated goal', raceDate: setup.goal.targetDate, version: (await call('/api/training' + scope)).data.plan.version })).status, 409);
   const backup = (await call('/api/export' + scope)).data;
-  assert.equal(backup.schemaVersion, 7);
+  assert.equal(backup.schemaVersion, 10);
   assert.deepEqual(normalizeTrainingBackup(backup), backup);
   await testRestore(backup);
   assert.deepEqual((await call('/api/training')).data.plan, original.plan);
@@ -130,7 +132,7 @@ export async function testPlanner(db, dispatch, mock) {
   assert.deepEqual(normalizeTrainingBackup(failureBackup), failureBackup);
   const failurePage = await dispatch('http://localhost/blocks/' + failure.id + '/setup', { headers: auth });
   const failureHtml = await failurePage.text();
-  assert.match(failureHtml, /Plan generation couldn’t finish/);
+  assert.match(failureHtml, /This step couldn’t finish/);
   assert.match(failureHtml, /wrong number of workouts/);
   assert.doesNotMatch(failureHtml, /Check these details/);
   await cool();
@@ -142,22 +144,13 @@ export async function testPlanner(db, dispatch, mock) {
   };
   pool.intercept({ path: '/v1/responses', method: 'POST' }).reply(200, responseFixture(clarification));
   result = await call('/api/blocks/' + failure.id + '/generation', 'POST', { version: failure.version, consent: true, saveImmediately: true });
-  assert.equal(result.status, 200);
-  assert.equal(result.data.block.generation.status, 'clarification');
+  assert.equal(result.status, 502);
+  assert.equal(result.data.block.generation.status, 'failed');
+  assert.equal(result.data.block.generation.validationFailure, 'assessment');
   assert.deepEqual(result.data.block.setup, setup);
-  assert.deepEqual(result.data.block.generation.output.assessment.actions, ['target_time', 'race_date']);
   const blockedData = (await call('/api/training?blockId=' + failure.id)).data;
-  assert.deepEqual(blockedData.plan.generation.output.assessment.suggestions, clarification.assessment.suggestions);
   assert.equal(blockedData.workouts.length, 0); assert.equal(blockedData.restDays.length, 0);
   assert.equal(result.data.block.generation.usage.outputTokens, 2000);
-  const adjustmentPage = await dispatch('http://localhost/blocks/' + failure.id + '/setup?edit=target_time', { headers: auth });
-  const adjustmentHtml = await adjustmentPage.text();
-  assert.match(adjustmentHtml, /Let’s adjust the plan inputs/);
-  assert.match(adjustmentHtml, /Edit target finish time/);
-  assert.match(adjustmentHtml, /Edit race date/);
-  assert.match(adjustmentHtml, /No workouts were created/);
-  assert.match(adjustmentHtml, /id="setup-targetTime"/);
-  assert.ok(!adjustmentHtml.includes('Edit running experience'));
   const benchmarkPage = await dispatch('http://localhost/blocks/' + failure.id + '/setup?edit=benchmark', { headers: auth });
   assert.match(await benchmarkPage.text(), /id="setup-benchmarkDistance"/);
   assert.equal((await call('/api/blocks/' + failure.id + '/generation/accept', 'POST', { version: result.data.block.version, generationId: result.data.block.generation.id })).status, 409);

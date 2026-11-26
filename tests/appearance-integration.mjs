@@ -16,7 +16,7 @@ export async function testAppearance(dispatch,a,b){
   const html=await (await dispatch('http://localhost/blocks',{headers:a})).text();assert.match(html,new RegExp('data-appearance="'+preset+'"'));assert.match(html,/aria-label="Appearance"/);
  }
  const foreign=(await call(b)).data.account;assert.notDeepEqual(foreign.profile,account.profile);
- const backup=(await call(a,'/api/export')).data;assert.equal(backup.schemaVersion,9);assert.equal(backup.profile.appearance,'forest');assert.deepEqual(normalizeTrainingBackup(backup),backup);
+ const backup=(await call(a,'/api/export')).data;assert.equal(backup.schemaVersion,10);assert.equal(backup.profile.appearance,'forest');assert.deepEqual(normalizeTrainingBackup(backup),backup);
  // Legacy profile updates change only names/colors and preserve the saved appearance.
  let selected=await call(a,'/api/profile/appearance','PATCH',{preset:'road',version:account.profile.version});
  let updated=await call(a,'/api/profile','PATCH',{firstName:'Casey',lastName:'Runner',avatarColor:3,version:selected.data.account.profile.version});
