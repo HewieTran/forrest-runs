@@ -5,6 +5,8 @@ import { useEffect, useRef } from 'react';
 import { ChevronLeft, ChevronRight, CalendarDays, Pencil, Sparkles } from 'lucide-react';
 import { formatDate, isRun, type AppData, type Workout } from '../lib/domain';
 import { adjacentWorkouts, todayWorkout, PERIOD_LABELS, periodArtwork, type WorkoutPeriod } from '../lib/block-overview';
+import { JAPANESE_ART } from '../lib/appearance-art';
+import { useActiveAppearance } from './SessionActions';
 import { useBlockUnits } from './BlockUnits';
 import { formatDistance, formatPace } from '../lib/workout-form';
 import { readableDuration, workoutStructure } from '../lib/workout-structure';
@@ -19,6 +21,7 @@ export default function TodayWorkout({ data, featured, savedRunId, saving, perio
   onOpenWorkout: (id: string) => void; onSelectWorkout: (id: string | null) => void;
 }) {
   const { unit } = useBlockUnits();
+  const japanese = useActiveAppearance() === 'japanese';
   const copyRef = useRef<HTMLDivElement>(null);
   const artRef = useRef<HTMLImageElement>(null);
   const pendingMotion = useRef<{ direction: number; outgoing: HTMLElement; artwork: HTMLElement | null; height: number } | null>(null);
@@ -100,7 +103,7 @@ export default function TodayWorkout({ data, featured, savedRunId, saving, perio
       {others.length > 0 && <ul className="today-workout-others" aria-label={`Other workouts ${isToday ? 'today' : 'on this date'}`}>{others.map(row => <li key={row.id}><span>{isToday ? 'Also today' : 'Same day'} · {formatWorkoutTitle(row.type)}</span><button type="button" className="today-workout-link" aria-label={`${row.done ? 'Edit' : 'Log'} ${formatWorkoutTitle(row.type)} workout`} disabled={saving} onClick={() => onOpenWorkout(row.id)}>{row.done ? 'Edit' : 'Log'}<span className="sr-only"> {formatWorkoutTitle(row.type)} workout</span></button></li>)}</ul>}
     </div>
     {/* eslint-disable-next-line @next/next/no-img-element */}
-    <img ref={artRef} className="today-workout-art" src={periodArtwork(period)} alt="" width={1040} height={693} />
+    <img ref={artRef} className="today-workout-art" src={japanese ? JAPANESE_ART.workouts[period] : periodArtwork(period)} alt="" width={1040} height={693} />
     <button type="button" className="workout-browse workout-browse-next" aria-label="Next workout" disabled={saving || !next} onClick={() => browse(next!.id, 1)}><ChevronRight size={24} /></button>
   </section>;
 }

@@ -8,6 +8,7 @@ import '../components/session-actions.css';
 import "./training.css";
 import '../components/appearance.css';
 import '../components/brand.css';
+import '../components/japanese-appearance.css';
 
 export const metadata: Metadata = {
   title: "Forrest Runs",

@@ -5,6 +5,8 @@ import { AVATAR_COLORS, type ProfileView } from '../lib/profile';
 import { createContext, useContext, useState, type ReactNode } from 'react';
 import { resolveAppearance, type AppearancePreset } from '../lib/appearance';
 import ProfileEditor from './ProfileEditor';
+import { JAPANESE_ART } from '../lib/appearance-art';
+import type { CSSProperties } from 'react';
 
 const SignOutPath = createContext<string | null>(null);
 const AccountProfile = createContext<ProfileView | null>(null);
@@ -13,11 +15,15 @@ const AppearancePreview = createContext<{ preview: AppearancePreset | null; setP
 export const useAppearancePreview = () => useContext(AppearancePreview);
 export const useUpdateAccountProfile = () => useContext(UpdateProfile);
 export const useAccountProfile = () => useContext(AccountProfile);
+export function useActiveAppearance() {
+  const account = useAccountProfile(), { preview } = useAppearancePreview();
+  return account ? preview ?? resolveAppearance(account.profile?.appearance) : null;
+}
 
 export function SessionActions({ signOutPath, account, children }: { signOutPath: string | null; account: ProfileView | null; children: ReactNode }) {
   const [current, setCurrent] = useState(account);
   const [preview, setPreview] = useState<AppearancePreset | null>(null);
-  return <SignOutPath.Provider value={signOutPath}><AccountProfile.Provider value={current}><UpdateProfile.Provider value={setCurrent}><AppearancePreview.Provider value={{ preview, setPreview }}><div className="appearance-root" data-appearance={current ? preview ?? resolveAppearance(current.profile?.appearance) : 'plain'}>{children}</div></AppearancePreview.Provider></UpdateProfile.Provider></AccountProfile.Provider></SignOutPath.Provider>;
+  return <SignOutPath.Provider value={signOutPath}><AccountProfile.Provider value={current}><UpdateProfile.Provider value={setCurrent}><AppearancePreview.Provider value={{ preview, setPreview }}><div style={{ '--japanese-background': `url("${JAPANESE_ART.background}")`, '--japanese-journey': `url("${JAPANESE_ART.journey}")` } as CSSProperties} className="appearance-root" data-appearance={current ? preview ?? resolveAppearance(current.profile?.appearance) : 'plain'}>{children}</div></AppearancePreview.Provider></UpdateProfile.Provider></AccountProfile.Provider></SignOutPath.Provider>;
 }
 
 export function AccountAvatar({ displayName, preview }: { displayName: string; preview: boolean }) {

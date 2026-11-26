@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Palette } from 'lucide-react';
+import { JAPANESE_ART } from '../lib/appearance-art';
 import { APPEARANCE_PRESETS, resolveAppearance, type AppearancePreset } from '../lib/appearance';
 import { useAccountProfile, useUpdateAccountProfile, useAppearancePreview } from './SessionActions';
 import type { ProfileView } from '../lib/profile';
@@ -60,7 +61,7 @@ function AppearancePicker({ account, onClose, onSaved }: { account: ProfileView;
       <p>Make this space yours.</p>
       <fieldset disabled={saving}><legend>Choose your appearance</legend><div className="appearance-choices">{APPEARANCE_PRESETS.map(preset => <label className="appearance-choice" key={preset.id}>
         <input type="radio" name="appearance" value={preset.id} checked={selected === preset.id} onChange={() => { setSelected(preset.id); setPreview(preset.id); }} />
-        <span className={`appearance-thumbnail appearance-thumbnail-${preset.id}`} style={preset.image ? { backgroundImage: `url(/appearance/${preset.id}-thumb.webp)` } : undefined} aria-hidden="true">{selected === preset.id && <b>✓</b>}</span>
+        <span className={`appearance-thumbnail appearance-thumbnail-${preset.id}`} style={preset.image ? { backgroundImage: `url(${preset.id === 'japanese' ? JAPANESE_ART.thumbnail : `/appearance/${preset.id}-thumb.webp`})` } : undefined} aria-hidden="true">{selected === preset.id && <b>✓</b>}</span>
         <strong>{preset.name}</strong><small>{preset.description}</small><span className="appearance-selected">{selected === preset.id ? '✓ Selected' : 'Select'}</span>
       </label>)}</div></fieldset>
       <p className="appearance-hint">Preview your choice, then apply it to your account. Cancel restores your saved appearance.</p>
