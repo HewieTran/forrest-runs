@@ -34,7 +34,7 @@ export default function GoalReview({ review, today, disabled, onGenerate, onEdit
   function description(option: ReviewOption) {
     if (option.kind === 'target_time') return `${target} → ${formatDuration(option.targetDurationSeconds)} · ${option.targetDurationSeconds! - goal.targetDurationSeconds!} sec slower`;
     if (option.kind === 'race_date') return `${dateLabel(goal.raceDate)} → ${dateLabel(addDays(goal.raceDate, option.additionalDays!))} · +${option.additionalDays} days`;
-    return `${input.availability.trainingDays.length} → ${option.trainingDays!.length} days / week · +${option.trainingDays!.length - input.availability.trainingDays.length} days`;
+    return `${input.availability.trainingDays.length} → ${option.trainingDays!.length} days / week · +${option.trainingDays!.length - input.availability.trainingDays.length} ${option.trainingDays!.length - input.availability.trainingDays.length === 1 ? 'day' : 'days'}`;
   }
   return <section className="goal-review" aria-labelledby="goal-review-title">
     <h2 id="goal-review-title" tabIndex={-1}>{confirming ? chosen === 'race_date' ? 'A little more runway' : 'Review your change' : sample ? 'Explore your sample plan' : output.decision === 'proceed' ? `Let’s chase ${target}` : output.decision === 'unsupported' ? 'That’s quite a leap.' : 'Let’s find your route'}</h2>
@@ -64,7 +64,7 @@ export default function GoalReview({ review, today, disabled, onGenerate, onEdit
       </> : <>
         <p>{output.approach}</p>
         {!!output.options.length && <fieldset disabled={disabled} className="goal-review-options"><legend>Choose one change to review.</legend>{output.options.map(item => <label className="goal-review-option" key={item.kind}><input type="radio" name="goal-review-option" checked={chosen === item.kind} onChange={() => choose(item)} /><span><strong>{item.kind === 'training_days' ? `Keep ${target} · Add a training day` : item.kind === 'race_date' ? `Keep ${target} · Move the race` : 'Keep your schedule · Adjust the goal'}</strong><b>{description(item)}</b><span>{item.reason}</span></span></label>)}</fieldset>}
-        {option?.kind === 'training_days' && <fieldset disabled={disabled} className="goal-extra-days"><legend>Choose {extraNeeded} extra {extraNeeded === 1 ? 'day' : 'days'} that work for you.</legend><div className="setup-days">{DAY_NAMES.map((name, day) => {
+        {option?.kind === 'training_days' && <fieldset disabled={disabled} className="goal-extra-days"><legend>Choose {extraNeeded} extra {extraNeeded === 1 ? 'day' : 'days'} that {extraNeeded === 1 ? 'works' : 'work'} for you.</legend><div className="setup-days">{DAY_NAMES.map((name, day) => {
           const existing = input.availability.trainingDays.includes(day);
           return <button key={day} type="button" disabled={existing || disabled} aria-pressed={extraDays.includes(day)} onClick={() => setExtraDays(current => current.includes(day) ? current.filter(value => value !== day) : [...current, day])}>{name.slice(0, 3)}<span>{existing ? 'Current' : extraDays.includes(day) ? 'Added' : '—'}</span></button>;
         })}</div>{!selectedDaysValid && <p role="status">Select exactly {extraNeeded} extra {extraNeeded === 1 ? 'day' : 'days'} to continue.</p>}</fieldset>}
