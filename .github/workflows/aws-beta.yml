@@ -31,7 +31,7 @@ jobs:
       - name: Test deployment failure handling
         run: python3 -m unittest discover -s tests -p 'aws_deploy_test.py' -v
       - name: Test schema, backups and UI calculations
-        run: node --experimental-strip-types --test tests/node-sqlite.test.mjs tests/migration.test.mjs tests/backups.test.mjs tests/block-overview.test.mjs tests/workout-schedule.test.mjs tests/appearance.test.mjs tests/profile.test.mjs
+        run: node --experimental-strip-types --test tests/node-sqlite.test.mjs tests/migration.test.mjs tests/backups.test.mjs tests/block-overview.test.mjs tests/workout-schedule.test.mjs tests/appearance.test.mjs tests/japanese-appearance.test.mjs tests/profile.test.mjs
       - name: Build AWS release
         run: node scripts/node-proof.mjs build
       - name: Package release
