@@ -1,7 +1,8 @@
 // Safe diagnostics only: no provider text, field values, prompts or credentials.
-export const PLAN_VALIDATION_CODES = ['response_format', 'output_shape', 'assessment', 'schedule_completeness', 'schedule_dates', 'session_limit', 'race', 'warmup_cooldown', 'numeric_targets', 'workout_arithmetic', 'workout_text', 'phases'] as const;
+export const PLAN_VALIDATION_CODES = ['goal_target', 'response_format', 'output_shape', 'assessment', 'schedule_completeness', 'schedule_dates', 'session_limit', 'race', 'warmup_cooldown', 'numeric_targets', 'workout_arithmetic', 'workout_text', 'phases'] as const;
 export type PlanValidationCode = typeof PLAN_VALIDATION_CODES[number];
 const REASONS: Record<PlanValidationCode, string> = {
+  goal_target: 'The generated race target did not match your confirmed goal. Your goal has been preserved.',
   response_format: 'The planner returned a response the app could not read.',
   output_shape: 'The planner returned incomplete or unsupported workout details.',
   assessment: 'The planner returned an incomplete or contradictory goal assessment.',

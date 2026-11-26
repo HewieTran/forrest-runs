@@ -9,8 +9,8 @@ import { workoutStructure } from './workout-structure.ts';
 import { trainingWindowIssue } from './training-window.ts';
 
 export const PLANNER_VERSION = 'race-v7-calculated';
-export const PROMPT_VERSION = 'race-coach-v11-provisional-goals';
-export function requiresAssessment(version: string) { return ['5k-coach-v5-assessment', '5k-coach-v6-calculated', 'race-coach-v7-calculated', 'race-coach-v8-suggestions', 'race-coach-v9-benchmarks', 'race-coach-v10-best-available-result', PROMPT_VERSION].includes(version); }
+export const PROMPT_VERSION = 'race-coach-v12-confirmed-goal';
+export function requiresAssessment(version: string) { return ['5k-coach-v5-assessment', '5k-coach-v6-calculated', 'race-coach-v7-calculated', 'race-coach-v8-suggestions', 'race-coach-v9-benchmarks', 'race-coach-v10-best-available-result', 'race-coach-v11-provisional-goals', PROMPT_VERSION].includes(version); }
 export type PlannerIntake = ReturnType<typeof plannerIntake>;
 const number = z.number().finite().positive();
 const Step = z.object({
@@ -107,6 +107,11 @@ export function validatePlanOutput(value: unknown, input: PlannerIntake, require
   }
   return { ...output, sessions: output.sessions.sort((a, b) => a.date.localeCompare(b.date)) };
 }
+export function validateConfirmedRaceTarget(output: PlanOutput, input: PlannerIntake) {
+  if (output.outcome !== 'plan' || output.assessment?.decision !== 'proceed') throw new PlanValidationError('assessment');
+  const race = output.sessions.find(session => session.type === 'Race')?.steps.find(step => step.kind === 'race');
+  if (!race || race.durationSeconds !== input.goal.targetDurationSeconds) throw new PlanValidationError('goal_target');
+}
 export function workoutForSession(session: PlanSession): WorkoutInput {
   const race = session.steps.find(step => step.kind === 'race');
   const fullDistance = session.steps.every(step => step.distanceMiles !== null) ? session.steps.reduce((sum, step) => sum + step.distanceMiles!, 0) : null;
@@ -164,6 +169,7 @@ export function validateGeneration(value: unknown): Generation {
   if (JSON.stringify(input.input) !== JSON.stringify(canonical)) throw new Error('Planner input does not match its saved setup.');
   if (input.assessmentContext && JSON.stringify(input.assessmentContext) !== JSON.stringify(assessmentContext(canonical, input.assessmentContext.asOfDate))) throw new Error('Assessment dates do not match the saved intake.');
   const output = input.output === null ? null : validatePlanOutput(input.output, canonical, input.provider !== 'simulation' && requiresAssessment(input.promptVersion));
+  if (output && input.promptVersion === PROMPT_VERSION) validateConfirmedRaceTarget(output, canonical);
   if (output && input.calculationVersion) verifyCalculatedMeasurements(output, canonical);
   if (['review', 'accepted'].includes(input.status) && output?.outcome !== 'plan') throw new Error('A reviewed plan needs a validated schedule.');
   if (input.status === 'clarification' && output?.outcome !== 'needs_clarification') throw new Error('Missing planner clarification.');

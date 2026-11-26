@@ -9,6 +9,7 @@ import {
 } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
 import { BLOCK_STATUSES } from '../lib/domain';
+import type { GoalReview } from '../lib/goal-review';
 import type { Generation } from '../lib/planner';
 import type { BlockSetup } from '../lib/setup';
 import type { ResultOrigins } from '../lib/workout-completion';
@@ -20,6 +21,7 @@ export const plans = sqliteTable('training_plans', {
   ownerId: text('owner_id').notNull(),
   status: text('status', { enum: BLOCK_STATUSES }).notNull().default('active'),
   setup: text('setup', { mode: 'json' }).$type<BlockSetup>(),
+  goalReview: text('goal_review', { mode: 'json' }).$type<GoalReview>(),
   generation: text('generation', { mode: 'json' }).$type<Generation>(),
   raceName: text('race_name').notNull(),
   raceDate: text('race_date').notNull(),
@@ -103,6 +105,7 @@ export const aiUsage = sqliteTable('training_ai_usage', {
   startedAt: text('started_at').notNull(),
   finishedAt: text('finished_at'),
   model: text('model').notNull(),
+  requestType: text('request_type', { enum: ['assessment', 'plan'] }).notNull().default('plan'),
   pricingVersion: text('pricing_version').notNull(),
   status: text('status', { enum: ['reserved', 'settled', 'uncertain'] }).notNull(),
   reservedMicrodollars: integer('reserved_microdollars').notNull(),
