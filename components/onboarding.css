@@ -2,11 +2,18 @@
 .onboarding-library .blocks-page-heading{align-items:flex-start}
 .onboarding-library .block-create-options{display:flex;flex-direction:column;align-items:flex-end;gap:22px;max-width:100%}
 .onboarding-library #create-training-block{min-height:44px;font-size:1rem;white-space:normal}
-.empty-account-guidance{position:relative;background:#fff7e5;border:1px solid #ba8b35;border-radius:12px;box-shadow:0 3px 10px #233c3110;padding:20px 56px 20px 20px;width:24rem;max-width:100%;color:var(--ink)}
-.empty-account-guidance::before{content:"";position:absolute;top:-12px;right:100px;width:20px;height:20px;background:#fff7e5;border-top:1px solid #ba8b35;border-left:1px solid #ba8b35;transform:rotate(45deg);pointer-events:none}
-.empty-account-guidance h2{font-family:inherit;font-size:1.125rem;line-height:1.4;letter-spacing:normal;font-weight:650;position:relative}
-.empty-account-guidance p{font-size:1rem;line-height:1.5;margin-top:6px}
-.empty-account-guidance .icon-button{position:absolute;right:6px;top:6px;width:44px;height:44px;border:0;background:transparent}
+@font-face{font-family:Forrest Hand;src:url('/fonts/caveat-latin.ttf') format('truetype');font-weight:400 700;font-style:normal;font-display:swap}
+.training-guidance-overlay{position:fixed;inset:0;z-index:80;pointer-events:none;color:#2b5b43}
+.guidance-spotlight{position:fixed;border:2px dashed #496d4b;border-radius:13px;box-shadow:0 0 0 200vmax #fffdf8c9;pointer-events:none}
+.guidance-arrow{position:fixed;inset:0;width:100%;height:100%;overflow:visible;fill:none;stroke:#365641;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}
+.empty-account-guidance{position:fixed;pointer-events:auto;padding:19px 40px 22px 26px;background:#fff9e9;color:#2b5b43;isolation:isolate;box-shadow:3px 6px 16px #233c3114;transform:rotate(-1deg)}
+.guidance-sketch{position:absolute;inset:-3px;width:calc(100% + 6px);height:calc(100% + 6px);z-index:-1;fill:none;stroke:#55644e;stroke-width:1.4;stroke-linecap:round;stroke-linejoin:round}
+.guidance-kicker{font-size:11px;letter-spacing:1.3px;text-transform:uppercase;color:#6f715a}
+.empty-account-guidance h2{font-family:Forrest Hand,cursive;font-size:34px;line-height:.98;letter-spacing:0;font-weight:600;margin:10px 0 8px}
+.empty-account-guidance p{font-family:Forrest Hand,cursive;font-size:23px;line-height:1.2;margin:0}
+.guidance-dismiss{position:absolute;top:2px;right:2px;display:grid;place-items:center;width:44px;height:44px;border:0;border-radius:50%;background:transparent;color:#55644e;cursor:pointer}
+.guidance-dismiss svg{fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round}
+.guidance-dismiss:hover{background:#eee6cf}.guidance-dismiss:focus-visible{outline:2px solid #2b5b43;outline-offset:-4px}
 .library-guidance{border:1px solid var(--line);border-left:4px solid var(--green);background:var(--sage);border-radius:9px;padding:16px 20px;margin-bottom:20px;font-size:1rem;line-height:1.6;color:var(--ink)}
 .library-guidance strong{display:block;font-weight:650}.library-guidance a,.start-block-message a{color:var(--green);text-decoration:underline;text-underline-offset:3px}
 .training-start-indicator{display:flex;gap:10px;align-items:flex-start;background:var(--sage);border-radius:8px;padding:12px 14px;margin:18px 0 0;color:var(--green);font-size:1rem;line-height:1.5;overflow-wrap:anywhere}
@@ -32,8 +39,7 @@
 @media(max-width:1100px){.onboarding-library .block-filters{width:100%}.onboarding-library .library-toolbar{flex-wrap:wrap}}
 @media(max-width:700px){
   .onboarding-library .blocks-page-heading{gap:22px}.onboarding-library .block-create-options{width:100%;align-items:stretch}
-  .onboarding-library #create-training-block{width:100%}.empty-account-guidance{width:100%;padding:18px 52px 18px 18px}
-  .empty-account-guidance::before{right:calc(50% - 10px)}
+  .onboarding-library #create-training-block{width:100%}
   .onboarding-library .library-stats{flex-wrap:wrap;gap:14px 20px}.onboarding-library .library-stats>div{font-size:0.875rem}
   .onboarding-library .block-card-facts small{font-size:0.875rem;line-height:1.5}.onboarding-library .block-card-note{font-size:0.875rem}
   .onboarding-library .block-source{font-size:0.875rem;line-height:1.5}.onboarding-library .block-card-date{font-size:0.875rem;line-height:1.5}
