@@ -9,6 +9,7 @@ import { SignJWT } from 'jose';
 import { openSQLite } from '../runtime/sqlite.mjs';
 import { centralToday } from '../lib/domain.ts';
 import { currentPlannerFixture, responseFixture } from './planner-fixture.mjs';
+import { reviewSelection, seedReviewedFixture } from './goal-review-prerequisite.mjs';
 import { testPlannerBudget } from './planner-budget-integration.mjs';
 
 const directory = mkdtempSync(path.join(tmpdir(), 'forrest-generator-test-'));
@@ -75,13 +76,15 @@ async function request(owner, route, method = 'GET', body) {
     body: body ? JSON.stringify(body) : undefined,
   });
 }
-async function create(owner) {
+async function create(owner, provider = 'openai') {
   const response = await request(owner, '/api/blocks', 'POST', { setup, complete: true });
   assert.equal(response.status, 201);
-  return (await response.json()).block;
+  const { block } = await response.json();
+  await seedReviewedFixture(fixtureDb, block, provider);
+  return block;
 }
 const generate = (owner, block, extra = {}) => request(owner, `/api/blocks/${block.id}/generation`, 'POST', {
-  version: block.version, consent: true, saveImmediately: true, ...extra,
+  version: block.version, consent: true, saveImmediately: true, goalReview: reviewSelection(block.id), ...extra,
 });
 const dispatchCount = () => readFileSync(calls, 'utf8').trim().split('\n').filter(Boolean).length;
 function resetData() {
@@ -94,13 +97,26 @@ function enqueue(status, body) {
   writeFileSync(replies, JSON.stringify(queue));
 }
 
+const fixtureDb = { prepare(sql) {
+    // The shared fixture names raw Worker identities in SQL; AWS scopes the
+    // same fixture identities to Cognito subjects, including its failure trigger.
+    sql = sql.replace(/owner_id='(budget-[a-z-]+)'/g, "owner_id='cognito:$1'");
+    let params = [];
+    const query = {
+      bind(...values) { params = values; return query; },
+      async first() { return database.prepare(sql).get(...params) ?? null; },
+      async run() { return database.prepare(sql).run(...params); },
+    };
+    return query;
+  } };
+
 try {
   await start();
   database = openSQLite(filename);
   const a = await create('pilot');
   assert.equal((await generate('unknown', a)).status, 401);
   assert.equal((await generate('other', a)).status, 404);
-  const other = await create('other');
+  const other = await create('other', 'simulation');
   const simulated = await generate('other', other, { mode: 'openai', model: 'expensive-model' });
   assert.equal(simulated.status, 200);
   const sample = (await simulated.json()).block;
@@ -108,7 +124,7 @@ try {
   assert.equal((await request('other', `/api/blocks/${other.id}`, 'PATCH', { status: 'active', version: sample.version })).status, 409);
   assert.equal(dispatchCount(), 0);
   const sampleHtml = await (await request('other', `/blocks/${other.id}/setup`)).text();
-  assert.match(sampleHtml, /SIMULATION/);
+  assert.match(sampleHtml, /Original plan details|Example paces/);
   const pilotHtml = await (await request('pilot', `/blocks/${a.id}/setup`)).text();
   assert.doesNotMatch(pilotHtml, /synthetic-generator-key|FORREST_LIVE_GENERATOR_ALLOWED_EMAILS|SIMULATION/);
 
@@ -147,18 +163,6 @@ try {
   // Run the same accounting cases as the Worker suite against real SQLite and
   // authenticated AWS HTTP routes. Provider replies cross a test-only file queue.
   resetData();
-  const db = { prepare(sql) {
-    // The shared fixture names raw Worker identities in SQL; AWS scopes the
-    // same fixture identities to Cognito subjects, including its failure trigger.
-    sql = sql.replace(/owner_id='(budget-[a-z-]+)'/g, "owner_id='cognito:$1'");
-    let params = [];
-    const query = {
-      bind(...values) { params = values; return query; },
-      async first() { return database.prepare(sql).get(...params) ?? null; },
-      async run() { return database.prepare(sql).run(...params); },
-    };
-    return query;
-  } };
   const mock = {
     get(origin) {
       assert.equal(origin, 'https://api.openai.com');
@@ -169,7 +173,7 @@ try {
     },
     assertNoPendingInterceptors() { assert.deepEqual(JSON.parse(readFileSync(replies, 'utf8')), []); },
   };
-  await testPlannerBudget(db, async (input, init) => {
+  await testPlannerBudget(fixtureDb, async (input, init) => {
     const headers = new Headers(init?.headers);
     const owner = headers.get('oai-authenticated-user-id');
     headers.delete('oai-authenticated-user-id');
@@ -191,10 +195,11 @@ try {
     await stop();
     resetData();
     await start(overrides);
-    const draft = await create('pilot');
+    const simulated = overrides.FORREST_LIVE_GENERATOR_ALLOWED_EMAILS === '' || overrides.TRAINING_PLANNER_MODE === 'simulation'
+      || (Object.hasOwn(overrides, 'TRAINING_PLANNER_MODE') && overrides.TRAINING_PLANNER_MODE === undefined);
+    const draft = await create('pilot', simulated ? 'simulation' : 'openai');
     const response = await generate('pilot', draft);
-    if (overrides.FORREST_LIVE_GENERATOR_ALLOWED_EMAILS === '' || overrides.TRAINING_PLANNER_MODE === 'simulation'
-      || (Object.hasOwn(overrides, 'TRAINING_PLANNER_MODE') && overrides.TRAINING_PLANNER_MODE === undefined)) {
+    if (simulated) {
       assert.equal(response.status, 200);
       assert.equal((await response.json()).block.generation.provider, 'simulation');
     } else {

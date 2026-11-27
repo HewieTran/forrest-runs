@@ -1,13 +1,15 @@
+import { withReviewedFixture } from './goal-review-prerequisite.mjs';
 import assert from 'node:assert/strict';
 import { centralToday } from '../lib/domain.ts';
 import { currentPlannerFixture as plannerFixture, responseFixture } from './planner-fixture.mjs';
 import { MONTHLY_BUDGET_MICRODOLLARS, REQUEST_RESERVE_MICRODOLLARS } from '../lib/planner-policy.ts';
 
 export async function testPlannerBudget(db,dispatch,mock) {
+  const dispatchReviewed = withReviewedFixture(db, dispatch);
   const {setup,output}=plannerFixture(centralToday());
   const now=new Date().toISOString(),period=now.slice(0,7),old='2020-01-01T00:00:00.000Z';
   async function call(owner,path,method='GET',body) {
-    const response=await dispatch('http://localhost'+path,{method,headers:{'oai-authenticated-user-id':owner,'oai-authenticated-user-email':owner+'@example.test','Content-Type':'application/json'},body:body?JSON.stringify(body):undefined});
+    const response=await dispatchReviewed('http://localhost'+path,{method,headers:{'oai-authenticated-user-id':owner,'oai-authenticated-user-email':owner+'@example.test','Content-Type':'application/json'},body:body?JSON.stringify(body):undefined});
     return {status:response.status,data:await response.json()};
   }
   async function create(owner){const r=await call(owner,'/api/blocks','POST',{setup,complete:true});assert.equal(r.status,201);return r.data.block;}

@@ -1,4 +1,5 @@
 import { WORKOUT_PERIODS, type WorkoutPeriod } from './workout-period.ts';
+import type { GoalReview } from './goal-review';
 import type { Generation } from './planner';
 import type { BlockSetup } from './setup';
 import { structureMeasurements, validateWorkoutStructure, type WorkoutStructure } from './workout-structure.ts';
@@ -31,6 +32,7 @@ export type Plan = {
   id: string;
   setup?: BlockSetup | null;
   generation?: Generation | null;
+  goalReview?: GoalReview | null;
   status: BlockStatus;
   raceName: string;
   raceDate: string;

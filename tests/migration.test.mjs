@@ -32,10 +32,11 @@ test('upgrade preserves existing records, permits multiple blocks, and enforces 
     await database.prepare("INSERT INTO training_profiles (owner_id,first_name,avatar_color,updated_at) VALUES ('profile-owner','Casey',3,'2026-11-25')").run();
     await assert.rejects(database.prepare("INSERT INTO training_profiles (owner_id,avatar_color,updated_at) VALUES ('invalid',8,'2026-11-25')").run(), /CHECK/);
     const afterPlans = (await database.prepare('SELECT * FROM training_plans ORDER BY id').all()).results;
-    assert.deepEqual(afterPlans.map(({ status, setup, generation, ...original }) => original), beforePlans);
+    assert.deepEqual(afterPlans.map(({ status, setup, generation, goal_review, ...original }) => original), beforePlans);
     assert.equal(afterPlans[0].status, 'active');
     assert.equal(afterPlans[0].setup, null);
     assert.equal(afterPlans[0].generation, null);
+    assert.equal(afterPlans[0].goal_review, null);
     const afterWorkouts = (await database.prepare('SELECT * FROM workouts ORDER BY id').all()).results;
     assert.deepEqual(afterWorkouts.map(({ planned_distance, planned_duration_seconds, actual_duration_seconds, target_metric, planned_pace_seconds_per_mile, actual_pace_seconds_per_mile, result_origins, plan_structure, time_of_day, ...original }) => original), beforeWorkouts);
     assert.ok(afterWorkouts.every(row => row.planned_distance === null && row.planned_duration_seconds === null && row.actual_duration_seconds === null && row.target_metric === null && row.planned_pace_seconds_per_mile === null && row.actual_pace_seconds_per_mile === null && row.result_origins === null && row.plan_structure === null && row.time_of_day === null));

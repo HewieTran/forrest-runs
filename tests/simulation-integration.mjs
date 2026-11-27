@@ -18,9 +18,16 @@ export async function testSimulation(db, dispatch) {
   const path = '/api/blocks/' + created.data.block.id;
   const page = await dispatch('http://localhost/blocks/' + created.data.block.id + '/plan', { headers });
   const html = await page.text();
-  assert.match(html, /Generate sample plan/);
-  assert.match(html, /No AI calls or API charges/);
-  const generated = await call(path + '/generation', 'POST', { version: created.data.block.version, consent: true, mode: 'openai', model: 'expensive-model' });
+  assert.match(html, /Review my goal|Review sample setup|Review your goal|Review saved setup/);
+  assert.match(html, /suggested changes before generating a schedule/);
+  const reviewed = await call(path + '/goal-review', 'POST', { version: created.data.block.version, consent: true, mode: 'openai', model: 'expensive-model' });
+  assert.equal(reviewed.status, 200);
+  assert.equal(reviewed.data.block.goalReview.provider, 'simulation');
+  assert.equal(reviewed.data.block.goalReview.usage, null);
+  const generated = await call(path + '/generation', 'POST', {
+    version: reviewed.data.block.version, consent: true, mode: 'openai', model: 'expensive-model',
+    goalReview: { reviewId: reviewed.data.block.goalReview.id, option: null },
+  });
   assert.equal(generated.status, 200);
   const block = generated.data.block;
   assert.equal(block.generation.provider, 'simulation');

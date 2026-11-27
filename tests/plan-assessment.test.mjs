@@ -64,23 +64,21 @@ test('unsupported goal and unrepresentative benchmark return no schedule and pre
   const before = structuredClone(input);
   for (const output of [blocked(), blocked('refresh_benchmark', ['benchmark'])]) {
     let request;
-    const result = await requestOpenAIPlan(input, config, async (_url, init) => {
+    await assert.rejects(requestOpenAIPlan(input, config, async (_url, init) => {
       request = JSON.parse(JSON.parse(init.body).input);
       return Response.json(responseFixture(output));
-    });
+    }), { code: 'invalid', validationFailure: 'assessment' });
     assert.deepEqual(request.intake, before);
     assert.deepEqual(input, before);
-    assert.equal(result.output.sessions.length, 0);
-    assert.deepEqual(result.assessmentContext, assessmentContext(input, today));
     assert.equal(request.planningContext.benchmarkAgeDays, 7);
-    assert.deepEqual(request.planningContext, result.assessmentContext);
+    assert.deepEqual(request.planningContext, assessmentContext(input, today));
   }
 });
 
 test('saved generation validates assessment context and retains it in offline backup validation', () => {
   const stamp = today + 'T12:00:00.000Z';
   const generation = { schemaVersion: 1, id: 'assessment-test', provider: 'openai', status: 'clarification', startedAt: stamp, finishedAt: stamp,
-    acceptedAt: null, alteredAt: null, model: config.model, promptVersion: PROMPT_VERSION, validatorVersion: PLANNER_VERSION,
+    acceptedAt: null, alteredAt: null, model: config.model, promptVersion: 'race-coach-v11-provisional-goals', validatorVersion: PLANNER_VERSION,
     input: fixture.input, setupSnapshot: fixture.setup, output: blocked(), error: null, responseId: null,
     usage: { inputTokens: 1000, outputTokens: 2000 }, assessmentContext: assessmentContext(fixture.input, today) };
   assert.deepEqual(validateGeneration(generation), generation);

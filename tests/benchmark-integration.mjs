@@ -12,7 +12,7 @@ export async function testBenchmark(db,dispatch) {
     const block=created.data.block,path='/api/blocks/'+block.id;
     const loaded=await call(path+'/setup','GET');assert.deepEqual(loaded.data.block.setup.benchmark,partial.benchmark);
     const rejected=await call(path+'/setup','PUT',{setup:partial,version:block.version,complete:true});assert.equal(rejected.status,400);assert.ok(rejected.data.issues.some(i=>i.field==='benchmarkEffort'));
-    const failed=await call(path+'/generation','POST',{version:block.version,consent:true,saveImmediately:true});assert.equal(failed.status,400);
+    const failed=await call(path+'/goal-review','POST',{version:block.version,consent:true});assert.equal(failed.status,400);
     assert.equal((await db.prepare('SELECT generation FROM training_plans WHERE id=?').bind(block.id).first()).generation,null);
     partial.benchmark.effortConfirmed=true;
     const saved=await call(path+'/setup','PUT',{setup:partial,version:block.version,complete:true});assert.equal(saved.status,200);
