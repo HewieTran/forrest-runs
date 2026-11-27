@@ -4,6 +4,8 @@ import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { useBlockUnits } from './BlockUnits';
 import TimePartsInput from './TimePartsInput';
 import { Check, Link2, LoaderCircle } from 'lucide-react';
+import { JAPANESE_ART } from '../lib/appearance-art';
+import { useActiveAppearance } from './SessionActions';
 import { PERIOD_LABELS, WORKOUT_PERIODS, periodArtwork, type WorkoutPeriod } from '../lib/workout-period';
 import { isRun, WORKOUT_PHASES, TYPES, validDate, validateWorkout, type Workout, type WorkoutInput } from '../lib/domain';
 import { applyCompletion, paceFromRecordedResults, type ResultField as CopiedField } from '../lib/workout-completion';
@@ -40,6 +42,7 @@ export default function WorkoutEditor({ workout, saving, error, onSave, onCancel
   workout: Workout; saving: boolean; error: string; saveBlocked?: boolean; generatedSchedule?: boolean;
   onSave: (value: WorkoutInput) => void; onCancel: () => void; onDirty: (dirty: boolean) => void;
 }) {
+  const appearance = useActiveAppearance();
   const id = useId(), form = useRef<HTMLFormElement>(null);
   const [draft, setDraft] = useState(workout);
   const [period, setPeriod] = useState<WorkoutPeriod | null>(workout.timeOfDay ?? initialPeriod ?? null);
@@ -211,7 +214,7 @@ export default function WorkoutEditor({ workout, saving, error, onSave, onCancel
     <fieldset id={`workout-actual-${workout.id}`} className="workout-actual-section" tabIndex={-1} disabled={saving}><legend className="sr-only">Actual</legend><div className="measurement-heading"><h4>Actual</h4><span>What you recorded</span></div>
       {initialPeriod && <fieldset className="workout-period-picker"><legend>When did you work out?</legend><div className="workout-period-options">{WORKOUT_PERIODS.map(value => <label key={value} className={period === value ? 'selected' : ''}>
         <input type="radio" name={`${id}-time-of-day`} value={value} checked={period === value} onChange={() => { setPeriod(value); onPeriodChange?.(value); onDirty(true); }} />
-        {/* eslint-disable-next-line @next/next/no-img-element */}<img src={periodArtwork(value)} alt="" width={240} height={100} />
+        {/* eslint-disable-next-line @next/next/no-img-element */}<img src={appearance === 'japanese' ? JAPANESE_ART.workouts[value] : periodArtwork(value)} alt="" width={240} height={100} />
         <span>{PERIOD_LABELS[value]}{period === value && <Check size={16} aria-hidden="true" />}</span></label>)}</div><p className="field-hint">Defaults to the current period on your device. Choose when this workout happened.</p></fieldset>}
       <div className="form-grid measurement-grid">
         {measurementField('actualDuration', 'Recorded duration', '')}

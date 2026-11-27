@@ -70,12 +70,19 @@ test('appearance upgrade preserves an existing account profile and applies fores
  const worker=new Miniflare({modules:true,script:'export default { fetch(){return new Response("test");} };',compatibilityDate:'2026-05-15',cf:false,d1Databases:{DB:'appearance-upgrade'}});
  try {
   const database=await worker.getD1Database('DB'); const files=await migrationFiles();
-  for(const file of files.filter(f=>!f.includes('0012_')))await applyMigration(database,file);
+  for(const file of files.slice(0,files.findIndex(f=>f.includes('0012_'))))await applyMigration(database,file);
   await database.prepare("INSERT INTO training_profiles (owner_id,first_name,last_name,avatar_color,version,updated_at) VALUES ('owner','Casey','Runner',2,4,'2026-11-25')").run();
   const before=await database.prepare("SELECT * FROM training_profiles WHERE owner_id='owner'").first();
   await applyMigration(database,files.find(f=>f.includes('0012_')));
   const after=await database.prepare("SELECT * FROM training_profiles WHERE owner_id='owner'").first();
   const {appearance,...unchanged}=after;assert.deepEqual(unchanged,before);assert.equal(appearance,'forest');
+  await applyMigration(database,files.find(f=>f.includes('0013_goal_reviews')));
+  const review={status:'approved',synthetic:true};
+  await database.prepare("INSERT INTO training_plans (id,owner_id,race_name,race_date,pace_guide,goal_review,created_at,updated_at) VALUES ('review-preserved','owner','Synthetic','2027-01-01','[]',?,'2026-11-25','2026-11-25')").bind(JSON.stringify(review)).run();
+  await applyMigration(database,files.find(f=>f.includes('0014_japanese')));
+  assert.equal((await database.prepare("SELECT goal_review FROM training_plans WHERE id='review-preserved'").first()).goal_review,JSON.stringify(review));
+  assert.deepEqual(await database.prepare("SELECT * FROM training_profiles WHERE owner_id='owner'").first(),after);
+  await database.prepare("UPDATE training_profiles SET appearance='japanese' WHERE owner_id='owner'").run();
   await assert.rejects(database.prepare("UPDATE training_profiles SET appearance='unapproved' WHERE owner_id='owner'").run(),/CHECK/);
  } finally {await worker.dispose();}
 });

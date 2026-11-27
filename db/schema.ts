@@ -118,7 +118,7 @@ export const aiUsage = sqliteTable('training_ai_usage', {
 
 // Optional account preferences; provider identity and training records stay unchanged.
 export const profiles = sqliteTable('training_profiles', {
-  appearance: text('appearance', { enum: ['forest', 'road', 'slate'] }).notNull().default('forest'),
+  appearance: text('appearance', { enum: ['forest', 'road', 'slate', 'japanese'] }).notNull().default('forest'),
   ownerId: text('owner_id').primaryKey(),
   firstName: text('first_name'), lastName: text('last_name'), avatarColor: integer('avatar_color'),
   version: integer('version').notNull().default(1), updatedAt: text('updated_at').notNull(),

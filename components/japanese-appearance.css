@@ -1,0 +1,60 @@
+/* Scoped to the opt-in preset. Other appearances retain their existing design. */
+.appearance-root[data-appearance="japanese"] {
+ --paper:#faf6ee; --ink:#242725; --muted:#656761; --green:#292d2a;
+ --sage:#ebe7de; --line:#d6d0c5; --japanese-accent:#b63e28;
+ --journey-trail:#30332f; --journey-remaining:#b7b6ae; --journey-center:transparent;
+ --journey-ink:#30332f; --journey-muted:#60625c; --journey-accent:#b63e28;
+ color:var(--ink);
+}
+.appearance-root[data-appearance="japanese"]::before { background-color:#f6f1e8; background-image:var(--japanese-background); background-position:left bottom; }
+.appearance-root[data-appearance="japanese"] .app-header { background:#faf6ee; }
+.appearance-root[data-appearance="japanese"] .brand-wordmark { color:var(--ink); }
+.appearance-root[data-appearance="japanese"] .brand-icon { background:transparent; }
+.appearance-root[data-appearance="japanese"] .brand-icon img { filter:grayscale(1); mix-blend-mode:multiply; }
+.appearance-root[data-appearance="japanese"] :is(.appearance-trigger,.overline,.app-footer,.block-filters button,.library-hero-headline,.library-phase-list li,.library-greeting) { color:var(--ink); }
+.appearance-root[data-appearance="japanese"] :is(.page-heading,.library-toolbar,.app-footer,.block-breadcrumb,.library-active-hero,.block-empty,.block-overview-progress,.setup-layout,.setup-stepper,.workout-schedule-page,.plan-generation) { background:var(--paper); border-color:var(--line); }
+.appearance-root[data-appearance="japanese"] :is(.library-hero-headline p,.library-hero-headline small,.library-phase-list small,.library-hero-metrics small,.library-hero-metrics p,.library-hero-metrics strong span,.library-hero-bottom>p,.block-source,.block-card-date) { color:var(--muted); }
+.appearance-root[data-appearance="japanese"] :is(.library-phase-number,.library-hero-metrics) { border-color:var(--line); }
+.appearance-root[data-appearance="japanese"] .button.primary:hover:not(:disabled) { background:#414640; }
+.appearance-root[data-appearance="japanese"] :is(button,a,select):focus-visible { outline-color:var(--japanese-accent); }
+.appearance-root[data-appearance="japanese"] .library-road-ink { background:none; }
+.appearance-root[data-appearance="japanese"] .library-road-ink > path { stroke-width:5; }
+.appearance-root[data-appearance="japanese"] .library-road-ink > image { filter:grayscale(1); }
+.appearance-root[data-appearance="japanese"] .today-workout {
+ --today-forest:#252a27; --today-cream:#faf6ee; --today-muted:#eae5db; --today-gold:#ff8659;
+ background:var(--today-forest); border:1px solid #c8c3b9; border-radius:16px;
+}
+.appearance-root[data-appearance="japanese"] .today-workout-art { border:14px solid var(--paper); outline:1px solid #c8c3b9; outline-offset:-14px; object-position:center; }
+.appearance-root[data-appearance="japanese"] .today-workout-celebration { background:#3e443e; }
+.appearance-root[data-appearance="japanese"] .today-workout-log { background:#e96936; color:#252a27; }
+.appearance-root[data-appearance="japanese"] .today-workout-log:hover:not(:disabled) { background:#f78250; }
+.appearance-root[data-appearance="japanese"] .workout-browse { background:#252a27ed; color:#faf6ee; border-color:#aaa99e; }
+.appearance-root[data-appearance="japanese"] :is(.today-reset,.today-workout-schedule) { border-color:#aaa99e; color:#faf6ee; }
+.appearance-root[data-appearance="japanese"] .appearance-picker { color:var(--ink); }
+.appearance-root[data-appearance="japanese"] :is(.appearance-choice strong,.appearance-selected) { color:var(--ink); }
+.appearance-root[data-appearance="japanese"] :is(.appearance-choice small,.appearance-hint) { color:var(--muted); }
+.appearance-root[data-appearance="japanese"] .appearance-thumbnail b { background:var(--green); }
+.appearance-root[data-appearance="japanese"] .appearance-choice input:checked + .appearance-thumbnail { outline-color:var(--japanese-accent); }
+@media(max-width:640px) {
+ .appearance-root[data-appearance="japanese"] .today-workout-art { height:200px; border-width:10px; outline-offset:-10px; object-position:center 52%; }
+}
+.appearance-root[data-appearance="japanese"] .overview-weekly progress { accent-color:var(--japanese-accent); }
+.appearance-root[data-appearance="japanese"] .journey-track { background:#d1cfc6; }
+.appearance-root[data-appearance="japanese"] .journey-track > span { background:var(--japanese-accent); }
+.appearance-root[data-appearance="japanese"] .workout-period-options label.selected { border-color:var(--japanese-accent); box-shadow:0 0 0 1px var(--japanese-accent); background:#f4e5dc; }
+
+/* Real text stays readable and anchored to the artwork at every viewport. */
+.appearance-root[data-appearance="japanese"] .today-workout-art-label { position:absolute; z-index:1; bottom:24px; left:calc(100% / 2.05 + 26px); max-width:calc(100% * 1.05 / 2.05 - 52px); pointer-events:none; padding:5px 8px; background:#faf6eef2; color:#343733; border-radius:3px; font-size:12px; line-height:1.4; font-weight:600; letter-spacing:.12em; text-transform:uppercase; }
+@media(max-width:640px) { .appearance-root[data-appearance="japanese"] .today-workout-art-label { left:20px; bottom:20px; max-width:calc(100% - 40px); } }
+
+/* Strong accents, without recoloring errors or other appearance choices. */
+.appearance-root[data-appearance="japanese"] .overview-weekly progress { accent-color:#d64527; }
+.appearance-root[data-appearance="japanese"] .overview-weekly progress::-webkit-progress-value { background:#d64527; }
+.appearance-root[data-appearance="japanese"] .overview-weekly progress::-moz-progress-bar { background:#d64527; }
+.appearance-root[data-appearance="japanese"] .block-status-active { background:#f8ded2; color:#a7331d; }
+.appearance-root[data-appearance="japanese"] .library-phase-list { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:16px 10px; }
+.appearance-root[data-appearance="japanese"] .library-phase-list li { align-items:flex-start; min-width:0; }
+.appearance-root[data-appearance="japanese"] .library-phase-list .library-finish { grid-column:1/-1; text-align:right; }
+@media(max-width:1000px) { .appearance-root[data-appearance="japanese"] .library-phase-list { grid-template-columns:repeat(3,minmax(0,1fr)); } }
+@media(max-width:640px) { .appearance-root[data-appearance="japanese"] .library-phase-list { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media(max-width:360px) { .appearance-root[data-appearance="japanese"] .library-phase-list { grid-template-columns:minmax(0,1fr); } }

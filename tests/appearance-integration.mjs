@@ -6,7 +6,7 @@ export async function testAppearance(dispatch,a,b){
  let account=(await call(a)).data.account; const before=structuredClone(account);
  assert.equal((await call(a,'/api/profile/appearance','PATCH',{preset:'road',version:account.profile?.version||0,ownerId:'other'})).status,400);
  assert.equal((await call(a,'/api/profile/appearance','PATCH',{preset:'pink',version:0})).status,400);
- for(const preset of ['road','slate','forest']){
+ for(const preset of ['road','japanese','slate','forest']){
   const oldVersion=account.profile?.version||0;
   const saved=await call(a,'/api/profile/appearance','PATCH',{preset,version:oldVersion});assert.equal(saved.status,200);account=saved.data.account;
   assert.equal(account.profile.appearance,preset);assert.equal(account.greetingName,before.greetingName);assert.equal(account.initial,before.initial);
