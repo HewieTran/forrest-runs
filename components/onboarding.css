@@ -41,3 +41,9 @@
   .block-ready-actions{flex-direction:column;align-items:stretch;gap:12px}.block-ready-actions .button,.sample-schedule-link{width:100%}
   .block-ready-actions>.start-block-control{width:100%}.library-guidance{padding:14px 16px}
 }
+
+/* One greeting and filter surface, shared by every appearance choice. */
+.onboarding-library .library-heading-card{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:22px;min-width:0}
+.onboarding-library .library-heading-card .blocks-page-heading{background:transparent;padding:0;margin:0 0 16px}
+.onboarding-library .library-heading-card .library-toolbar{background:transparent;border-radius:0;padding:16px 0 0;margin:0;border-top:1px solid var(--line)}
+.onboarding-library .block-filters svg{flex-shrink:0;color:#76947c}
