@@ -33,7 +33,7 @@ async function html(cookie, route = '/') {
   const r = await fetch(origin + route, { headers: { Cookie: cookie }, redirect: 'manual' });
   return { status: r.status, location: r.headers.get('location'), text: (await r.text()).replaceAll('<!-- -->', '') };
 }
-function selected(text, label) { assert.match(text, new RegExp('aria-pressed="true"[^>]*>' + label + '<span>')); }
+function selected(text, label) { assert.match(text.replace(/<svg\b[^>]*>[\s\S]*?<\/svg>/g, ''), new RegExp('aria-pressed="true"[^>]*>' + label + '<span>')); }
 try {
   const deadline = Date.now() + 30000;
   for (;;) {

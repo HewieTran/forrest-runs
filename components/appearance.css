@@ -43,3 +43,6 @@
 .appearance-root:not([data-appearance="plain"]) .block-overview-progress { padding:20px; }
 @media(max-width:640px) { .appearance-root:not([data-appearance="plain"]) .block-overview-progress { padding:16px; } }
 .appearance-root:not([data-appearance="plain"]) .block-settings-page > .setup-footnote { background:#fffdf8; padding:14px 16px; border-radius:10px; width:fit-content; }
+
+/* The setup grid only positions its independently surfaced form and sidebar. */
+.appearance-root:not([data-appearance="plain"]) .setup-main .setup-layout { background:transparent; }

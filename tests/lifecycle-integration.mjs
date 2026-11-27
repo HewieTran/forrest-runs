@@ -13,7 +13,7 @@ export async function testLifecycle(db, dispatch, expectedSeedCount = 158) {
   // Follow the library's real link: legacy block IDs contain a colon, unlike new UUIDs.
   const originalLibrary = await dispatch('http://localhost/blocks', { headers: auth });
   const originalLibraryHtml = await originalLibrary.text();
-  assert.match(originalLibraryHtml, /aria-pressed="true">In progress/);
+  assert.match(originalLibraryHtml.replace(/<svg\b[^>]*>[\s\S]*?<\/svg>/g, ''), /aria-pressed="true">In progress/);
   const continuePath = originalLibraryHtml.match(/href="([^"]+)"[^>]*>Continue training/)?.[1];
   assert.equal(continuePath, '/blocks/' + encodeURIComponent(starter.id));
   const activeHome = await dispatch('http://localhost/', { headers: auth, redirect: 'manual' });
@@ -94,11 +94,11 @@ export async function testLifecycle(db, dispatch, expectedSeedCount = 158) {
   assert.equal(page.status, 200);
   const pageText = await page.text();
   assert.match(pageText, /Training blocks/);
-  assert.match(pageText, /aria-pressed="true">Draft/);
+  assert.match(pageText.replace(/<svg\b[^>]*>[\s\S]*?<\/svg>/g, ''), /aria-pressed="true">Draft/);
   assert.match(pageText, /Pick a draft to continue/);
   const explicitActive = await dispatch('http://localhost/blocks?status=active', { headers: auth });
   const explicitActiveText = await explicitActive.text();
-  assert.match(explicitActiveText, /aria-pressed="true">In progress/);
+  assert.match(explicitActiveText.replace(/<svg\b[^>]*>[\s\S]*?<\/svg>/g, ''), /aria-pressed="true">In progress/);
   assert.match(explicitActiveText, /No blocks in progress/);
   assert.doesNotMatch(pageText, /<h2><a [^>]*>Spring 10K<\/a><\/h2>/);
   const detail = await dispatch('http://localhost/blocks/' + encodeURIComponent(draft.id), { headers: auth });
@@ -120,7 +120,7 @@ export async function testLifecycle(db, dispatch, expectedSeedCount = 158) {
   const home = await dispatch('http://localhost/', { headers: auth });
   assert.equal(home.status, 200);
   const homeText = await home.text();
-  assert.match(homeText, /aria-pressed="true">Draft/);
+  assert.match(homeText.replace(/<svg\b[^>]*>[\s\S]*?<\/svg>/g, ''), /aria-pressed="true">Draft/);
   assert.match(homeText, /Create training block/);
   const firstPost = { 'oai-authenticated-user-id': 'first-post-owner', 'oai-authenticated-user-email': 'test-runner@example.test' };
   const first = await call('/api/blocks', 'POST', { raceName: 'Next goal', raceDate: '2027-05-01' }, firstPost);
@@ -133,7 +133,7 @@ export async function testLifecycle(db, dispatch, expectedSeedCount = 158) {
   const firstHome = await dispatch('http://localhost/', { headers: newcomer, redirect: 'manual' });
   assert.equal(firstHome.status, 200);
   const firstHomeText = await firstHome.text();
-  assert.match(firstHomeText, /aria-pressed="true">All blocks/);
+  assert.match(firstHomeText.replace(/<svg\b[^>]*>[\s\S]*?<\/svg>/g, ''), /aria-pressed="true">All blocks/);
   assert.match(firstHomeText, /No training blocks yet/);
   assert.match(firstHomeText, /Create training block/);
   assert.deepEqual((await call('/api/blocks', 'GET', undefined, newcomer)).data.blocks, []);
