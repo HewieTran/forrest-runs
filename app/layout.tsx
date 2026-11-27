@@ -16,8 +16,8 @@ export const metadata: Metadata = {
   description: "Forrest Runs brings your training plan, workout log, and milestones together.",
   manifest: "/branding/forrest-runs.webmanifest",
   icons: {
-    icon: [{ url: "/branding/forrest-runs-32.png", type: "image/png", sizes: "32x32" }],
-    shortcut: "/branding/forrest-runs-32.png",
+    icon: [{ url: "/branding/tab-icon-v2.svg", type: "image/svg+xml", sizes: "any" }, { url: "/branding/tab-icon-v2-32.png", type: "image/png", sizes: "32x32" }, { url: "/branding/tab-icon-v2-16.png", type: "image/png", sizes: "16x16" }],
+    shortcut: "/branding/tab-icon-v2-32.png",
     apple: [{ url: "/branding/forrest-runs-180.png", sizes: "180x180" }],
   },
 };
