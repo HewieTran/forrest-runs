@@ -432,14 +432,22 @@ async function startPlannerRequest(user: AppUser, blockId: string, version: numb
   const todayAttempts = sql<number>`(select count(*) from training_ai_usage where owner_id = ${user.userId} and started_at >= ${dayStart})`;
   const currentRequest = requestType === 'plan' ? plans.generation : plans.goalReview;
   const accountStage = requestType === 'plan' ? sql`p.generation` : sql`p.goal_review`;
+  // A completed assessment is cached until input changes. Editing a reviewed
+  // goal is a new request, not a retry of a failed call. Keep failure cooldowns.
+  const stageCooldown = requestType === 'assessment'
+    ? sql`(json_extract(${accountStage}, '$.status') != 'ready' and json_extract(${accountStage}, '$.startedAt') > ${cooldown})`
+    : sql`json_extract(${accountStage}, '$.startedAt') > ${cooldown}`;
+  const ledgerCooldown = requestType === 'assessment'
+    ? sql`not (status = 'settled' and coalesce(outcome, '') in ('proceed', 'adjust', 'unsupported'))`
+    : sql`1 = 1`;
   const reserve = database.update(plans).set({ generation: requestType === 'plan' ? generation : null, goalReview, setup, raceName: setup.goal.name, raceDate: setup.goal.targetDate, version: version + 1, updatedAt: timestamp }).where(and(
     eq(plans.id, blockId), eq(plans.ownerId, user.userId), eq(plans.version, version), eq(plans.status, 'draft'),
     sql`not exists (select 1 from workouts w where w.plan_id = ${blockId})`,
     sql`not exists (select 1 from training_rest_days r where r.plan_id = ${blockId})`,
-    sql`not exists (select 1 from training_plans p where p.owner_id = ${user.userId} and ((json_extract(p.generation, '$.status') = 'generating' and json_extract(p.generation, '$.startedAt') > ${leaseCutoff}) or (json_extract(p.goal_review, '$.status') = 'assessing' and json_extract(p.goal_review, '$.startedAt') > ${leaseCutoff}) or json_extract(${accountStage}, '$.startedAt') > ${cooldown}))`,
+    sql`not exists (select 1 from training_plans p where p.owner_id = ${user.userId} and ((json_extract(p.generation, '$.status') = 'generating' and json_extract(p.generation, '$.startedAt') > ${leaseCutoff}) or (json_extract(p.goal_review, '$.status') = 'assessing' and json_extract(p.goal_review, '$.startedAt') > ${leaseCutoff}) or ${stageCooldown}))`,
     provider === 'openai' ? sql`${countedSpend} + ${REQUEST_RESERVE_MICRODOLLARS} <= ${MONTHLY_BUDGET_MICRODOLLARS}` : undefined,
     provider === 'openai' ? sql`${todayAttempts} < ${DAILY_ATTEMPT_LIMIT}` : undefined,
-    provider === 'openai' ? sql`not exists (select 1 from training_ai_usage where owner_id = ${user.userId} and ((request_type = ${requestType} and started_at > ${cooldown}) or (status = 'reserved' and started_at > ${leaseCutoff})))` : undefined,
+    provider === 'openai' ? sql`not exists (select 1 from training_ai_usage where owner_id = ${user.userId} and ((request_type = ${requestType} and started_at > ${cooldown} and ${ledgerCooldown}) or (status = 'reserved' and started_at > ${leaseCutoff})))` : undefined,
   )).returning();
   let saved;
   if (provider === 'simulation') saved = await reserve.get();

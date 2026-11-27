@@ -5,7 +5,7 @@ import { normalizeTrainingBackup } from '../lib/backups.ts';
 import { centralToday } from '../lib/domain.ts';
 import { GOAL_REVIEW_VERSION } from '../lib/goal-review.ts';
 import { preparePlanner } from '../lib/planner.ts';
-import { MONTHLY_BUDGET_MICRODOLLARS, REQUEST_RESERVE_MICRODOLLARS } from '../lib/planner-policy.ts';
+import { GENERATION_COOLDOWN_MS, MONTHLY_BUDGET_MICRODOLLARS, REQUEST_RESERVE_MICRODOLLARS } from '../lib/planner-policy.ts';
 import { simulatedPlan } from '../lib/simulated-plan.ts';
 import { Miniflare, applyAllMigrations, createFetchMock } from './d1-helpers.mjs';
 import { currentPlannerFixture, responseFixture } from './planner-fixture.mjs';
@@ -39,7 +39,7 @@ export async function testGoalReview(db, dispatch, mock) {
       return output;
     });
   }
-  const requestAssessment = () => intercept('running_goal_review_v1', assessmentResponse(adjustment));
+  const requestAssessment = (output = adjustment) => intercept('running_goal_review_v1', assessmentResponse(output));
   function requestPlan(setup, raceOffset = 0) {
     const input = preparePlanner(setup, today);
     const output = { ...simulatedPlan(input).output, assessment: { decision: 'proceed', reason: 'Synthetic confirmed plan.', actions: [], suggestions: null } };
@@ -169,14 +169,69 @@ export async function testGoalReview(db, dispatch, mock) {
   await status(generate(invalidatedOwner, edited, confirmedSelection(editableReview)), 409);
   assert.equal((await usage(editable)).length, 1);
 
+  async function reviseTarget(user, block, targetDurationSeconds) {
+    const setup = { ...block.setup, goal: { ...block.setup.goal, targetDurationSeconds } };
+    return (await status(call(user, route(block.id) + '/setup', 'PUT', {
+      setup, version: block.version, complete: true,
+    }), 200)).block;
+  }
+
+  // A successful unsupported assessment consumes its budget, but does not make
+  // a changed goal wait a minute. Reopening the same review makes no request.
+  const revisedOwner = 'goal-review-revised';
+  const ambitiousSetup = currentPlannerFixture(today).setup;
+  ambitiousSetup.goal.targetDurationSeconds = 900;
+  const ambitious = await create(revisedOwner, ambitiousSetup);
+  const unsupported = {
+    decision: 'unsupported', reason: 'Synthetic unsupported target.',
+    approach: 'Edit the finish time and review the revised goal.', options: [],
+  };
+  requestAssessment(unsupported);
+  const unsupportedBlock = (await status(assess(revisedOwner, ambitious), 200)).block;
+  assert.equal(unsupportedBlock.goalReview.output.decision, 'unsupported');
+  assert.deepEqual((await status(assess(revisedOwner, unsupportedBlock), 200)).block.goalReview, unsupportedBlock.goalReview);
+  assert.equal((await usage(ambitious)).length, 1);
+
+  const revised = await reviseTarget(revisedOwner, unsupportedBlock, 1800);
+  assert.equal(revised.goalReview, null);
+  requestAssessment({ decision: 'proceed', reason: 'Synthetic revised target accepted.', approach: 'Generate after confirmation.', options: [] });
+  const renewed = (await status(assess(revisedOwner, revised), 200)).block;
+  assert.equal(renewed.goalReview.output.decision, 'proceed');
+  assert.equal(renewed.goalReview.input.goal.targetDurationSeconds, 1800);
+  assert.deepEqual(renewed.setup.benchmark, ambitious.setup.benchmark);
+  assert.notEqual(renewed.goalReview.id, unsupportedBlock.goalReview.id);
+  assert.ok(Date.parse(renewed.goalReview.startedAt) - Date.parse(unsupportedBlock.goalReview.startedAt) < GENERATION_COOLDOWN_MS);
+  assert.deepEqual((await status(assess(revisedOwner, renewed), 200)).block.goalReview, renewed.goalReview);
+  const revisedCharges = await usage(ambitious);
+  assert.equal(revisedCharges.length, 2);
+  assert.ok(revisedCharges.every(row => row.request_type === 'assessment' && row.status === 'settled'));
+  assert.deepEqual(revisedCharges.map(row => row.outcome).sort(), ['proceed', 'unsupported']);
+
+  // Failed or billing-uncertain reviews still throttle retries after input edits
+  // even though the edit clears the visible review from the draft.
+  for (const [failure, response, expectedStatus] of [
+    ['invalid', assessmentResponse({ ...unsupported, options: null }), 'settled'],
+    ['uncertain', 'unreadable synthetic provider response', 'uncertain'],
+  ]) {
+    const failureOwner = 'goal-review-' + failure;
+    const failedDraft = await create(failureOwner);
+    intercept('running_goal_review_v1', response);
+    const failedReview = (await status(assess(failureOwner, failedDraft), 502)).block;
+    assert.equal(failedReview.goalReview.status, 'failed');
+    const changedDraft = await reviseTarget(failureOwner, failedReview, 1860);
+    assert.equal(changedDraft.goalReview, null);
+    const callsBefore = requests.length;
+    await status(assess(failureOwner, changedDraft), 409);
+    assert.equal(requests.length, callsBefore);
+    assert.deepEqual((await usage(failedDraft)).map(row => row.status), [expectedStatus]);
+  }
+
   // A live assessment holds the account lease across both request types.
   const leaseOwner = 'goal-review-lease';
   const pendingBlock = await create(leaseOwner);
   const reviewedBlock = await create(leaseOwner);
   requestAssessment();
   const priorReview = (await status(assess(leaseOwner, reviewedBlock), 200)).block;
-  await db.prepare('UPDATE training_ai_usage SET started_at=? WHERE id=?').bind(past, priorReview.goalReview.id).run();
-  await db.prepare("UPDATE training_plans SET goal_review=json_set(goal_review,'$.startedAt',?) WHERE id=?").bind(past, reviewedBlock.id).run();
   const started = Promise.withResolvers();
   const release = Promise.withResolvers();
   intercept('running_goal_review_v1', assessmentResponse(adjustment), () => {
@@ -216,9 +271,9 @@ export async function testGoalReview(db, dispatch, mock) {
   assert.deepEqual(capState.plan.goalReview, cappedReview.goalReview);
   assert.equal(capState.plan.generation, null);
   assert.equal((await usage(capped)).length, 1);
-  assert.equal(requests.length, 8);
+  assert.equal(requests.length, 12);
   mock.assertNoPendingInterceptors();
-  console.log('PASS: goal review isolation, cached review, required saved selection, exact race target, version conflicts, stage cooldowns, retries, setup invalidation and shared budget.');
+  console.log('PASS: goal review isolation, cached review, required saved selection, exact race target, version conflicts, stage cooldowns, retries, setup invalidation, immediate reassessment after success, failed-review cooldown and shared budget.');
 }
 
 if (import.meta.main) {
