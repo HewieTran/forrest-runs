@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 const TARGET = 'create-training-block';
-type Position = { left: number; top: number; width: number; target: { left: number; top: number; width: number; height: number } };
+type Position = { left: number; top: number; width: number; maxHeight: number; target: { left: number; top: number; width: number; height: number } };
 
 export default function EmptyAccountGuidance({ sessionKey }: { sessionKey: string }) {
   const [visible, setVisible] = useState(false);
@@ -32,11 +32,17 @@ export default function EmptyAccountGuidance({ sessionKey }: { sessionKey: strin
       const offsetLeft = viewport?.offsetLeft ?? 0, offsetTop = viewport?.offsetTop ?? 0;
       // Hide annotations while the target is offscreen; never point at another control.
       if (box.bottom < offsetTop || box.top > offsetTop + height || !box.width) { setPosition(null); return; }
-      const noteWidth = Math.min(350, width - 32), noteHeight = note.current?.offsetHeight ?? 158;
+      const noteWidth = Math.min(350, width - 32), noteHeight = note.current?.scrollHeight ?? 176;
       const left = Math.max(offsetLeft + 16, Math.min(box.right - noteWidth, offsetLeft + width - noteWidth - 16));
-      const below = box.bottom + 72;
-      const top = below + noteHeight <= offsetTop + height - 16 ? below : Math.max(offsetTop + 16, box.top - noteHeight - 62);
-      setPosition({ left, top, width: noteWidth, target: { left: box.left, top: box.top, width: box.width, height: box.height } });
+      const belowSpace = Math.max(0, offsetTop + height - 16 - box.bottom);
+      const aboveSpace = Math.max(0, box.top - offsetTop - 16);
+      const useBelow = belowSpace >= noteHeight + 16 || (aboveSpace < noteHeight + 16 && belowSpace >= aboveSpace);
+      const space = useBelow ? belowSpace : aboveSpace;
+      const maxHeight = Math.max(0, space - 16);
+      const displayedHeight = Math.min(noteHeight, maxHeight);
+      const gap = Math.min(72, Math.max(16, space - displayedHeight));
+      const top = useBelow ? box.bottom + gap : box.top - displayedHeight - gap;
+      setPosition({ left, top, width: noteWidth, maxHeight, target: { left: box.left, top: box.top, width: box.width, height: box.height } });
     }
     function schedule() { cancelAnimationFrame(frame); frame = requestAnimationFrame(place); }
     function escape(event: KeyboardEvent) { if (event.key === 'Escape') dismiss(); }
@@ -73,7 +79,7 @@ export default function EmptyAccountGuidance({ sessionKey }: { sessionKey: strin
   return createPortal(<div className="training-guidance-overlay" style={{ visibility: position ? 'visible' : 'hidden' }}>
     {target && <div className="guidance-spotlight" aria-hidden="true" style={{ left: target.left - 6, top: target.top - 6, width: target.width + 12, height: target.height + 12 }} />}
     <svg className="guidance-arrow" aria-hidden="true"><path d={`M ${startX} ${startY} C ${startX - 18} ${startY + bend * 58}, ${endX + 19} ${endY - bend * 50}, ${endX} ${endY} M ${endX - 12} ${endY - bend * 17} L ${endX} ${endY} L ${endX + 10} ${endY - bend * 20}`} /></svg>
-    <aside ref={note} className="empty-account-guidance" aria-labelledby="empty-guidance-title" style={position ? { left: position.left, top: position.top, width: position.width } : undefined}>
+    <aside ref={note} className="empty-account-guidance" aria-labelledby="empty-guidance-title" style={position ? { left: position.left, top: position.top, width: position.width, maxHeight: position.maxHeight, overflowY: position.maxHeight < (note.current?.scrollHeight ?? 176) ? 'auto' : undefined, boxSizing: 'border-box' } : undefined}>
       <svg className="guidance-sketch" viewBox="0 0 350 158" preserveAspectRatio="none" aria-hidden="true"><path d="M8 8 Q166 1 342 9 L345 148 Q183 157 6 148 Z" /><path d="M4 13 Q165 7 346 13 M12 153 Q173 148 339 152" /></svg>
       <button className="guidance-dismiss" type="button" aria-label="Dismiss training guidance for this visit" onClick={() => dismiss()}><svg viewBox="0 0 24 24" width="21" height="21" aria-hidden="true"><path d="m5 5 14 14M18 5 5 19" /></svg></button>
       <span className="guidance-kicker">A little nudge…</span>
