@@ -17,17 +17,17 @@
 .appearance-root[data-appearance="japanese"] :is(.library-phase-number,.library-hero-metrics) { border-color:var(--line); }
 .appearance-root[data-appearance="japanese"] .button.primary:hover:not(:disabled) { background:#414640; }
 .appearance-root[data-appearance="japanese"] :is(button,a,select):focus-visible { outline-color:var(--japanese-accent); }
-.appearance-root[data-appearance="japanese"] .library-road-ink { background:var(--japanese-journey) center/cover no-repeat; }
+.appearance-root[data-appearance="japanese"] .library-road-ink { background:none; }
 .appearance-root[data-appearance="japanese"] .library-road-ink > path { stroke-width:5; }
 .appearance-root[data-appearance="japanese"] .library-road-ink > image { filter:grayscale(1); }
 .appearance-root[data-appearance="japanese"] .today-workout {
- --today-forest:#252a27; --today-cream:#faf6ee; --today-muted:#eae5db; --today-gold:#ffad95;
+ --today-forest:#252a27; --today-cream:#faf6ee; --today-muted:#eae5db; --today-gold:#ff8659;
  background:var(--today-forest); border:1px solid #c8c3b9; border-radius:16px;
 }
 .appearance-root[data-appearance="japanese"] .today-workout-art { border:14px solid var(--paper); outline:1px solid #c8c3b9; outline-offset:-14px; object-position:center; }
 .appearance-root[data-appearance="japanese"] .today-workout-celebration { background:#3e443e; }
-.appearance-root[data-appearance="japanese"] .today-workout-log { background:#ffd4c6; color:#252a27; }
-.appearance-root[data-appearance="japanese"] .today-workout-log:hover:not(:disabled) { background:#ffe6dd; }
+.appearance-root[data-appearance="japanese"] .today-workout-log { background:#e96936; color:#252a27; }
+.appearance-root[data-appearance="japanese"] .today-workout-log:hover:not(:disabled) { background:#f78250; }
 .appearance-root[data-appearance="japanese"] .workout-browse { background:#252a27ed; color:#faf6ee; border-color:#aaa99e; }
 .appearance-root[data-appearance="japanese"] :is(.today-reset,.today-workout-schedule) { border-color:#aaa99e; color:#faf6ee; }
 .appearance-root[data-appearance="japanese"] .appearance-picker { color:var(--ink); }
@@ -46,3 +46,15 @@
 /* Real text stays readable and anchored to the artwork at every viewport. */
 .appearance-root[data-appearance="japanese"] .today-workout-art-label { position:absolute; z-index:1; bottom:24px; left:calc(100% / 2.05 + 26px); max-width:calc(100% * 1.05 / 2.05 - 52px); pointer-events:none; padding:5px 8px; background:#faf6eef2; color:#343733; border-radius:3px; font-size:12px; line-height:1.4; font-weight:600; letter-spacing:.12em; text-transform:uppercase; }
 @media(max-width:640px) { .appearance-root[data-appearance="japanese"] .today-workout-art-label { left:20px; bottom:20px; max-width:calc(100% - 40px); } }
+
+/* Strong accents, without recoloring errors or other appearance choices. */
+.appearance-root[data-appearance="japanese"] .overview-weekly progress { accent-color:#d64527; }
+.appearance-root[data-appearance="japanese"] .overview-weekly progress::-webkit-progress-value { background:#d64527; }
+.appearance-root[data-appearance="japanese"] .overview-weekly progress::-moz-progress-bar { background:#d64527; }
+.appearance-root[data-appearance="japanese"] .block-status-active { background:#f8ded2; color:#a7331d; }
+.appearance-root[data-appearance="japanese"] .library-phase-list { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:16px 10px; }
+.appearance-root[data-appearance="japanese"] .library-phase-list li { align-items:flex-start; min-width:0; }
+.appearance-root[data-appearance="japanese"] .library-phase-list .library-finish { grid-column:1/-1; text-align:right; }
+@media(max-width:1000px) { .appearance-root[data-appearance="japanese"] .library-phase-list { grid-template-columns:repeat(3,minmax(0,1fr)); } }
+@media(max-width:640px) { .appearance-root[data-appearance="japanese"] .library-phase-list { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media(max-width:360px) { .appearance-root[data-appearance="japanese"] .library-phase-list { grid-template-columns:minmax(0,1fr); } }

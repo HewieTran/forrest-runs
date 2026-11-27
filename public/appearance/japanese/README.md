@@ -18,3 +18,7 @@ Initial artwork generated with the built-in image tool: sparse Japanese sumi ink
 The approved night scene is the reference for all three daytime edits: keep the pine, mountain ridgelines, rocks and trail composition consistent; only sky/light/mist changes. Daytime v2 uses soft dawn mist, desaturated clear afternoon, and dusty rose dusk. Night remains unchanged. Compare all four together before approving any replacement to avoid scenery jumping between periods.
 
 Time labels are real text rendered by TodayWorkout from PERIOD_LABELS and the same period that selects the image, including Night. Never bake labels into replacement images. The editor already labels every period. Current daytime/thumbnail URLs are versioned in the central mapping to avoid stale cached assets. Old images are retained for reference.
+
+## Blended journey revision 3
+
+The journey uses transparent hills and a separate transparent pine. Both are mapped in lib/appearance-art.ts. Hills are faint decoration inside the existing SVG; pines use roadPoint coordinates with their bases offset above the line. The route calculation, data, tick positions and milestones are shared with every appearance. Do not bake routes, markers or labels into replacement artwork. Keep alpha transparency to avoid a paper rectangle.

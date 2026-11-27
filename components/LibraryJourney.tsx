@@ -1,6 +1,7 @@
 'use client';
 
 import { useActiveAppearance } from './SessionActions';
+import { JAPANESE_ART } from '../lib/appearance-art';
 import { dateDiff } from '../lib/domain';
 import { journeyTicks, roadPoint, type LibraryHero } from '../lib/library-hero';
 
@@ -16,6 +17,8 @@ function Road({ data, compact = false }: { data: LibraryHero; compact?: boolean 
   const taper = data.phases.find(p => p.name.toLowerCase() === 'taper');
   const bench = taper ? roadPoint(taper.percent, compact) : null;
   return <svg className={`${compact ? 'library-road library-road-mobile' : 'library-road library-road-desktop'}${japanese ? ' library-road-ink' : ''}`}  viewBox={`0 0 ${compact ? 340 : 1000} 174`} aria-hidden="true" focusable="false">
+    {japanese && <image href={JAPANESE_ART.journey} x="0" y="0" width={compact ? 340 : 1000} height="140" preserveAspectRatio="none" opacity=".45" />}
+    {japanese && (compact ? [18, 66] : [10, 48, 72]).map(percent => { const p = roadPoint(percent, compact); return <image key={percent} href={JAPANESE_ART.journeyPine} x={p.x - 23} y={p.y - 65} width="46" height="56" preserveAspectRatio="xMidYMax meet" />; })}
     <path d={path} fill="none" stroke="var(--journey-remaining, #dbe0d4)" strokeWidth="17" strokeLinecap="round" />
     <path d={points.slice(0, Math.floor(route.percent) + 1).concat(current).map((p, i) => `${i ? 'L' : 'M'}${p.x} ${p.y}`).join(' ')} fill="none" stroke="var(--journey-trail, #39674d)" strokeWidth="17" strokeLinecap="round" />
     <path d={path} fill="none" stroke="var(--journey-center, #fff9e9)" strokeWidth="1.5" strokeDasharray="5 8" />
