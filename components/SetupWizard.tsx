@@ -1,13 +1,13 @@
 'use client';
 import GenerationProgress from './GenerationProgress';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { canRetryAssessmentWithCurrentPolicy } from '../lib/planner';
+import GoalReview from './GoalReview';
+import type { ReviewSelection } from '../lib/goal-review';
 import { ArrowLeft, ArrowRight, CheckCircle2, Flag, Save } from 'lucide-react';
 import AppHeader from './AppHeader';
-import PlanAdjustment from './PlanAdjustment';
 import { FinishTimeField, ImperialHeightField } from './SetupNumberFields';
 import { displayGenerationError } from '../lib/plan-validation';
-import { assessmentStep, ASSESSMENT_FIELDS, type AssessmentAction, type GoalSuggestion } from '../lib/plan-assessment';
+import { assessmentStep, ASSESSMENT_FIELDS, type AssessmentAction } from '../lib/plan-assessment';
 import { dateDiff } from '../lib/domain';
 import { DAY_NAMES, SETUP_STEPS, RESULT_DISTANCES, RESULT_LABELS, simpleSetup, setupTargetTime, setupIssues, validateSetup, convertSetupUnits, suggestedBlockName, type BlockSetup, type IntakeSetup, type ResultDistance, type SetupIssue } from '../lib/setup';
 import { validDate, type Plan } from '../lib/domain';
@@ -38,18 +38,15 @@ export default function SetupWizard({ initial = null, displayName, today, readOn
   const original = simpleSetup(savedSetup ?? undefined, initial?.raceName, initial?.raceDate, today);
   const exactRunner = useRef({ height: { value: original.runner.height, units: original.units }, weight: { value: original.runner.weight, units: original.units } });
   const [block, setBlock] = useState(initial), [fields, setFields] = useState(() => fieldsFor(original));
-  const [step, setStep] = useState(initialEdit ? assessmentStep(initialEdit) : original.step), [units, setUnits] = useState(original.units), [days, setDays] = useState(original.availability.days);
-  const [saveAction, setSaveAction] = useState<'draft' | 'generation' | null>(null);
+  const [step, setStep] = useState(initialEdit ? assessmentStep(initialEdit) : initial?.goalReview ? 3 : original.step), [units, setUnits] = useState(original.units), [days, setDays] = useState(original.availability.days);
+  const [saveAction, setSaveAction] = useState<'draft' | 'assessment' | 'generation' | null>(null);
   const [dirty, setDirty] = useState(false), [message, setMessage] = useState(''), [errors, setErrors] = useState<SetupIssue[]>([]);
   const saving = saveAction !== null;
   const requestInFlight = useRef(false);
+  const [clock, setClock] = useState(Date.now());
+  useEffect(() => { const timer = window.setInterval(() => setClock(Date.now()), 1000);return () => window.clearInterval(timer); }, []);
   const [generationError, setGenerationError] = useState(initial?.generation?.status === 'failed' ? displayGenerationError(initial.generation.error ?? 'Generation could not finish. Your draft is saved.') : '');
-  const [clarification, setClarification] = useState(initial?.generation?.status === 'clarification' ? initial.generation.output : null);
-  const [applied, setApplied] = useState<{
-    fields: typeof fields; days: typeof days; clarification: typeof clarification; dirty: boolean; label: string;
-  } | null>(null);
-  const [retryAfter, setRetryAfter] = useState(initial?.generation?.status === 'clarification'
-    ? Date.parse(initial.generation.startedAt) + GENERATION_COOLDOWN_MS : 0);
+  const [retryAfter, setRetryAfter] = useState(initial?.goalReview?.status === 'failed' ? Date.parse(initial.goalReview.startedAt) + GENERATION_COOLDOWN_MS : 0);
   const [waitingToRetry, setWaitingToRetry] = useState(false);
   useEffect(() => {
     const remaining = retryAfter - Date.now();
@@ -60,7 +57,6 @@ export default function SetupWizard({ initial = null, displayName, today, readOn
   }, [retryAfter]);
   const [focusTarget, setFocusTarget] = useState(initialEdit ? ASSESSMENT_FIELDS[initialEdit] : '');
   useEffect(() => { if (focusTarget) { document.getElementById(focusTarget)?.focus(); setFocusTarget(''); } }, [focusTarget, step]);
-  function editAssessment(action: AssessmentAction) { setStep(assessmentStep(action)); setFocusTarget(ASSESSMENT_FIELDS[action]); setErrors([]); }
   const disabled = saving || readOnly;
   const sample = mode === 'simulation';
   const generationAvailable = mode !== 'disabled';
@@ -73,7 +69,7 @@ export default function SetupWizard({ initial = null, displayName, today, readOn
       exactRunner.current.height = { value: entered, units };
     }
     if (name === 'weight') exactRunner.current.weight = { value: value === '' ? null : Number(value), units };
-    setApplied(null);setGenerationError('');setClarification(null);setFields(current => ({ ...current, [name]: value }));setDirty(true);setMessage('');
+    setGenerationError('');setFields(current => ({ ...current, [name]: value }));setDirty(true);setMessage('');
     const field = name === 'imperialHeight' ? 'height' : name;
     setErrors(current => current.filter(issue => issue.field !== field));
   }
@@ -93,37 +89,6 @@ export default function SetupWizard({ initial = null, displayName, today, readOn
     setStep(issues[0].step);
     setFocusTarget(`setup-${issues[0].field}`);
     return false;
-  }
-  function applySuggestion(suggestion: GoalSuggestion) {
-    if (disabled || !clarification || windowIssue) return;
-    let label = 'Target finish time updated.';
-    if (suggestion.kind === 'finish_time') {
-      setFields(current => ({ ...current, targetTime: finishTimeParts(formatDuration(suggestion.durationSeconds)) }));
-    } else {
-      const date = suggestion.date;
-      if (date) setFields(current => ({ ...current, [date.field]: date.to }));
-      if (suggestion.trainingDays) setDays(suggestion.trainingDays);
-      label = date && suggestion.trainingDays ? 'Training dates and days updated.'
-        : suggestion.trainingDays ? 'Training days updated.'
-        : date?.field === 'startDate' ? 'Training start date updated.' : 'Race date updated.';
-    }
-    setApplied({ fields, days, clarification, dirty, label });
-    setClarification(null);
-    setDirty(true);
-    setErrors([]);
-    setMessage('');
-    setStep(3);
-    setFocusTarget('setup-review-title');
-  }
-  function undoSuggestion() {
-    if (disabled || !applied) return;
-    setFields(applied.fields);
-    setDays(applied.days);
-    setClarification(applied.clarification);
-    setDirty(applied.dirty);
-    setApplied(null);
-    setMessage('Original inputs restored.');
-    setFocusTarget('adjustment-title');
   }
   function collect(forGeneration = false): IntakeSetup {
     const value = simpleSetup(original);
@@ -154,9 +119,9 @@ export default function SetupWizard({ initial = null, displayName, today, readOn
       setFocusTarget('setup-height');
       return;
     }
-    setApplied(null);
+
     const converted = fieldsFor(convertSetupUnits(collect(), next));
-    setFields(current => ({ ...current, height: converted.height, imperialHeight: converted.imperialHeight, weight: converted.weight }));setUnits(next);setClarification(null);setDirty(true);setErrors([]);
+    setFields(current => ({ ...current, height: converted.height, imperialHeight: converted.imperialHeight, weight: converted.weight }));setUnits(next);setDirty(true);setErrors([]);
   }
   function issueFor(name: keyof SetupFields, type = 'text'): string | undefined {
     const value = fields[name];
@@ -176,15 +141,14 @@ export default function SetupWizard({ initial = null, displayName, today, readOn
       setErrors([]);setStep(current => Math.min(3, current + 1));
     } catch (error) { setErrors([{ step, field: '', message: error instanceof Error ? error.message : 'Check your entries.' }]); }
   }
-  async function save(complete: boolean, useSavedResult = false) {
+  async function save(complete: boolean) {
     if (requestInFlight.current || saving || readOnly || (complete && !generationAvailable)) return;
     if (complete && windowIssue) {
       setStep(0);
       setFocusTarget(`setup-${windowIssue.field}`);
       return;
     }
-    if (complete && waitingToRetry) return;
-    if (complete && clarification && !(useSavedResult && canRetryAssessmentWithCurrentPolicy(block?.generation))) { setMessage('Edit the relevant inputs before generating again.');return; }
+    if (complete && (waitingToRetry || reviewingInFlight || generatingInFlight)) return;
     setMessage('');setGenerationError('');
     if (!checkNumberEntries()) return;
     setErrors([]);
@@ -196,10 +160,10 @@ export default function SetupWizard({ initial = null, displayName, today, readOn
       if (issues.length) { setErrors(issues);setStep(issues[0].step);return; }
     } catch (error) { setErrors([{ step, field: '', message: error instanceof Error ? error.message : 'Check your entries.' }]);return; }
     requestInFlight.current = true;
-    setSaveAction(complete ? 'generation' : 'draft');
+    setSaveAction(complete ? 'assessment' : 'draft');
     let generating = false;
     try {
-      if (preview) { setApplied(null);setDirty(false);setMessage(complete ? 'Preview complete. The live app generates and saves your plan from here.' : 'Draft saved in this preview only.');return; }
+      if (preview) { setDirty(false);setMessage(complete ? 'Preview complete. The live app generates and saves your plan from here.' : 'Draft saved in this preview only.');return; }
       let saved = block;
       // A retry after an interrupted save reuses the existing validated result.
       if (!saved || dirty || !saved.setup || saved.setup.schemaVersion !== 4 ||
@@ -207,22 +171,17 @@ export default function SetupWizard({ initial = null, displayName, today, readOn
         const response = await fetch(saved ? `/api/blocks/${encodeURIComponent(saved.id)}/setup` : '/api/blocks', { method: saved ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ setup, version: saved?.version, complete }) });
         const result = await response.json() as { block?: Plan; error?: string; issues?: SetupIssue[] };
         if (!response.ok || !result.block) { if (result.issues) setErrors(result.issues);throw new Error(result.error || 'Your draft could not be saved.'); }
-        saved = result.block;setBlock(saved);setApplied(null);setDirty(false);setFields(current => ({ ...current, name: saved!.raceName }));
+        saved = result.block;setBlock(saved);setDirty(false);setFields(current => ({ ...current, name: saved!.raceName }));
         window.history.replaceState(window.history.state, '', `/blocks/${encodeURIComponent(saved.id)}/setup`);
       }
       if (!complete) { setMessage('Draft saved. Resume it from your training blocks.');return; }
       generating = true;
-      const response = await fetch(`/api/blocks/${encodeURIComponent(saved.id)}/generation`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ version: saved.version, consent: true, saveImmediately: true }) });
+      const response = await fetch(`/api/blocks/${encodeURIComponent(saved.id)}/goal-review`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ version: saved.version, consent: true }) });
       const result = await response.json() as { block?: Plan; error?: string };
-      if (result.block) setBlock(result.block);
+      if (result.block) { setBlock(result.block);if (result.block.goalReview?.status === 'failed') setRetryAfter(Date.parse(result.block.goalReview.startedAt) + GENERATION_COOLDOWN_MS); }
       if (!response.ok || !result.block) throw new Error(result.error || result.block?.generation?.error || 'Generation could not finish. Your draft is saved; retry when ready.');
-      if (result.block.generation?.status === 'clarification' && result.block.generation.output) {
-        setClarification(result.block.generation.output);
-        setRetryAfter(Date.parse(result.block.generation.startedAt) + GENERATION_COOLDOWN_MS);
-        return;
-      }
-      if (result.block.generation?.status !== 'accepted') throw new Error(result.block.generation?.output?.questions.join(' ') || result.block.generation?.error || 'The plan needs more information. Your draft is preserved.');
-      window.location.assign(`/blocks/${encodeURIComponent(saved.id)}`);
+      if (result.block.goalReview?.status !== 'ready') throw new Error(result.block.goalReview?.error || 'Goal review could not finish. Your draft is saved.');
+      setRetryAfter(0);setStep(3);setFocusTarget('goal-review-title');
     } catch (error) {
       const text = error instanceof Error ? error.message : 'Please try again. Your draft is preserved.';
       if (generating) setGenerationError(displayGenerationError(text));
@@ -230,12 +189,29 @@ export default function SetupWizard({ initial = null, displayName, today, readOn
     }
     finally { requestInFlight.current = false;setSaveAction(null); }
   }
+  async function generateConfirmed(selection: ReviewSelection) {
+    if (!block || requestInFlight.current || saving || dirty) return;
+    requestInFlight.current = true;setSaveAction('generation');setGenerationError('');
+    try {
+      const response = await fetch(`/api/blocks/${encodeURIComponent(block.id)}/generation`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ version: block.version, consent: true, saveImmediately: true, goalReview: selection }) });
+      const result = await response.json() as { block?: Plan; error?: string };
+      if (result.block) { setBlock(result.block);if (result.block.setup) { const saved = simpleSetup(result.block.setup);setFields(fieldsFor(saved));setDays(saved.availability.days); } }
+      if (!response.ok || !result.block) throw new Error(result.error || 'Generation could not finish. Your confirmed setup is saved.');
+      if (result.block.generation?.status !== 'accepted') throw new Error(result.block.generation?.error || 'Reload to check whether your plan finished saving.');
+      window.location.assign(`/blocks/${encodeURIComponent(block.id)}`);
+    } catch (error) { setGenerationError(displayGenerationError(error instanceof Error ? error.message : 'Generation could not finish. Your setup is saved.')); }
+    finally { requestInFlight.current = false;setSaveAction(null); }
+  }
+  const reviewed = !dirty && block?.goalReview?.status === 'ready' && block.goalReview.provider === mode ? block.goalReview : null;
+  const reviewingInFlight = !dirty && block?.goalReview?.status === 'assessing' && clock - Date.parse(block.goalReview.startedAt) < 180000;
+  const generatingInFlight = !dirty && block?.generation?.status === 'generating' && clock - Date.parse(block.generation.startedAt) < 180000;
+  const generationCooldown = !!block?.generation && clock - Date.parse(block.generation.startedAt) < GENERATION_COOLDOWN_MS;
   function input(name: TextField, label: string, type = 'text', required = true, hint?: string) {
     const error = issueFor(name, type), id = `setup-${name}`;
     return <label htmlFor={id}><span className="setup-field-title">{label}{required && <span className="setup-required"> Required</span>}</span><input id={id} name={name} type={type} value={fields[name]} onChange={event => update(name, event.target.value)} step={type === 'number' ? name === 'age' ? '1' : 'any' : undefined} min={type === 'number' ? '0' : undefined} max={name === 'benchmarkDate' ? today : undefined} aria-required={required} aria-invalid={!!error} aria-describedby={`${id}-feedback`} placeholder={name === 'name' ? suggestedBlockName(collect()) : undefined} /><small id={`${id}-feedback`} className={error ? 'setup-field-error' : undefined}>{error || hint}</small></label>;
   }
   const snapshot = collect();
-  function submit(event: FormEvent) { event.preventDefault();if (step < 3) next();else void save(true); }
+  function submit(event: FormEvent) { event.preventDefault();if (step < 3) next();else if (!reviewed) void save(true); }
   if (readOnly && initial && savedSetup) {
     return <div className="app-shell"><AppHeader displayName={displayName} preview={preview} /><main className="main-content setup-main">
       <a className="block-breadcrumb" href={preview ? '/preview?view=overview' : `/blocks/${encodeURIComponent(initial.id)}`}><ArrowLeft size={15} />Back to block</a>
@@ -247,15 +223,11 @@ export default function SetupWizard({ initial = null, displayName, today, readOn
     <a className="block-breadcrumb" href={library}><ArrowLeft size={15} />Training blocks</a>
     <section className="page-heading setup-heading"><div><h1>{block ? 'Continue your setup' : 'Create a training block'}</h1><p className="blocks-intro">Your race goal, running experience and training days.</p></div><span className="block-status block-status-draft">Draft</span></section>
     {preview && <p className="preview-notice">Example preview. No personal data or paid generation calls.</p>}
-    <nav className="setup-stepper" aria-label="Setup steps">{SETUP_STEPS.map((name, index) => <button type="button" key={name} disabled={saving} aria-current={step === index ? 'step' : undefined} onClick={() => { setStep(index);setErrors([]); }}><span>{index + 1}</span>{name}</button>)}</nav>
+    <nav className="setup-stepper" aria-label="Setup steps">{SETUP_STEPS.map((name, index) => <button type="button" key={name} disabled={saving} aria-current={step === index ? 'step' : undefined} onClick={() => { setStep(index);setErrors([]); }}><span>{index + 1}</span>{index === 3 ? 'Review goal' : name}</button>)}<button type="button" className="setup-future-step" disabled><span>5</span>Plan</button></nav>
     <div className="setup-layout"><form className="setup-panel" onSubmit={submit} noValidate>
-      {applied && <div className="setup-suggestion-applied"><p role="status">{applied.label} Review your changes before generating.</p><button className="button" type="button" disabled={disabled} onClick={undoSuggestion}>Undo</button></div>}
       {message && <p className="block-success" role="status"><CheckCircle2 size={17} />{message}</p>}
       {!!errors.length && <div className="setup-errors" role="alert"><strong>Check these details</strong><ul>{errors.map((issue, index) => <li key={index}><button type="button" onClick={() => setStep(issue.step)}>{issue.message}</button></li>)}</ul></div>}
-      {generationError && <div className="setup-errors" role="alert"><strong>Plan generation couldn’t finish</strong><p>{generationError}</p></div>}
-      {clarification && <PlanAdjustment output={clarification} onEdit={editAssessment} disabled={disabled}
-        onGenerateUsingResult={canRetryAssessmentWithCurrentPolicy(block?.generation) ? () => void save(true, true) : undefined} retryDisabled={waitingToRetry || !!windowIssue || !generationAvailable}
-        input={step === 3 ? block?.generation?.input : undefined} today={today} onApply={applySuggestion} />}
+      {generationError && <div className="setup-errors" role="alert"><strong>This step couldn’t finish</strong><p>{generationError}</p></div>}
       <fieldset disabled={disabled}>
       {step === 0 && <><h2>What are you working toward?</h2><div className="setup-fields"><label className="setup-span-two" htmlFor="setup-goalKind"><span className="setup-field-title">Race distance<span className="setup-required"> Required</span></span>
         <select id="setup-goalKind" value={fields.goalKind} onChange={event => update('goalKind', event.target.value)} aria-required="true" aria-invalid={!!issueFor('goalKind')} aria-describedby="race-distance-feedback">
@@ -282,12 +254,16 @@ export default function SetupWizard({ initial = null, displayName, today, readOn
           </div>
         </section>
       </>}
-      {step === 2 && <><h2>Choose your training days</h2><p className="setup-description">Select the days you want a running workout. Race day is included even if it falls on another weekday.</p><div id="setup-trainingDays" tabIndex={-1} className="setup-days" role="group" aria-label="Selected training days">{DAY_NAMES.map((name, day) => <button type="button" key={name} aria-pressed={days.includes(day)} onClick={() => { setApplied(null);setClarification(null);setDays(current => current.includes(day) ? current.filter(value => value !== day) : [...current, day].sort());setDirty(true);setErrors([]); }}>{name.slice(0,3)}<span>{days.includes(day) ? 'Run' : '—'}</span></button>)}</div></>}
-      {step === 3 && <><h2 id="setup-review-title" tabIndex={-1}>Your plan details</h2><SetupReview setup={snapshot} sample={sample} />{windowIssue && <div className="setup-errors" role="status"><p>{windowIssue.message}</p><button className="button" type="button" onClick={() => { setStep(0); setFocusTarget(`setup-${windowIssue.field}`); }}>Edit training dates</button></div>}<p className="setup-footnote">{sample ? 'Generate a sample to explore a schedule with example paces. The sample saves automatically for you to revisit.' : generationAvailable ? 'Your recent result helps estimate workout paces. Your plan saves automatically so you can review it before you start.' : 'Plan generation is currently unavailable. Save your draft to return to it later.'}</p></>}
+      {step === 2 && <><h2>Choose your training days</h2><p className="setup-description">Select the days you want a running workout. Race day is included even if it falls on another weekday.</p><div id="setup-trainingDays" tabIndex={-1} className="setup-days" role="group" aria-label="Selected training days">{DAY_NAMES.map((name, day) => <button type="button" key={name} aria-pressed={days.includes(day)} onClick={() => { setDays(current => current.includes(day) ? current.filter(value => value !== day) : [...current, day].sort());setDirty(true);setErrors([]); }}>{name.slice(0,3)}<span>{days.includes(day) ? 'Run' : '—'}</span></button>)}</div></>}
+      {step === 3 && !reviewed && <><h2 id="setup-review-title" tabIndex={-1}>Your plan details</h2><SetupReview setup={snapshot} sample={sample} />{windowIssue && <div className="setup-errors" role="status"><p>{windowIssue.message}</p><button className="button" type="button" onClick={() => { setStep(0); setFocusTarget(`setup-${windowIssue.field}`); }}>Edit training dates</button></div>}<p className="setup-footnote">{sample ? 'Generate a sample to explore a schedule with example paces. The sample saves automatically for you to revisit.' : generationAvailable ? 'Your recent result helps estimate workout paces. Your plan saves automatically so you can review it before you start.' : 'Plan generation is currently unavailable. Save your draft to return to it later.'}</p></>}
       </fieldset>
-      {step === 3 && mode === 'openai' && !readOnly && <p className="setup-footnote">Generate plan sends this block’s recent race or hard run result, runner details, race goal and selected training days to OpenAI. It does not include your name, email, other blocks or raw run history. The validated schedule saves automatically for you to review before starting. Training suitability and goal achievement are not guaranteed.</p>}
-      {saveAction === 'generation' && <GenerationProgress sample={sample} />}
-      {step === 3 && waitingToRetry && !clarification && <p className="setup-footnote" role="status">You can generate again one minute after your last request.</p>}
+      {step === 3 && reviewed && <GoalReview key={reviewed.id} review={reviewed} today={today} disabled={saving || !!windowIssue || generatingInFlight || generationCooldown} onGenerate={selection => void generateConfirmed(selection)} onEdit={() => { setStep(0);setErrors([]); }} />}
+      {step === 3 && mode === 'openai' && !readOnly && <p className="setup-footnote">Goal review and plan generation each send this block’s runner details, recent result, goal and training days to OpenAI and may use API credits. Your saved review is reused until your setup changes. The plan saves automatically for you to review before starting.</p>}
+      {step === 3 && reviewed && generationCooldown && !saving && <p role="status" className="setup-footnote">You can request another plan one minute after the last generation request. Your confirmed setup is saved.</p>}
+      {(saveAction === 'assessment' || reviewingInFlight) && <GenerationProgress assessment sample={sample} resumed={reviewingInFlight} />}
+      {(saveAction === 'generation' || generatingInFlight) && <GenerationProgress sample={sample} resumed={generatingInFlight} />}
+      {block?.goalReview?.status === 'failed' && !generationError && !dirty && <p className="setup-errors" role="alert">{block.goalReview.error}</p>}
+      {step === 3 && waitingToRetry && !reviewed && <p className="setup-footnote" role="status">You can request another review one minute after your last review request.</p>}
       <div className="setup-form-actions">
         <button className="button" type="button" disabled={saving || step === 0} onClick={() => { setStep(current => current - 1);setErrors([]); }}><ArrowLeft size={15} />Back</button>
         <div>
@@ -295,8 +271,8 @@ export default function SetupWizard({ initial = null, displayName, today, readOn
             <Save size={15} />{saveAction === 'draft' ? 'Saving draft…' : 'Save draft'}
           </button>
           {step < 3 ? <button className="button primary" type="submit" disabled={saving}>Continue<ArrowRight size={15} /></button>
-            : generationAvailable && !clarification && <button className="button primary" type="submit" disabled={saving || waitingToRetry || !!windowIssue}>
-              {saveAction === 'generation' ? 'Generating and saving…' : sample ? 'Generate sample plan' : 'Generate plan'}
+            : generationAvailable && !reviewed && <button className="button primary" type="submit" disabled={saving || waitingToRetry || !!windowIssue || reviewingInFlight || generatingInFlight}>
+              {saveAction === 'assessment' ? 'Reviewing your goal…' : sample ? 'Review sample setup' : 'Review my goal'}
             </button>}
         </div>
       </div>

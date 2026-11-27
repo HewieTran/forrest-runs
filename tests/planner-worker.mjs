@@ -1,3 +1,4 @@
+import { withReviewedFixture } from './goal-review-prerequisite.mjs';
 import assert from 'node:assert/strict';
 import { readdir, access } from 'node:fs/promises';
 import path from 'node:path';
@@ -70,7 +71,7 @@ try {
  const output={...simulatedPlan(preparePlanner(setup,today)).output,assessment:{decision:'proceed',reason:'Synthetic provider fixture, not a training judgment.',actions:[]}};
  fetchMock.get('https://api.openai.com').intercept({path:'/v1/responses',method:'POST'}).reply(200,responseFixture(output));
  await testPhaseOne(db,(input,init)=>numeric.dispatchFetch(input,init),'openai');
- await testAdditionalRaceDistances((input,init)=>numeric.dispatchFetch(input,init),fetchMock);
+ await testAdditionalRaceDistances(db,(input,init)=>numeric.dispatchFetch(input,init),fetchMock);
 }finally{await numeric.dispose();}
 
 const accounting = new Miniflare({ ...options, bindings: { TRAINING_PLANNER_MODE: 'openai', OPENAI_API_KEY: 'synthetic-key', OPENAI_PLAN_MODEL: 'gpt-6-luna' } });
@@ -109,7 +110,8 @@ try {
   const input=preparePlanner(setup,today),oldStamp=new Date(Date.now()-300000).toISOString();
   const output={...simulatedPlan(input).output,assessment:{decision:'proceed',reason:'Synthetic conservative schedule; the old result does not measure current fitness.',actions:[]}};
   const headers={'Content-Type':'application/json','oai-authenticated-user-id':'aged-result-qa','oai-authenticated-user-email':'aged@example.test'};
-  const call=async(path,method='GET',body)=>{const response=await aged.dispatchFetch('http://localhost'+path,{method,headers,body:body?JSON.stringify(body):undefined});return {status:response.status,data:await response.json()};};
+  const dispatchReviewed=withReviewedFixture(db,(input,init)=>aged.dispatchFetch(input,init));
+  const call=async(path,method='GET',body)=>{const response=await dispatchReviewed('http://localhost'+path,{method,headers,body:body?JSON.stringify(body):undefined});return {status:response.status,data:await response.json()};};
   const created=await call('/api/blocks','POST',{setup,complete:true});assert.equal(created.status,201);
   const block=created.data.block,path='/api/blocks/'+encodeURIComponent(block.id);
   const legacy={schemaVersion:1,id:'old-result-clarification',provider:'openai',status:'clarification',startedAt:oldStamp,finishedAt:oldStamp,acceptedAt:null,alteredAt:null,model:'gpt-6-luna',promptVersion:'race-coach-v9-benchmarks',validatorVersion:PLANNER_VERSION,input,setupSnapshot:setup,output:{...output,outcome:'needs_clarification',sessions:[],questions:['Update the old result?'],assessment:{decision:'refresh_benchmark',reason:'Earlier policy requested a newer result.',actions:['benchmark']}},error:null,responseId:null,usage:{inputTokens:0,outputTokens:0},assessmentContext:assessmentContext(input,today)};
@@ -127,3 +129,11 @@ try {
   assert.equal((await db.prepare('SELECT count(*) AS n FROM training_ai_usage').first()).n,1);
   console.log('PASS: explicit old-clarification retry saves a conservative synthetic plan with unchanged dated evidence and one charged attempt despite concurrent requests.');
 }finally{await aged.dispose();}
+
+const reviews = new Miniflare({ ...options, bindings: { TRAINING_PLANNER_MODE: 'openai', OPENAI_API_KEY: 'synthetic-key', OPENAI_PLAN_MODEL: 'gpt-6-luna' } });
+try {
+  const db = await reviews.getD1Database('DB');
+  await applyAllMigrations(db);
+  const { testGoalReview } = await import('./goal-review-integration.mjs');
+  await testGoalReview(db, (input, init) => reviews.dispatchFetch(input, init), fetchMock);
+} finally { await reviews.dispose(); }

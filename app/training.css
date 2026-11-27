@@ -215,3 +215,10 @@
 @media(max-width:640px){.library-active-hero{padding:21px 18px 20px}.library-hero-heading{display:block}.library-hero-heading h2{font-size:27px}.library-hero-headline{text-align:left;margin-top:20px}.library-hero-headline>strong{font-size:32px}.library-road-desktop{display:none}.library-road-mobile{display:block}.library-phase-list{display:grid;grid-template-columns:1fr;gap:12px}.library-phase-list .library-finish{padding-left:32px}.library-hero-metrics{grid-template-columns:1fr 1fr 1.25fr;gap:9px;padding:19px 0}.library-hero-metrics small{font-size:13px;min-height:38px}.library-hero-metrics strong{font-size:23px}.library-hero-metrics strong span{display:block;font-size:13px}.library-hero-bottom{flex-direction:column;align-items:stretch;gap:17px;padding-top:18px}.library-hero-bottom .primary{flex:1}.library-hero-bottom>p{font-size:14px}.library-hero-headline{overflow-wrap:anywhere}.library-hero-bottom>div{min-width:0}}
 @media(prefers-reduced-motion:reduce){.library-active-hero *{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 .library-active-hero .block-source,.library-active-hero .block-card-date{color:#536457}
+
+/* Compact navigation with matching pointer and keyboard affordances. */
+.app-header .header-inner{height:64px}
+.app-header .header-library-link,.app-header .appearance-trigger{min-height:44px;padding:10px 14px;border:1px solid transparent;background:transparent;color:var(--green);font-size:13px;font-weight:550}
+.app-header .header-library-link:hover,.app-header .appearance-trigger:hover{border-color:#bbcdbd;background:#f0f4ee}
+.app-header .header-library-link:focus-visible,.app-header .appearance-trigger:focus-visible{outline:2px solid var(--green);outline-offset:2px}
+@media(max-width:760px){.app-header .header-inner{height:56px}.app-header .header-library-link,.app-header .appearance-trigger{padding:10px}}

@@ -1,3 +1,4 @@
+import { withReviewedFixture } from './goal-review-prerequisite.mjs';
 import assert from 'node:assert/strict';
 import { simpleSetup } from '../lib/setup.ts';
 import { centralToday, addDays } from '../lib/domain.ts';
@@ -8,7 +9,8 @@ import { preparePlanner, validatePlanOutput } from '../lib/planner.ts';
 import { simulatedPlan } from '../lib/simulated-plan.ts';
 import { responseFixture } from './planner-fixture.mjs';
 
-export async function testAdditionalRaceDistances(dispatch, fetchMock) {
+export async function testAdditionalRaceDistances(db, dispatch, fetchMock) {
+  const dispatchReviewed = withReviewedFixture(db, dispatch);
   const today = centralToday();
   for (const [kilometers, label, weeks, targetSeconds] of [
     [10, '10K', 8, 3600],
@@ -34,9 +36,6 @@ export async function testAdditionalRaceDistances(dispatch, fetchMock) {
       ...simulation,
       assessment: { decision: 'proceed', reason: 'Synthetic provider fixture.', actions: [] },
     };
-    // Differentiate the requested finish time from the provider's estimate.
-    const race = output.sessions.at(-1).steps[0];
-    race.durationSeconds = targetSeconds + 180;
     fetchMock.get('https://api.openai.com').intercept({ path: '/v1/responses', method: 'POST' })
       .reply(200, responseFixture(output));
     const headers = {
@@ -44,7 +43,7 @@ export async function testAdditionalRaceDistances(dispatch, fetchMock) {
       'oai-authenticated-user-id': `race-test-${weeks}`,
       'oai-authenticated-user-email': 'runner@example.test',
     };
-    const call = (path, method = 'GET', body) => dispatch('http://localhost' + path, {
+    const call = (path, method = 'GET', body) => dispatchReviewed('http://localhost' + path, {
       method, headers, body: body === undefined ? undefined : JSON.stringify(body),
     });
     const created = await call('/api/blocks', 'POST', { setup, complete: true });
@@ -63,8 +62,8 @@ export async function testAdditionalRaceDistances(dispatch, fetchMock) {
     const exactMiles = kilometers * 1000 / 1609.344;
     assert.equal(savedRace.date, raceDate);
     assert.equal(savedRace.plannedDistance, exactMiles);
-    assert.equal(savedRace.plannedDurationSeconds, targetSeconds + 180);
-    assert.equal(savedRace.plannedPaceSecondsPerMile, (targetSeconds + 180) / exactMiles);
+    assert.equal(savedRace.plannedDurationSeconds, targetSeconds);
+    assert.equal(savedRace.plannedPaceSecondsPerMile, (targetSeconds) / exactMiles);
     assert.equal(loaded.plan.paceGuide[0].type, `${label} plan`);
     const backup = await (await call('/api/export' + scope)).json();
     assert.deepEqual(normalizeTrainingBackup(backup), backup);
@@ -73,16 +72,22 @@ export async function testAdditionalRaceDistances(dispatch, fetchMock) {
 }
 
 export async function testPhaseOne(db,dispatch,provider='simulation'){
+ const dispatchReviewed=provider==='openai'?withReviewedFixture(db,dispatch):dispatch;
  const headers={'Content-Type':'application/json','oai-authenticated-user-id':'phase-one-owner','oai-authenticated-user-email':'phase-one@example.test'};
  const other={...headers,'oai-authenticated-user-id':'phase-one-other'};
- async function call(path,method='GET',body,auth=headers){const response=await dispatch('http://localhost'+path,{method,headers:auth,body:body?JSON.stringify(body):undefined});return {status:response.status,data:await response.json()};}
+ async function call(path,method='GET',body,auth=headers){const response=await dispatchReviewed('http://localhost'+path,{method,headers:auth,body:body?JSON.stringify(body):undefined});return {status:response.status,data:await response.json()};}
  const today=centralToday(),setup=simpleSetup(undefined,'',addDays(today,28),today);
  setup.step=3;setup.goal.targetDurationSeconds=1801;setup.runner={...setup.runner,experience:'novice',age:35,height:68,weight:150};setup.availability.days=[1,3,6];
  setup.benchmark={distance:'5k',durationSeconds:2100,date:today,effortConfirmed:true};
  const created=await call('/api/blocks','POST',{setup,complete:true});assert.equal(created.status,201,JSON.stringify(created.data));
  const id=created.data.block.id,path='/api/blocks/'+id,scope='?blockId='+id;
  assert.equal((await call(path+'/generation','POST',{version:1,consent:true,saveImmediately:true},other)).status,404);
- const generated=await call(path+'/generation','POST',{version:1,consent:true,saveImmediately:true});assert.equal(generated.status,200,JSON.stringify(generated.data));
+ let version=created.data.block.version, goalReview;
+ if(provider==='simulation'){
+  const reviewed=await call(path+'/goal-review','POST',{version,consent:true});assert.equal(reviewed.status,200,JSON.stringify(reviewed.data));
+  version=reviewed.data.block.version;goalReview={reviewId:reviewed.data.block.goalReview.id,option:null};
+ }
+ const generated=await call(path+'/generation','POST',{version,consent:true,saveImmediately:true,...(goalReview?{goalReview}:{})});assert.equal(generated.status,200,JSON.stringify(generated.data));
  const block=generated.data.block;assert.equal(block.status,'draft');assert.equal(block.generation.status,'accepted');assert.equal(block.generation.provider,provider);if(provider==='simulation')assert.equal(block.generation.usage,null);
  assert.deepEqual(block.setup.benchmark,setup.benchmark);
  assert.deepEqual(block.generation.setupSnapshot.benchmark,setup.benchmark);
@@ -102,7 +107,7 @@ export async function testPhaseOne(db,dispatch,provider='simulation'){
  const edited=await call(edit,'PATCH',{...workout,manualResultFields:['actualDistance'],notes:'Manual value even though unchanged'});assert.equal(edited.status,200);workout=edited.data.workout;assert.equal('actualDistance' in workout.resultOrigins,false);
  // Include an untouched copied workout in the backup to prove provenance survives restore.
  const second=loaded.workouts[1];assert.equal((await call('/api/workouts/'+second.id+scope,'PATCH',{...second,done:true})).status,200);
- const backup=(await call('/api/export'+scope)).data;assert.equal(backup.schemaVersion,7);assert.deepEqual(normalizeTrainingBackup(backup),backup);await testRestore(backup);
+ const backup=(await call('/api/export'+scope)).data;assert.equal(backup.schemaVersion,10);assert.deepEqual(normalizeTrainingBackup(backup),backup);await testRestore(backup);
  const unchecked=await call(edit,'PATCH',{...workout,done:false});assert.equal(unchecked.status,200);workout=unchecked.data.workout;assert.equal(workout.actualDistance,workout.plannedDistance);assert.equal(workout.actualDurationSeconds,null);assert.equal(workout.actualPaceSecondsPerMile,null);assert.equal(workout.resultOrigins,null);
  const zero=await call(edit,'PATCH',{...workout,actualDistance:0,actualDurationSeconds:0,done:true});assert.equal(zero.status,200);assert.equal(zero.data.workout.actualDistance,0);assert.equal(zero.data.workout.actualDurationSeconds,0);
  assert.equal((await call(edit,'PATCH',{...zero.data.workout,done:false},other)).status,404);

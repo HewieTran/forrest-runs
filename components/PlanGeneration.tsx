@@ -34,6 +34,7 @@ export default function PlanGeneration({ initial, displayName, configured, mode,
   const staleDate = Boolean(block.setup && block.setup.goal.startDate < today);
   async function generate() {
     if (requestInFlight.current || busy || inFlight || (cooldown > 0 && generation?.status !== 'review') || !configured || staleDate) return;
+    if (generation?.status !== 'review') { window.location.assign(`${base}/setup`);return; }
     requestInFlight.current = true;
     setBusy(true); setError('');
     try {
@@ -44,6 +45,7 @@ export default function PlanGeneration({ initial, displayName, configured, mode,
     } catch (error) { setError(error instanceof Error ? error.message : 'Generation could not finish. Reload to check its status.'); }
     finally { requestInFlight.current = false;setBusy(false); setClock(Date.now()); }
   }
+  if (editable && generation?.status !== 'review') return <><AppHeader displayName={displayName} /><main className="main-content plan-generation"><a className="text-link" href="/blocks">← Training blocks</a><h1>Review your goal before building</h1><p>Your setup is saved. Review your goal and any suggested changes before generating a schedule.</p><a className="button primary" href={`${base}/setup`}>Review goal</a></main></>;
   return <><AppHeader displayName={displayName} /><main className="main-content plan-generation">
     <a className="text-link" href={accepted ? base : '/blocks'}>← {accepted ? 'Back to this block' : 'Training blocks'}</a>
     <section className="page-heading"><h1>{accepted ? simulation ? 'Original sample schedule' : 'Original training plan' : simulation ? `Try a sample ${race} plan` : `Build your ${race} plan`}</h1><p className="blocks-intro">{block.raceName} · {formatDate(block.raceDate, { month: 'long', day: 'numeric', year: 'numeric' })}</p></section>
@@ -80,7 +82,7 @@ export default function PlanGeneration({ initial, displayName, configured, mode,
     </section>}
     <div className="setup-form-actions">
       {editable && <a className="button" aria-disabled={busy} href={busy ? undefined : `${base}/setup`}>{needsResultReview ? 'Review setup to generate' : 'Edit intake'}</a>}
-      <div>{editable && !needsResultReview && output?.outcome !== 'needs_clarification' && <button className="button primary" disabled={busy || inFlight || (cooldown > 0 && generation?.status !== 'review') || !configured || staleDate} onClick={() => void generate()}>{generation?.status === 'review' ? 'Finish saving plan' : simulation ? 'Generate sample plan' : 'Generate plan'}</button>}</div>
+      <div>{editable && !needsResultReview && output?.outcome !== 'needs_clarification' && <button className="button primary" disabled={busy || inFlight || (cooldown > 0 && generation?.status !== 'review') || !configured || staleDate} onClick={() => void generate()}>{generation?.status === 'review' ? 'Finish saving plan' : 'Review goal to generate'}</button>}</div>
     </div>
     {generation && <p className="setup-footnote">Generated {new Date(generation.startedAt).toLocaleString()} · {generation.model} · {generation.promptVersion} / {generation.validatorVersion}</p>}
   </main></>;

@@ -1,3 +1,4 @@
+import { validateGoalReview } from './goal-review.ts';
 import { normalizeProfileBackup, type Profile } from './profile.ts';
 import { BLOCK_STATUSES, validDate, validateWorkout, type Plan, type Workout } from './domain.ts';
 import { validateGeneration } from './planner.ts';
@@ -16,6 +17,8 @@ export type TrainingBackupV7 = {
 export type TrainingBackupV8 = Omit<TrainingBackupV7, 'schemaVersion'> & { schemaVersion: 8; profile: Profile | null };
 
 export type TrainingBackupV9 = Omit<TrainingBackupV8, 'schemaVersion'> & { schemaVersion: 9 };
+
+export type TrainingBackupV10 = Omit<TrainingBackupV7, 'schemaVersion'> & { schemaVersion: 10; profile?: Profile | null };
 
 function record(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value))
@@ -45,9 +48,9 @@ function version(value: unknown): number {
 
 // Validate and normalize offline only. This does not grant ownership or write to storage.
 // IDs, source data, null distances, and optimistic-lock versions survive unchanged.
-export function normalizeTrainingBackup(value: unknown): TrainingBackupV7 | TrainingBackupV8 | TrainingBackupV9 {
+export function normalizeTrainingBackup(value: unknown): TrainingBackupV7 | TrainingBackupV8 | TrainingBackupV9 | TrainingBackupV10 {
   const input = record(value);
-  if (![1, 2, 3, 4, 5, 6, 7, 8, 9].includes(input.schemaVersion as number))
+  if (![1, 2, 3, 4, 5, 6, 7, 8, 9, 10].includes(input.schemaVersion as number))
     throw new Error('Unsupported backup version.');
   const sourceBlocks = input.schemaVersion === 1 ? [input.plan] : input.blocks;
   if (!Array.isArray(sourceBlocks) || !Array.isArray(input.workouts))
@@ -65,6 +68,7 @@ export function normalizeTrainingBackup(value: unknown): TrainingBackupV7 | Trai
     if (!validDate(block.raceDate) || !text(block.raceName).trim() || !Array.isArray(block.paceGuide))
       throw new Error('Invalid block settings.');
     return {
+      ...(block.goalReview === undefined ? {} : { goalReview: block.goalReview === null ? null : validateGoalReview(block.goalReview) }),
       ...(block.generation === undefined ? {} : { generation: block.generation === null ? null : validateGeneration(block.generation) }),
       ...(block.setup === undefined ? {} : { setup: block.setup === null ? null : validateSetup(block.setup) }),
       id: blockId, status: status as Plan['status'], raceName: text(block.raceName), raceDate: block.raceDate,
@@ -112,5 +116,6 @@ export function normalizeTrainingBackup(value: unknown): TrainingBackupV7 | Trai
     return { id: restId, planId, date: rest.date, version: version(rest.version), updatedAt: timestamp(rest.updatedAt) };
   });
   const training: TrainingBackupV7 = { schemaVersion: 7, exportedAt: timestamp(input.exportedAt), blocks, workouts, restDays };
+  if (input.schemaVersion === 10) return { ...training, schemaVersion: 10, ...(input.profile === undefined ? {} : { profile: normalizeProfileBackup(input.profile) }) };
   return (input.schemaVersion === 8 || input.schemaVersion === 9) ? { ...training, schemaVersion: input.schemaVersion, profile: normalizeProfileBackup(input.profile) } : training;
 }

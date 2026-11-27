@@ -1,3 +1,4 @@
+import { ReviewSelection, type ReviewSelection as Selection } from '../../../../../lib/goal-review';
 import { centralToday } from '../../../../../lib/domain';
 import { authenticated, body, json, serverError } from '../../../../../lib/api';
 import { startPlanGeneration, finishPlanGeneration, settlePlanUsage, userPlan, acceptGeneratedPlan } from '../../../../../lib/store';
@@ -9,11 +10,13 @@ export const dynamic = 'force-dynamic';
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await authenticated();
   if (!user) return json({ error: 'Please sign in before generating a plan.' }, 401);
+  let selection: Selection | undefined;
   let version, saveImmediately = false;
   try {
     const input = await body(request);
     if (!Number.isSafeInteger(input.version) || input.version < 1 || input.consent !== true) throw new Error('Review the saved intake and confirm plan generation.');
     version = input.version;
+    if (input.goalReview !== undefined) selection = ReviewSelection.parse(input.goalReview);
     saveImmediately = input.saveImmediately === true;
   } catch (error) { return json({ error: error instanceof Error ? error.message : 'Invalid generation request.' }, 400); }
   try {
@@ -29,10 +32,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     // Simulation is selected only by the server configuration. There is no
     // provider fallback; API keys are never read or used in this branch.
     const config = mode === 'simulation' ? null : plannerConfiguration(user);
-    const block = await startPlanGeneration(user, id, version, config?.model ?? SIMULATION_MODEL, mode === 'simulation' ? 'simulation' : 'openai');
+    const block = await startPlanGeneration(user, id, version, config?.model ?? SIMULATION_MODEL, mode === 'simulation' ? 'simulation' : 'openai', selection);
     const generation = block.generation!;
     let result;
-    try { result = mode === 'simulation' ? simulatedPlan(generation.input) : await requestOpenAIPlan(generation.input, { ...config!, asOfDate: centralToday() }); }
+    try { result = mode === 'simulation' ? simulatedPlan(generation.input) : await requestOpenAIPlan(generation.input, { ...config!, asOfDate: centralToday(), confirmedReview: block.goalReview?.output ?? undefined }); }
     catch (error) { result = error instanceof PlanProviderError ? error : new PlanProviderError('provider'); }
     if (mode === 'openai') await settlePlanUsage(user, generation.id, result);
     const saved = await finishPlanGeneration(user, id, generation.id, result);

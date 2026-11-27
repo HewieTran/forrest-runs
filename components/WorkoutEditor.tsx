@@ -196,8 +196,8 @@ export default function WorkoutEditor({ workout, saving, error, onSave, onCancel
       <div className="measurement-heading"><h4>Plan</h4><span>Distance and pace in {unit}</span></div>
       {structure ? <>
         <dl className="plan-step-totals"><div><dt>{draft.type === 'Race' ? 'Race distance' : 'Planned distance'}</dt><dd>{plan.exact.distance === null ? 'Follow effort' : readableDistance(plan.exact.distance, unit)}</dd></div>
-          <div><dt>{draft.type === 'Race' ? 'Estimated race pace' : 'Average planned pace'}</dt><dd>{plan.exact.pace === null ? 'Follow effort' : `${formatPace(plan.exact.pace, unit)} /${unit}`}</dd></div>
-          <div><dt>{draft.type === 'Race' ? 'Estimated race duration' : 'Planned duration'}</dt><dd>{plan.exact.duration === null ? '—' : readableDuration(plan.exact.duration)}</dd></div></dl>
+          <div><dt>{draft.type === 'Race' ? 'Planned race pace' : 'Average planned pace'}</dt><dd>{plan.exact.pace === null ? 'Follow effort' : `${formatPace(plan.exact.pace, unit)} /${unit}`}</dd></div>
+          <div><dt>{draft.type === 'Race' ? 'Planned race duration' : 'Planned duration'}</dt><dd>{plan.exact.duration === null ? '—' : readableDuration(plan.exact.duration)}</dd></div></dl>
         <p className="linked-measurement-hint">{!stepsValid ? 'Fix the highlighted step entries before saving. Totals show the last valid values.' : draft.type === 'Race' ? `Full session: ${readableDuration(sessionDuration(structure))}, including warm-up and cool-down. Race targets are used for progress tracking.` : 'Totals are calculated from the steps. Follow each step’s pace during the run.'}</p>
         <WorkoutSteps key={unit} structure={structure} unit={unit} onChange={editStructure} onValidity={valid => { setStepsValid(valid); onDirty(true); setLocalError(''); }} />
       </> : <>

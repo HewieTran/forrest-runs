@@ -37,10 +37,12 @@
 .appearance-picker-actions { margin-top:auto; }
 /* Detailed training information must never sit directly on wallpaper. */
 .appearance-root:not([data-appearance="plain"]) .block-overview-progress,
-.appearance-root:not([data-appearance="plain"]) .setup-layout,
 .appearance-root:not([data-appearance="plain"]) .setup-stepper,
 .appearance-root:not([data-appearance="plain"]) .workout-schedule-page,
 .appearance-root:not([data-appearance="plain"]) .plan-generation { background:#fffdf8; border-radius:14px; }
 .appearance-root:not([data-appearance="plain"]) .block-overview-progress { padding:20px; }
 @media(max-width:640px) { .appearance-root:not([data-appearance="plain"]) .block-overview-progress { padding:16px; } }
 .appearance-root:not([data-appearance="plain"]) .block-settings-page > .setup-footnote { background:#fffdf8; padding:14px 16px; border-radius:10px; width:fit-content; }
+
+/* The setup grid only positions its independently surfaced form and sidebar. */
+.appearance-root:not([data-appearance="plain"]) .setup-main .setup-layout { background:transparent; }

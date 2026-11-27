@@ -181,8 +181,12 @@ try {
   const guided = await call(a, '/api/blocks', 'POST', { setup: currentPlannerFixture(day).setup, complete: true });
   assert.equal(guided.status, 201);
   const guidedId = guided.data.block.id;
+  const reviewed = await call(a, '/api/blocks/' + guidedId + '/goal-review', 'POST', { version: guided.data.block.version, consent: true });
+  assert.equal(reviewed.status, 200);
+  assert.equal(reviewed.data.block.goalReview.provider, 'simulation');
   const generated = await call(a, '/api/blocks/' + guidedId + '/generation', 'POST', {
-    version: guided.data.block.version, consent: true, saveImmediately: true,
+    version: reviewed.data.block.version, consent: true, saveImmediately: true,
+    goalReview: { reviewId: reviewed.data.block.goalReview.id, option: null },
   });
   assert.equal(generated.status, 200, JSON.stringify(generated.data));
   assert.equal(generated.data.block.generation.provider, 'simulation');

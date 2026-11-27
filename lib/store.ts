@@ -1,3 +1,5 @@
+import { GOAL_REVIEW_VERSION, confirmGoalReview, sameReviewInput, type GoalReview, type ReviewSelection } from './goal-review';
+import type { GoalReviewResult } from './openai-goal-review';
 import type { AppearancePreset } from './appearance';
 import type { Profile, ProfileInput } from './profile';
 import { raceDistanceLabel } from './race-distance';
@@ -16,11 +18,11 @@ import {
 } from './domain';
 import type { AppUser } from './user';
 import { insertInitialTraining, loadOwnerSeed } from '../db/initial-training';
-import type { TrainingBackupV7, TrainingBackupV9 } from './backups';
+import type { TrainingBackupV7, TrainingBackupV10 } from './backups';
 import { TrainingRequestError } from './training-errors';
 import { canChangeBlockStatus, type NewBlockInput, type BlockStatusInput, type BlockSummary, type BlockDeletionPreview, type DeleteBlockInput } from './blocks';
 import type { BlockSetup } from './setup';
-import { acceptedPlan, simulatedBlock, requiresAssessment, changesPrescription, preparePlanner, scheduleDays, validatePlanOutput, workoutForSession, PROMPT_VERSION, PLANNER_VERSION, type Generation } from './planner';
+import { acceptedPlan, simulatedBlock, requiresAssessment, changesPrescription, preparePlanner, scheduleDays, validatePlanOutput, validateConfirmedRaceTarget, workoutForSession, PROMPT_VERSION, PLANNER_VERSION, type Generation } from './planner';
 import { PlanProviderError, type requestOpenAIPlan } from './openai-plan';
 import { summarizeRecentBaseline } from './recent-baseline';
 import { applyCompletion } from './workout-completion';
@@ -224,7 +226,7 @@ export async function saveBlockSetup(user: AppUser, blockId: string, setup: Bloc
   if (block.setup && block.setup.schemaVersion > setup.schemaVersion) throw new TrainingRequestError('This setup uses newer fields. Reload before editing so your saved answers are preserved.', 409);
   if (block.status !== 'draft') throw new TrainingRequestError('Only drafts can change their setup. Your existing block and results have been preserved.', 409);
   const saved = await getDb().update(plans).set({
-    setup, generation: null, raceName: setup.goal.name, raceDate: setup.goal.targetDate,
+    setup, generation: null, goalReview: block.goalReview && sameReviewInput(setup, block.goalReview.confirmation ? preparePlanner(block.goalReview.confirmation.setup, block.goalReview.confirmation.setup.goal.startDate) : block.goalReview.input) ? block.goalReview : null, raceName: setup.goal.name, raceDate: setup.goal.targetDate,
     version: version + 1, updatedAt: new Date().toISOString(),
   }).where(and(
     eq(plans.id, blockId), eq(plans.ownerId, user.userId), eq(plans.version, version), eq(plans.status, 'draft'),
@@ -252,7 +254,7 @@ export async function activeBlock(user: AppUser): Promise<Pick<Plan, 'id' | 'rac
     .where(and(eq(plans.ownerId, user.userId), eq(plans.status, 'active'))).get() ?? null;
 }
 
-export async function exportTraining(user: AppUser, blockId?: string): Promise<TrainingBackupV7 | TrainingBackupV9> {
+export async function exportTraining(user: AppUser, blockId?: string): Promise<TrainingBackupV10> {
   if (blockId === undefined) await ensureUserInitialized(user);
   else await userPlan(user, blockId);
   const database = getDb();
@@ -276,7 +278,7 @@ export async function exportTraining(user: AppUser, blockId?: string): Promise<T
     workouts: ownedWorkouts.map(({ workout }) => workout),
     restDays: ownedRestDays.map(({ restDay }) => restDay),
   };
-  return blockId === undefined ? { ...backup, schemaVersion: 9, profile: await loadProfile(user) } : backup;
+  return blockId === undefined ? { ...backup, schemaVersion: 10, profile: await loadProfile(user) } : { ...backup, schemaVersion: 10 };
 }
 export async function saveWorkout(
   user: AppUser,
@@ -393,17 +395,34 @@ export async function recentSetupBaseline(user: AppUser, today: string) {
 
 // Generation keeps one current draft per block. Acceptance retains the complete
 // input/output snapshot; accepted plans can never be silently regenerated.
-export async function startPlanGeneration(user: AppUser, blockId: string, version: number, model: string, provider: 'openai' | 'simulation' = 'openai') {
+export async function startPlanGeneration(user: AppUser, blockId: string, version: number, model: string, provider: 'openai' | 'simulation' = 'openai', selection?: ReviewSelection) {
+  return startPlannerRequest(user, blockId, version, model, provider, 'plan', selection);
+}
+export async function startGoalReview(user: AppUser, blockId: string, version: number, model: string, provider: 'openai' | 'simulation') {
+  return startPlannerRequest(user, blockId, version, model, provider, 'assessment');
+}
+async function startPlannerRequest(user: AppUser, blockId: string, version: number, model: string, provider: 'openai' | 'simulation', requestType: 'assessment' | 'plan', selection?: ReviewSelection) {
   if (provider === 'openai' && model !== APPROVED_PLAN_MODEL) throw new PlanProviderError('model_restricted');
   const block = await userPlan(user, blockId);
   if (block.status !== 'draft' || !block.setup || acceptedPlan(block)) throw new TrainingRequestError('Generate from an empty guided draft. This block’s existing schedule is preserved.', 409);
   if (block.version !== version) throw new TrainingRequestError('This intake changed. Reload before generating.', 409);
+  let setup = block.setup;
+  let goalReview = block.goalReview;
+  if (requestType === 'plan') {
+    if (!goalReview || !selection || goalReview.provider !== provider) throw new TrainingRequestError('Review your goal before generating a plan.', 409);
+    try { setup = confirmGoalReview(goalReview, setup, selection, centralToday()); }
+    catch (error) { throw new TrainingRequestError(error instanceof Error ? error.message : 'Review your goal again.', 409); }
+  }
   let input;
-  try { input = preparePlanner(block.setup, centralToday()); }
+  try { input = preparePlanner(setup, centralToday()); }
   catch (error) { throw new TrainingRequestError(error instanceof Error ? error.message : 'Review your intake before generating.', 400); }
   const timestamp = new Date().toISOString();
-  const generation: Generation = { schemaVersion: 1, provider, id: crypto.randomUUID(), status: 'generating', startedAt: timestamp, finishedAt: null, acceptedAt: null, alteredAt: null,
-    model, promptVersion: PROMPT_VERSION, validatorVersion: PLANNER_VERSION, input, setupSnapshot: block.setup, output: null, error: null, responseId: null, usage: null };
+  const id = crypto.randomUUID();
+  const generation: Generation = { schemaVersion: 1, provider, id, status: 'generating', startedAt: timestamp, finishedAt: null, acceptedAt: null, alteredAt: null,
+    model, promptVersion: PROMPT_VERSION, validatorVersion: PLANNER_VERSION, input, setupSnapshot: setup, output: null, error: null, responseId: null, usage: null };
+  if (requestType === 'assessment') goalReview = { schemaVersion: 1, id, promptVersion: GOAL_REVIEW_VERSION, provider, model, status: 'assessing', startedAt: timestamp,
+    finishedAt: null, setupSnapshot: setup, input, output: null, error: null, responseId: null, usage: null };
+  else goalReview = { ...goalReview!, confirmation: { selection: selection!, setup, confirmedAt: timestamp } };
   const leaseCutoff = new Date(Date.now() - 180000).toISOString();
   const cooldown = new Date(Date.now() - GENERATION_COOLDOWN_MS).toISOString();
   const database = getDb(), period = timestamp.slice(0, 7), dayStart = timestamp.slice(0, 10) + 'T00:00:00.000Z';
@@ -411,14 +430,24 @@ export async function startPlanGeneration(user: AppUser, blockId: string, versio
   // settling across a boundary counts in both potentially billed periods.
   const countedSpend = sql<number>`(select coalesce(sum(charged_microdollars), 0) from training_ai_usage where period = ${period} or substr(finished_at, 1, 7) = ${period} or status != 'settled')`;
   const todayAttempts = sql<number>`(select count(*) from training_ai_usage where owner_id = ${user.userId} and started_at >= ${dayStart})`;
-  const reserve = database.update(plans).set({ generation, version: version + 1, updatedAt: timestamp }).where(and(
+  const currentRequest = requestType === 'plan' ? plans.generation : plans.goalReview;
+  const accountStage = requestType === 'plan' ? sql`p.generation` : sql`p.goal_review`;
+  // A completed assessment is cached until input changes. Editing a reviewed
+  // goal is a new request, not a retry of a failed call. Keep failure cooldowns.
+  const stageCooldown = requestType === 'assessment'
+    ? sql`(json_extract(${accountStage}, '$.status') != 'ready' and json_extract(${accountStage}, '$.startedAt') > ${cooldown})`
+    : sql`json_extract(${accountStage}, '$.startedAt') > ${cooldown}`;
+  const ledgerCooldown = requestType === 'assessment'
+    ? sql`not (status = 'settled' and coalesce(outcome, '') in ('proceed', 'adjust', 'unsupported'))`
+    : sql`1 = 1`;
+  const reserve = database.update(plans).set({ generation: requestType === 'plan' ? generation : null, goalReview, setup, raceName: setup.goal.name, raceDate: setup.goal.targetDate, version: version + 1, updatedAt: timestamp }).where(and(
     eq(plans.id, blockId), eq(plans.ownerId, user.userId), eq(plans.version, version), eq(plans.status, 'draft'),
     sql`not exists (select 1 from workouts w where w.plan_id = ${blockId})`,
     sql`not exists (select 1 from training_rest_days r where r.plan_id = ${blockId})`,
-    sql`not exists (select 1 from training_plans p where p.owner_id = ${user.userId} and ((json_extract(p.generation, '$.status') = 'generating' and json_extract(p.generation, '$.startedAt') > ${leaseCutoff}) or json_extract(p.generation, '$.startedAt') > ${cooldown}))`,
+    sql`not exists (select 1 from training_plans p where p.owner_id = ${user.userId} and ((json_extract(p.generation, '$.status') = 'generating' and json_extract(p.generation, '$.startedAt') > ${leaseCutoff}) or (json_extract(p.goal_review, '$.status') = 'assessing' and json_extract(p.goal_review, '$.startedAt') > ${leaseCutoff}) or ${stageCooldown}))`,
     provider === 'openai' ? sql`${countedSpend} + ${REQUEST_RESERVE_MICRODOLLARS} <= ${MONTHLY_BUDGET_MICRODOLLARS}` : undefined,
     provider === 'openai' ? sql`${todayAttempts} < ${DAILY_ATTEMPT_LIMIT}` : undefined,
-    provider === 'openai' ? sql`not exists (select 1 from training_ai_usage where owner_id = ${user.userId} and (started_at > ${cooldown} or (status = 'reserved' and started_at > ${leaseCutoff})))` : undefined,
+    provider === 'openai' ? sql`not exists (select 1 from training_ai_usage where owner_id = ${user.userId} and ((request_type = ${requestType} and started_at > ${cooldown} and ${ledgerCooldown}) or (status = 'reserved' and started_at > ${leaseCutoff})))` : undefined,
   )).returning();
   let saved;
   if (provider === 'simulation') saved = await reserve.get();
@@ -427,11 +456,12 @@ export async function startPlanGeneration(user: AppUser, blockId: string, versio
       id: sql<string>`${generation.id}`.as('id'), ownerId: plans.ownerId, blockId: plans.id,
       period: sql<string>`${period}`.as('period'), startedAt: sql<string>`${timestamp}`.as('startedAt'),
       finishedAt: sql<string | null>`null`.as('finishedAt'), model: sql<string>`${model}`.as('model'),
+      requestType: sql<'assessment' | 'plan'>`${requestType}`.as('requestType'),
       pricingVersion: sql<string>`${PRICING_VERSION}`.as('pricingVersion'), status: sql<'reserved'>`'reserved'`.as('status'),
       reservedMicrodollars: sql<number>`${REQUEST_RESERVE_MICRODOLLARS}`.as('reservedMicrodollars'),
       chargedMicrodollars: sql<number>`${REQUEST_RESERVE_MICRODOLLARS}`.as('chargedMicrodollars'),
       inputTokens: sql<number | null>`null`.as('inputTokens'), outputTokens: sql<number | null>`null`.as('outputTokens'), outcome: sql<string | null>`null`.as('outcome'),
-    }).from(plans).where(and(eq(plans.id, blockId), eq(plans.ownerId, user.userId), sql`json_extract(${plans.generation}, '$.id') = ${generation.id}`)));
+    }).from(plans).where(and(eq(plans.id, blockId), eq(plans.ownerId, user.userId), sql`json_extract(${currentRequest}, '$.id') = ${id}`)));
     // D1 executes the guard, block reservation and ledger insert in one atomic
     // batch. Competing users cannot both spend the same remaining budget.
     const result = await database.batch([reserve, record]);
@@ -451,15 +481,30 @@ export async function startPlanGeneration(user: AppUser, blockId: string, versio
 // Settle accounting before saving a result, including failed/invalid responses.
 // If this write or any later write fails, the existing full reservation remains.
 // Block deletion or intake edits never delete this ledger.
-export async function settlePlanUsage(user: AppUser, id: string, result: Awaited<ReturnType<typeof requestOpenAIPlan>> | PlanProviderError) {
+export async function settlePlanUsage(user: AppUser, id: string, result: Awaited<ReturnType<typeof requestOpenAIPlan>> | GoalReviewResult | PlanProviderError) {
   const usage = result.usage;
   const settled = usage !== null && usageWithinReservation(usage);
   await getDb().update(aiUsage).set({
     status: settled ? 'settled' : 'uncertain', finishedAt: new Date().toISOString(),
     chargedMicrodollars: usage ? (settled ? estimatedCost(usage) : Math.max(REQUEST_RESERVE_MICRODOLLARS, estimatedCost(usage))) : REQUEST_RESERVE_MICRODOLLARS,
     inputTokens: usage?.inputTokens ?? null, outputTokens: usage?.outputTokens ?? null,
-    outcome: result instanceof PlanProviderError ? result.code : result.output.outcome,
+    outcome: result instanceof PlanProviderError ? result.code : 'outcome' in result.output ? result.output.outcome : result.output.decision,
   }).where(and(eq(aiUsage.id, id), eq(aiUsage.ownerId, user.userId), eq(aiUsage.status, 'reserved'))).run();
+}
+export async function finishGoalReview(user: AppUser, blockId: string, id: string, result: GoalReviewResult | PlanProviderError): Promise<Plan> {
+  const current = await userPlan(user, blockId);
+  const previous = current.goalReview;
+  if (!previous || previous.id !== id || previous.status !== 'assessing') throw new TrainingRequestError('The setup changed during goal review. Reload to review your current goal.', 409);
+  const goalReview: GoalReview = result instanceof PlanProviderError
+    ? { ...previous, status: 'failed', finishedAt: new Date().toISOString(), usage: result.usage, error: 'Goal review could not finish. ' + result.message }
+    : { ...previous, ...result, status: 'ready', finishedAt: new Date().toISOString(), error: null };
+  const saved = await getDb().update(plans).set({ goalReview, version: current.version + 1, updatedAt: new Date().toISOString() }).where(and(
+    eq(plans.id, blockId), eq(plans.ownerId, user.userId), eq(plans.version, current.version), eq(plans.status, 'draft'),
+    sql`json_extract(${plans.goalReview}, '$.id') = ${id}`, sql`json_extract(${plans.goalReview}, '$.status') = 'assessing'`,
+  )).returning().get();
+  if (!saved) throw new TrainingRequestError('The setup changed during goal review. Reload to continue.', 409);
+  const { ownerId: _ownerId, ...block } = saved;
+  return block;
 }
 export async function finishPlanGeneration(user: AppUser, blockId: string, id: string, result: Awaited<ReturnType<typeof requestOpenAIPlan>> | PlanProviderError): Promise<Plan> {
   const current = await userPlan(user, blockId);
@@ -487,7 +532,7 @@ export async function acceptGeneratedPlan(user: AppUser, blockId: string, versio
   if (JSON.stringify(block.setup) !== JSON.stringify(draft.setupSnapshot)) throw new TrainingRequestError('Your intake changed. Generate and review a fresh draft.', 409);
   if (block.setup.goal.startDate < centralToday()) throw new TrainingRequestError('This plan starts in the past. Update the intake and generate a fresh draft.', 409);
   let output;
-  try { output = validatePlanOutput(draft.output, draft.input, draft.provider !== 'simulation' && requiresAssessment(draft.promptVersion)); if (draft.calculationVersion) verifyCalculatedMeasurements(output, draft.input); }
+  try { output = validatePlanOutput(draft.output, draft.input, draft.provider !== 'simulation' && requiresAssessment(draft.promptVersion)); if (draft.promptVersion === PROMPT_VERSION && draft.provider !== 'simulation') validateConfirmedRaceTarget(output, draft.input); if (draft.calculationVersion) verifyCalculatedMeasurements(output, draft.input); }
   catch { throw new TrainingRequestError('This draft did not pass validation. Generate a fresh draft.', 409); }
   const timestamp = new Date().toISOString(), token = crypto.randomUUID();
   const generation: Generation = { ...draft, output, status: 'accepted', acceptedAt: timestamp };

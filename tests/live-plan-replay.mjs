@@ -1,6 +1,6 @@
 import { providerOutput } from './planner-fixture.mjs';
 import { calculatePlanMeasurements } from '../lib/planner-math.ts';
-import { validatePlanOutput, preparePlanner } from '../lib/planner.ts';
+import { validatePlanOutput, preparePlanner, PLANNER_VERSION } from '../lib/planner.ts';
 // Offline replay of the recorded real-model outputs. Production Worker, temporary
 // D1, synthetic owners/key and intercepted HTTP only. Never sends paid requests.
 import assert from 'node:assert/strict';
@@ -9,6 +9,7 @@ import path from 'node:path';
 import { Miniflare, applyAllMigrations, createFetchMock } from './d1-helpers.mjs';
 import { evaluationCases } from '../scripts/evaluate-planner.mjs';
 import { centralToday, addDays, dateDiff } from '../lib/domain.ts';
+import { assessmentContext } from '../lib/plan-assessment.ts';
 import { normalizeTrainingBackup } from '../lib/backups.ts';
 const journal = JSON.parse(await readFile('evals/stage6-results.json', 'utf8'));
 assert.equal(journal.synthetic, true); assert.equal(journal.attempts.length, 4);
@@ -47,12 +48,22 @@ try {
     };
     const created = await call('/api/blocks', 'POST', { setup: example.setup, complete: true }); assert.equal(created.status, 201, JSON.stringify(created.data));
     const id = created.data.block.id, route = '/api/blocks/' + id;
-    fetchMock.get('https://api.openai.com').intercept({ path: '/v1/responses', method: 'POST' }).reply(200, {
-      id: 'recorded-response-' + recorded.id, model: result.model, status: 'completed', output: [{ type: 'message', content: [{ type: 'output_text', text: JSON.stringify(wire) }] }],
-      usage: { input_tokens: result.usage.inputTokens, output_tokens: result.usage.outputTokens },
-    });
-    const generated = await call(route + '/generation', 'POST', { version: created.data.block.version, consent: true, saveImmediately: true });
-    assert.equal(generated.status, 200, JSON.stringify(generated.data));
+    // These captures predate explicit goal review. Replay them as historical
+    // drafts rather than treating their race estimates as newly confirmed times.
+    const stamp = new Date().toISOString();
+    const oldDraft = { schemaVersion: 1, provider: 'openai', id: 'recorded-' + recorded.id,
+      status: output.outcome === 'plan' ? 'review' : 'clarification',
+      startedAt: stamp, finishedAt: stamp, acceptedAt: null, alteredAt: null, model: result.model,
+      promptVersion: 'race-coach-v11-provisional-goals', validatorVersion: PLANNER_VERSION,
+      input: example.input, setupSnapshot: created.data.block.setup, output,
+      error: null, responseId: 'recorded-response-' + recorded.id, usage: result.usage,
+      calculationVersion: 'duration-pace-v1', assessmentContext: assessmentContext(example.input, today),
+    };
+    await db.prepare('UPDATE training_plans SET generation=? WHERE id=?').bind(JSON.stringify(oldDraft), id).run();
+    if (oldDraft.status === 'review') {
+      const saved = await call(route + '/generation/accept', 'POST', { version: created.data.block.version, generationId: oldDraft.id });
+      assert.equal(saved.status, 200, JSON.stringify(saved.data));
+    }
     const reloaded = (await call('/api/training?blockId=' + id)).data;
     assert.deepEqual(reloaded.plan.setup, example.setup);
     assert.deepEqual(reloaded.plan.generation.input, example.input);
@@ -72,6 +83,6 @@ try {
     }
     const backup = (await call('/api/export?blockId=' + id)).data;
     assert.deepEqual(normalizeTrainingBackup(backup), backup);
-    console.log('PASS: recorded Luna ' + recorded.id + ' → validate → automatic save/clarification → reload → v6 backup; no external traffic.');
+    console.log('PASS: recorded Luna ' + recorded.id + ' → validate → historical acceptance/clarification → reload → v10 backup; no external traffic.');
   }
 } finally { await worker.dispose(); }
